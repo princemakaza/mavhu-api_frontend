@@ -20,7 +20,7 @@ const Courses = () => {
       try {
         const config = {
           method: 'get',
-          url: 'http://13.61.185.238:4071/api/v1/subject/getall',
+          url: '/api/v1/subject/getall',
           headers: {
             'Authorization': `Bearer ${token}`
           }

@@ -32,9 +32,9 @@ const Course = () => {
         const fetchData = async () => {
             try {
                 // Fetch course details
-                //http://13.61.185.238:4071/api/v1/topic_in_subject/gettopicbysubjectid/681374c7a32332081e3da353
+                ///api/v1/topic_in_subject/gettopicbysubjectid/681374c7a32332081e3da353
                 const courseResponse = await axios.get(
-                    `http://13.61.185.238:4071/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
+                    `/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
                     {
                         headers: {
                             'Authorization': `Bearer ${token}`
@@ -44,7 +44,7 @@ const Course = () => {
 
                 // Fetch topics for this course
                 const topicsResponse = await axios.get(
-                    `http://13.61.185.238:4071/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
+                    `/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
                     {
                         headers: {
                             'Authorization': `Bearer ${token}`
@@ -68,7 +68,7 @@ const Course = () => {
         if (isPaymentDialogVisible && user?._id && token) {
             setWalletLoading(true);
             axios
-                .get(`http://13.61.185.238:4071/api/wallet/student/${user._id}`, {
+                .get(`/api/wallet/student/${user._id}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 })
                 .then(res => setWallet(res.data.data))
@@ -97,7 +97,7 @@ const Course = () => {
         try {
             // Simulate a purchase transaction (replace with your backend endpoint)
             await axios.post(
-                `http://13.61.185.238:4071/api/wallet/withdraw/${user._id}`,
+                `/api/wallet/withdraw/${user._id}`,
                 {
                     amount: selectedTopic.price,
                     method: "wallet",

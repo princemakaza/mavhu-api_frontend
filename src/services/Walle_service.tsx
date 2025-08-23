@@ -3,7 +3,7 @@ import axios from "axios";
 // Make sure getAuthToken is imported or defined somewhere
 // import { getAuthToken } from './auth'; // example
 
-const BASE_URL = "http://13.61.185.238:4071/api/wallet";
+const BASE_URL = "/api/wallet";
 
 /**
  * Service for handling wallet-related API requests

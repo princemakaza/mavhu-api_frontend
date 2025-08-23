@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL =
-  "http://13.61.185.238:4071/api/v1/community_service";
+  "/api/v1/community_service";
 
 /**
  * Service for handling community service (chat group) API requests

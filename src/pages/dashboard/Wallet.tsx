@@ -30,7 +30,7 @@ const Wallet = () => {
       try {
         try {
           const response = await axios.get(
-            "http://13.61.185.238:4071/api/wallet/student/6820fbf11297ba9d3807abee",
+            "/api/wallet/student/6820fbf11297ba9d3807abee",
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -86,7 +86,7 @@ const Wallet = () => {
       // Use the wallet ID from walletData
       const walletId = user?._id;
       const response = await axios.post(
-        `http://13.61.185.238:4071/api/wallet/deposit/${walletId}`,
+        `/api/wallet/deposit/${walletId}`,
         depositData,
         {
           headers: {
@@ -129,7 +129,7 @@ const Wallet = () => {
         currency: "USD",
       };
       const response = await axios.post(
-        "http://13.61.185.238:4071/api/wallet/create",
+        "/api/wallet/create",
         payload,
         {
           headers: {

@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Base URL for the TopicInSubject API
 const BASE_URL =
-  "http://13.61.185.238:4071/api/v1/topic_in_subject";
+  "/api/v1/topic_in_subject";
 
 /**
  * Service for handling topic-related API requests within a subject

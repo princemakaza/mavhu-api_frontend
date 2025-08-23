@@ -6,7 +6,7 @@ const SubjectService = {
   getAllSubjects: async () => {
     try {
       const response = await fetch(
-        "http://13.61.185.238:4071/api/v1/subject/getall",
+        "/api/v1/subject/getall",
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
