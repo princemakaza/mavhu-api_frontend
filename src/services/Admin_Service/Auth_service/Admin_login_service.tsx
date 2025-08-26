@@ -12,7 +12,6 @@ const loginAdmin = async (userData) => {
     // Store the token using the TokenStorageService
     if (response.data.token) {
       localStorage.setItem("adminToken", response.data.token);
-
       console.log("Token stored successfully!");
     }
     // Store the token using the TokenStorageService
@@ -27,4 +26,42 @@ const loginAdmin = async (userData) => {
   }
 };
 
+// Forgot password - Request OTP
+const forgotPassword = async (email) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/forgot-password`, { email });
+    return response.data;
+  } catch (error) {
+    console.error("Error requesting OTP:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Verify password reset OTP
+const verifyResetOTP = async (email, otp) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/verify-reset-otp`, { email, otp });
+    return response.data;
+  } catch (error) {
+    console.error("Error verifying OTP:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Reset password
+const resetPassword = async (email, otp, newPassword) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/reset-password`, {
+      email,
+      otp,
+      newPassword,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error resetting password:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default loginAdmin;
+export { forgotPassword, verifyResetOTP, resetPassword };
