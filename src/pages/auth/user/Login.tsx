@@ -300,10 +300,7 @@ const Register = () => {
                     <SelectContent>
                       <SelectItem value="O Level">Ordinary Level (O-Level)</SelectItem>
                       <SelectItem value="A Level">Advanced Level (A-Level)</SelectItem>
-                      <SelectItem value="Form 1">Form 1</SelectItem>
-                      <SelectItem value="Form 2">Form 2</SelectItem>
-                      <SelectItem value="Form 3">Form 3</SelectItem>
-                      <SelectItem value="Form 4">Form 4</SelectItem>
+                      <SelectItem value="Others">Form 1</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -7,6 +7,7 @@ import backgroundImage from "@/assets/bg.jpg";
 
 // Import services
 import SignUpAdmin from "@/services/Admin_Service/Auth_service/sign_up_service";
+import { supabase } from "@/helper/SupabaseClient";
 // Import components
 import CustomSpin from "@/components/customised_spins/customised_sprin";
 import { showMessage } from "@/components/helper/feedback_message";
@@ -15,6 +16,8 @@ const Admin_Register = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form state with the specified fields
   const [formData, setFormData] = useState({
@@ -23,14 +26,13 @@ const Admin_Register = () => {
     email: "",
     contactNumber: "",
     password: "",
-    profilePicture: "",
+    profilePicture: "", // This will now store the Supabase URL
     profilePictureFileName: "",
     profilePictureType: "",
   });
 
-  // State for file upload - now storing base64
-  const [profilePicture, setProfilePicture] = useState(null);
-  const [profilePictureBase64, setProfilePictureBase64] = useState("");
+  // State for file upload
+  const [profilePictureFile, setProfilePictureFile] = useState(null);
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,14 +43,48 @@ const Admin_Register = () => {
     }));
   };
 
-  // Convert file to base64
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
+  // Sanitize filename function
+  const sanitizeFilename = (filename) => {
+    return filename
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_{2,}/g, '_')
+      .toLowerCase();
+  };
+
+  // Upload file to Supabase function
+  const uploadFileToSupabase = async (file, bucket, setProgress) => {
+    const sanitizedFileName = sanitizeFilename(file.name);
+    const fileName = `${Date.now()}_${sanitizedFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+        onProgress: (progressEvent) => {
+          const progress = Math.round(
+            (progressEvent.loaded / progressEvent.total) * 100
+          );
+          setProgress(progress);
+        },
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      throw new Error(`File upload failed: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    if (!publicUrlData?.publicUrl) {
+      throw new Error("Failed to get file URL after upload");
+    }
+
+    return publicUrlData.publicUrl;
   };
 
   // Handle file input for profile picture
@@ -77,21 +113,33 @@ const Admin_Register = () => {
           return;
         }
 
-        setProfilePicture(file);
-        // Convert to base64
-        const base64 = await convertToBase64(file);
-        setProfilePictureBase64(base64);
+        setProfilePictureFile(file);
+        setIsUploading(true);
+        setUploadProgress(0);
 
-        // Update formData with profile picture info
+        // Upload to Supabase
+        const profilePictureUrl = await uploadFileToSupabase(
+          file, 
+          "topics", // bucket name - adjust as needed
+          setUploadProgress
+        );
+
+        // Update formData with profile picture URL
         setFormData((prev) => ({
           ...prev,
-          profilePicture: base64,
+          profilePicture: profilePictureUrl,
           profilePictureFileName: file.name,
           profilePictureType: file.type,
         }));
+
+        showMessage("success", "Profile picture uploaded successfully!");
+
       } catch (error) {
-        console.error("Error converting file to base64:", error);
-        showMessage("error", "Error processing image file");
+        console.error("Error uploading profile picture:", error);
+        showMessage("error", error.message || "Error uploading image file");
+      } finally {
+        setIsUploading(false);
+        setUploadProgress(0);
       }
     }
   };
@@ -139,14 +187,14 @@ const Admin_Register = () => {
         return;
       }
 
-      // Create JSON object - use formData directly since it now includes all fields
+      // Create JSON object - profilePicture now contains the Supabase URL
       const adminData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
         contactNumber: formData.contactNumber.trim(),
         password: formData.password,
-        profilePicture: formData.profilePicture, // This is the base64 string
+        profilePicture: formData.profilePicture, // This is now the Supabase URL
       };
 
       // Debug logging
@@ -279,10 +327,27 @@ const Admin_Register = () => {
                 name="profilePicture"
                 accept="image/*"
                 onChange={handleFileChange}
+                disabled={isUploading}
               />
-              {profilePicture && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Selected: {profilePicture.name}
+              
+              {/* Upload progress and status */}
+              {isUploading && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-yellow-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Uploading... {uploadProgress}%
+                  </p>
+                </div>
+              )}
+              
+              {profilePictureFile && !isUploading && formData.profilePicture && (
+                <p className="text-sm text-green-600 mt-1">
+                  ✓ {profilePictureFile.name} uploaded successfully
                 </p>
               )}
 
@@ -312,8 +377,8 @@ const Admin_Register = () => {
 
             <button
               type="submit"
-              className="font-sans text-white font-bold w-full p-2 bg-yellow-600 hover:bg-yellow-400 rounded-xl"
-              disabled={isLoading}
+              className="font-sans text-white font-bold w-full p-2 bg-yellow-600 hover:bg-yellow-400 rounded-xl disabled:opacity-50"
+              disabled={isLoading || isUploading}
             >
               {isLoading ? <CustomSpin /> : "SIGN UP"}
             </button>

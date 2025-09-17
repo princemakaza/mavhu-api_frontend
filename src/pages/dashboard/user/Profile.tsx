@@ -120,8 +120,8 @@ const Profile = () => {
 
     if (!user) {
         return <div> <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-900"></div>
-                </div></div>;
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-900"></div>
+        </div></div>;
     }
 
     return (
@@ -198,7 +198,6 @@ const Profile = () => {
                                 <Select
                                     value={editFormData.level}
                                     onValueChange={(e) => handleEditChange("level", e)}
-
                                 >
                                     <SelectTrigger className="bg-transparent border border-input p-2 rounded-md w-full">
                                         <SelectValue placeholder="Select Education Level" />
@@ -210,6 +209,9 @@ const Profile = () => {
                                         </SelectItem>
                                         <SelectItem value="A Level">
                                             Advanced Level (A-Level)
+                                        </SelectItem>
+                                        <SelectItem value="Others">
+                                            Others
                                         </SelectItem>
 
                                     </SelectContent>

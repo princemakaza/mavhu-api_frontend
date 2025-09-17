@@ -44,7 +44,7 @@ const UploadResourceDialog: React.FC<UploadResourceDialogProps> = ({
   });
   const { toast } = useToast();
 
-  const levels = ["O Level", "A Level", "Form 1", "Form 2", "Form 3", "Form 4"];
+  const levels = ["O Level", "A Level", "Others"];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

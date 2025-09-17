@@ -32,32 +32,32 @@ const ExamCard = ({
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 w-full group border-border/50 hover:border-border bg-card/50 backdrop-blur-sm">
+    <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 w-full group border-blue-900/20 hover:border-blue-900/40 bg-card/50 backdrop-blur-sm hover:shadow-blue-900/10">
       <div className="aspect-video relative overflow-hidden">
         <img
           src={thumbnailUrl}
           alt={title}
           className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <Badge className="absolute top-3 left-3 bg-primary/90 text-primary-foreground hover:bg-primary backdrop-blur-sm border-0 font-medium">
+        <div className="absolute inset-0 bg-gradient-to-t from-blue-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <Badge className="absolute top-3 left-3 bg-blue-900/90 text-white hover:bg-blue-900 backdrop-blur-sm border-0 font-medium">
           {level}
         </Badge>
       </div>
       
       <CardContent className="pt-4 pb-3">
-        <h3 className="font-semibold text-lg mb-3 line-clamp-2 text-foreground group-hover:text-primary transition-colors duration-200">
+        <h3 className="font-semibold text-lg mb-3 line-clamp-2 text-foreground group-hover:text-blue-900 transition-colors duration-200">
           {title}
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary/60"></div>
+            <div className="w-2 h-2 rounded-full bg-blue-900/60"></div>
             <span className="font-medium text-foreground">Subject:</span>
             <span className="text-muted-foreground">{subjectName}</span>
           </div>
           {durationInMinutes && (
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary/70" />
+              <Clock className="h-4 w-4 text-blue-900/70" />
               <span className="text-muted-foreground">
                 {formatDuration(durationInMinutes)}
               </span>
@@ -69,13 +69,13 @@ const ExamCard = ({
       <CardFooter className="pt-0 pb-4 flex-col gap-3">
         {/* Main action buttons */}
         <div className="flex gap-2 w-full">
-          <Button asChild variant="outline" className="flex-1 group/btn hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200">
+          <Button asChild variant="outline" className="flex-1 group/btn hover:bg-blue-900 hover:text-white hover:border-blue-900 border-blue-900/30 text-blue-900 transition-all duration-200">
             <Link to={`/exam/${id}`} className="flex items-center gap-2">
               <Edit className="h-4 w-4" />
               Edit Exam
             </Link>
           </Button>
-          <Button asChild variant="secondary" className="flex-1 group/btn hover:bg-primary/10 hover:text-primary transition-all duration-200">
+          <Button asChild variant="secondary" className="flex-1 group/btn bg-blue-900/10 hover:bg-blue-900 hover:text-white text-blue-900 transition-all duration-200">
             <Link to={`/exam/view/${id}`} className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               View Results

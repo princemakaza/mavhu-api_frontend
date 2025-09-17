@@ -1,7 +1,6 @@
 import axios from "axios";
 
-const BASE_URL =
-  "/api/v1/student_route";
+const BASE_URL = "/api/v1/student_route";
 
 /**
  * Service for handling student-related API requests
@@ -42,26 +41,24 @@ const StudentService = {
     }
   },
 
-   deleteStudent: async (id) => {
+  /**
+   * Delete student by ID
+   */
+  deleteStudent: async (id) => {
     try {
-      const response = await axios.delete(
-        `${BASE_URL}/deletestudent/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        }
-      );
-      return response.data;  // Returns { message: "Student deleted successfully" }
+      const response = await axios.delete(`${BASE_URL}/deletestudent/${id}`, {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
+      return response.data; // { message: "Student deleted successfully" }
     } catch (error) {
       throw error.response?.data || "Failed to delete student";
     }
   },
 
-
   /**
    * Fetches dashboard statistics (students count, levels, subjects, etc.)
-   * @returns {Promise} Promise with dashboard stats data
    */
   getAllDashboardData: async () => {
     try {
@@ -76,23 +73,47 @@ const StudentService = {
     }
   },
 
-
-  // Commented out as per your code but kept for future implementation
-  /*
-  postStudent: async (studentData) => {
+  /**
+   * Approve profile picture (admin only)
+   */
+  approveProfilePicture: async (id) => {
     try {
-      const response = await axios.post(`${BASE_URL}/create`, studentData, {
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-          "Content-Type": "application/json",
-        },
-      });
+      console.log("Approving profile picture for student ID:", id);
+      const response = await axios.put(
+        `${BASE_URL}/approve-profile-picture/${id}`,
+        {}, // no body required
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+        }
+      );
       return response.data;
     } catch (error) {
-      throw error.response?.data || "Failed to create student";
+      throw error.response?.data || "Failed to approve profile picture";
     }
   },
-  */
+
+  /**
+   * Reject profile picture (admin only) with reason
+   */
+  rejectProfilePicture: async (id, rejectionReason) => {
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/reject-profile-picture/${id}`,
+        { rejection_reason: rejectionReason },
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || "Failed to reject profile picture";
+    }
+  },
 };
 
 /**

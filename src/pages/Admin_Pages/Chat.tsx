@@ -21,6 +21,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import CommunityMessageService from "@/services/Admin_Service/message_service";
 import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ChatApp = (ChatServiceData: any) => {
@@ -76,8 +77,20 @@ const ChatApp = (ChatServiceData: any) => {
   const [subjects, setSubjects] = useState([]);
 
   const currentUserId = user?._id;
-  const ADMIN_ID = "686377b7514b572d2d7ce7f2"; // Define admin ID constant
+  const navigate = useNavigate();
 
+  const storedAdmin = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("adminData"));
+    } catch {
+      return null;
+    }
+  })();
+
+  const ADMIN_ID =
+    storedAdmin?._id || localStorage.getItem("adminId") || null;
+
+  
   useEffect(() => {
     const fetchMessages = async () => {
       if (!activeGroup?._id) {
@@ -1312,6 +1325,7 @@ const ChatApp = (ChatServiceData: any) => {
                   </select>
                 </div>
               </div>
+
 
               {/* Subject Dropdown */}
               <div className="space-y-2">

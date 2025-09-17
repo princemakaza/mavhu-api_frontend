@@ -1,24 +1,32 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, Home } from "lucide-react";
+import { Upload, Home, Image, BookOpen, Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import LibraryService from "@/services/Library_service";
 import SubjectService from "@/services/Admin_Service/Subject_service";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/helper/SupabaseClient";
 import { Button } from "@/components/ui/button";
+import Sidebar from "@/components/Sidebar";
 
 export default function BookUploadForm() {
   const [isDragging, setIsDragging] = useState(false);
+  const [isCoverDragging, setIsCoverDragging] = useState(false);
   const [file, setFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingCover, setIsLoadingCover] = useState(false);
   const [error, setError] = useState(null);
   const [bookTitle, setBookTitle] = useState("");
   const fileInputRef = useRef(null);
+  const coverInputRef = useRef(null);
   const [groupLevel, setGroupLevel] = useState("Form 4");
   const [groupSubject, setGroupSubject] = useState("");
   const [authorFullName, setAuthorFullName] = useState("");
   const [description, setDescription] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [coverUploadProgress, setCoverUploadProgress] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
 
   // New state for subjects
   const [subjects, setSubjects] = useState([]);
@@ -32,6 +40,34 @@ export default function BookUploadForm() {
     "application/vnd.ms-powerpoint",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ];
+
+  // Accepted image types
+  const acceptedImageTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+  ];
+
+  // Update screen size state and handle sidebar visibility
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const isLarge = window.innerWidth >= 768;
+      setIsLargeScreen(isLarge);
+      setSidebarOpen(isLarge);
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
+
+  // Toggle sidebar function
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   // Fetch subjects on component mount
   useEffect(() => {
@@ -68,43 +104,68 @@ export default function BookUploadForm() {
   // Sanitize filenames for Supabase compatibility
   const sanitizeFilename = (filename) => {
     return filename
-      .replace(/[^a-zA-Z0-9!\-_.*'()]/g, '_') // Replace invalid chars with underscore
-      .replace(/~+/g, '_')                      // Replace tildes specifically
-      .replace(/\s+/g, '_')                     // Replace spaces with underscores
-      .replace(/_{2,}/g, '_');                  // Replace multiple underscores with single
+      .replace(/[^a-zA-Z0-9!\-_.*'()]/g, '_')
+      .replace(/~+/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_{2,}/g, '_');
   };
 
-  const handleDragEnter = (e) => {
+  const handleDragEnter = (e, isCover = false) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    if (isCover) {
+      setIsCoverDragging(true);
+    } else {
+      setIsDragging(true);
+    }
   };
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = (e, isCover = false) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    if (isCover) {
+      setIsCoverDragging(false);
+    } else {
+      setIsDragging(false);
+    }
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e, isCover = false) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    if (isCover) {
+      setIsCoverDragging(true);
+    } else {
+      setIsDragging(true);
+    }
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e, isCover = false) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
+    if (isCover) {
+      setIsCoverDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleCoverFiles(e.dataTransfer.files);
+      }
+    } else {
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
     }
   };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       handleFiles(e.target.files);
+    }
+  };
+
+  const handleCoverFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleCoverFiles(e.target.files);
     }
   };
 
@@ -123,8 +184,32 @@ export default function BookUploadForm() {
     setUploadProgress(0);
   };
 
+  const handleCoverFiles = (files) => {
+    const selectedFile = files[0];
+
+    // Check if file type is allowed
+    if (!acceptedImageTypes.includes(selectedFile.type)) {
+      setError("Please upload a JPEG, PNG, or WebP image");
+      return;
+    }
+
+    // Check file size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      setError("Cover image must be less than 5MB");
+      return;
+    }
+
+    setCoverFile(selectedFile);
+    setError(null);
+    setCoverUploadProgress(0);
+  };
+
   const handleBrowseClick = () => {
     fileInputRef.current.click();
+  };
+
+  const handleCoverBrowseClick = () => {
+    coverInputRef.current.click();
   };
 
   // Helper function to validate and clean string inputs
@@ -155,15 +240,55 @@ export default function BookUploadForm() {
     return cleaned;
   };
 
+  const uploadFileToSupabase = async (file, bucket, setProgress) => {
+    const sanitizedFileName = sanitizeFilename(file.name);
+    const fileName = `${Date.now()}_${sanitizedFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+        onProgress: (progressEvent) => {
+          const progress = Math.round(
+            (progressEvent.loaded / progressEvent.total) * 100
+          );
+          setProgress(progress);
+        },
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      throw new Error(`File upload failed: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    if (!publicUrlData?.publicUrl) {
+      throw new Error("Failed to get file URL after upload");
+    }
+
+    return publicUrlData.publicUrl;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setUploadProgress(0);
+    setCoverUploadProgress(0);
 
     try {
       // Pre-validation before starting upload
       if (!file) {
         throw new Error("Please select a file to upload");
+      }
+
+      if (!coverFile) {
+        throw new Error("Please select a cover image");
       }
 
       // Validate all form fields before proceeding
@@ -186,44 +311,25 @@ export default function BookUploadForm() {
     }
 
     setIsLoading(true);
+    setIsLoadingCover(true);
     let filePath = "";
+    let coverImagePath = "";
 
     try {
-      // Sanitize filename before upload
-      const sanitizedFileName = sanitizeFilename(file.name);
-      const fileName = `${Date.now()}_${sanitizedFileName}`;
+      // Upload cover image first
+      coverImagePath = await uploadFileToSupabase(
+        coverFile,
+        "topics",
+        setCoverUploadProgress
+      );
+      console.log("Cover image uploaded successfully. URL:", coverImagePath);
 
-      console.log("Uploading to Supabase:", fileName);
-
-      const { error: uploadError } = await supabase.storage
-        .from("topics")
-        .upload(fileName, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type,
-          onProgress: (progressEvent) => {
-            const progress = Math.round(
-              (progressEvent.loaded / progressEvent.total) * 100
-            );
-            setUploadProgress(progress);
-          },
-        });
-
-      if (uploadError) {
-        console.error("Supabase upload error:", uploadError);
-        throw new Error(`File upload failed: ${uploadError.message}`);
-      }
-
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from("topics")
-        .getPublicUrl(fileName);
-
-      if (!publicUrlData?.publicUrl) {
-        throw new Error("Failed to get file URL after upload");
-      }
-
-      filePath = publicUrlData.publicUrl;
+      // Upload main file
+      filePath = await uploadFileToSupabase(
+        file,
+        "topics",
+        setUploadProgress
+      );
       console.log("File uploaded successfully. URL:", filePath);
 
       // Prepare book data for JSON submission
@@ -231,8 +337,10 @@ export default function BookUploadForm() {
         title: bookTitle.trim(),
         level: groupLevel.trim(),
         subject: groupSubject.trim(),
+        cover_image: coverImagePath,
         authorFullName: authorFullName.trim(),
-        filePath: filePath,
+        file_path: filePath,
+        file_type: "document",
         description: description.trim(),
         showBook: true,
       };
@@ -251,16 +359,21 @@ export default function BookUploadForm() {
 
       // Reset form on success
       setFile(null);
+      setCoverFile(null);
       setBookTitle("");
       setAuthorFullName("");
       setDescription("");
       setGroupSubject("");
       setGroupLevel("Form 4");
       setUploadProgress(0);
+      setCoverUploadProgress(0);
 
-      // Reset file input
+      // Reset file inputs
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      if (coverInputRef.current) {
+        coverInputRef.current.value = "";
       }
 
       const t = toast({
@@ -272,7 +385,7 @@ export default function BookUploadForm() {
           <Button
             variant="secondary"
             className="bg-green-600 text-white hover:bg-green-700"
-            onClick={() => t.dismiss()} // dismiss the toast safely
+            onClick={() => t.dismiss()}
           >
             Got it
           </Button>
@@ -292,13 +405,13 @@ export default function BookUploadForm() {
       const t = toast({
         variant: "destructive",
         title: "Oops! Upload Failed",
-        description: errorMsg || "We couldn’t upload your book. Please try again.",
+        description: errorMsg || "We couldn't upload your book. Please try again.",
         duration: 8000,
         action: (
           <Button
             variant="secondary"
             className="bg-white text-red-600 hover:bg-red-100"
-            onClick={() => t.dismiss()} // dismiss the toast safely
+            onClick={() => t.dismiss()}
           >
             Dismiss
           </Button>
@@ -307,6 +420,7 @@ export default function BookUploadForm() {
 
     } finally {
       setIsLoading(false);
+      setIsLoadingCover(false);
     }
   };
 
@@ -320,297 +434,412 @@ export default function BookUploadForm() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen p-4">
-      <div className="flex w-full max-w-3xl mx-auto">
-        {/* Left Panel - Upload Section */}
-        <div className="w-1/2 border-r border-gray-200 p-8 bg-white">
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer transition-colors duration-200 h-64 ${isDragging
-              ? "border-blue-500 bg-blue-50"
-              : file
-                ? "border-green-500 bg-green-50"
-                : "border-gray-300 hover:border-blue-400"
-              }`}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onClick={handleBrowseClick}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept=".pdf,.doc,.docx,.ppt,.pptx"
-            />
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+      {/* Mobile Menu Toggle */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
+        onClick={toggleSidebar}
+      >
+        {sidebarOpen && !isLargeScreen ? <X size={20} /> : <Menu size={20} />}
+      </button>
 
-            <Upload
-              size={32}
-              className={`mb-3 ${isDragging
-                ? "text-blue-500"
-                : file
-                  ? "text-green-500"
-                  : "text-gray-400"
-                }`}
-            />
+      {/* Sidebar */}
+      <div
+        className={`
+          ${sidebarOpen || isLargeScreen
+            ? "translate-x-0 opacity-100"
+            : "-translate-x-full opacity-0"
+          } 
+          transition-all duration-300 ease-in-out 
+          fixed md:relative z-40 md:z-auto w-64
+        `}
+      >
+        <Sidebar />
+      </div>
 
-            <div className="text-center">
-              {file ? (
-                <>
-                  <p className="text-green-600 font-medium">{file.name}</p>
-                  <p className="text-gray-500 text-sm mt-1">
-                    {getFileTypeDisplay(file)} •{" "}
-                    {(file.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
+      {/* Backdrop Overlay for Mobile */}
+      {sidebarOpen && !isLargeScreen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={toggleSidebar}
+        />
+      )}
 
-                  {/* Upload progress indicator */}
-                  {isLoading && uploadProgress > 0 && (
-                    <div className="mt-3 w-full bg-gray-200 rounded-full h-2.5">
-                      <div
-                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Uploading: {uploadProgress}%
-                      </p>
-                    </div>
-                  )}
-                </>
-              ) : isDragging ? (
-                <p className="text-blue-600 font-medium">Drop your file here</p>
-              ) : (
-                <>
-                  <p className="text-gray-700 font-medium">
-                    Drag and drop file
-                  </p>
-                  <p className="text-gray-500 mt-1">PDF, Word, or PowerPoint</p>
-                  <p className="text-gray-500 mt-1">or</p>
-                </>
-              )}
-
-              <button
-                type="button"
-                className="mt-4 px-6 py-2 bg-blue-600 text-white rounded font-medium transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleBrowseClick();
-                }}
+      {/* Main Content */}
+      <div className="flex-1 w-full p-4 md:p-6">
+        <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+          {/* Header */}
+          <div className="bg-blue-900 text-white p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <BookOpen size={28} />
+                <h1 className="text-2xl font-bold">Upload New Book</h1>
+              </div>
+              <Link
+                to="/library"
+                className="text-blue-100 hover:text-white transition-colors text-sm flex items-center"
               >
-                BROWSE
-              </button>
+                ← Return to Library
+              </Link>
             </div>
+            <p className="mt-2 text-blue-100">
+              Add a new book to your library collection
+            </p>
           </div>
 
-          <div className="mt-4 flex justify-center">
-            <Link
-              to="/library"
-              className="text-blue-600 hover:underline cursor-pointer text-sm"
-            >
-              return to library
-            </Link>
-          </div>
-        </div>
-
-        {/* Right Panel - Book Info & Illustration */}
-        <div className="w-1/2 p-8 bg-gray-50 flex flex-col">
-          {/* Illustration at top */}
-          <div className="mb-6 flex justify-center">
-            <div className="relative">
-              <div className="bg-blue-100 rounded-lg p-4 w-48 mb-2">
-                <div className="bg-blue-500 h-6 rounded w-16 mb-2"></div>
-                <div className="h-3 bg-gray-300 rounded w-full mb-2"></div>
-                <div className="h-3 bg-gray-300 rounded w-3/4"></div>
+          {/* Form Content */}
+          <div className="p-6">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                <p className="font-medium">Error:</p>
+                <p>{error}</p>
               </div>
+            )}
 
-              <div className="absolute -top-2 -right-2 bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center">
-                <div className="text-white text-xs">•••</div>
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column - File Uploads */}
+              <div className="space-y-6">
+                {/* Book File Upload */}
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+                    <Upload size={18} className="mr-2" />
+                    Book File
+                  </h3>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors duration-200 h-48 ${isDragging
+                      ? "border-blue-500 bg-blue-50"
+                      : file
+                        ? "border-green-500 bg-green-50"
+                        : "border-gray-300 hover:border-blue-400"
+                      }`}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    onClick={handleBrowseClick}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.ppt,.pptx"
+                    />
 
-              <div className="absolute bottom-0 right-0 transform translate-y-1/2">
-                <div className="flex">
-                  <div className="bg-pink-500 w-6 h-12 rounded-t-lg"></div>
-                  <div className="bg-purple-600 w-6 h-14 rounded-t-lg"></div>
+                    <Upload
+                      size={32}
+                      className={`mb-3 ${isDragging
+                        ? "text-blue-500"
+                        : file
+                          ? "text-green-500"
+                          : "text-gray-400"
+                        }`}
+                    />
+
+                    <div className="text-center">
+                      {file ? (
+                        <>
+                          <p className="text-green-600 font-medium truncate max-w-xs">{file.name}</p>
+                          <p className="text-gray-500 text-sm mt-1">
+                            {getFileTypeDisplay(file)} •{" "}
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+
+                          {/* Upload progress indicator */}
+                          {isLoading && uploadProgress > 0 && (
+                            <div className="mt-3 w-full bg-gray-200 rounded-full h-2.5">
+                              <div
+                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress}%` }}
+                              ></div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Uploading: {uploadProgress}%
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : isDragging ? (
+                        <p className="text-blue-600 font-medium">Drop your file here</p>
+                      ) : (
+                        <>
+                          <p className="text-gray-700 font-medium">
+                            Drag and drop file
+                          </p>
+                          <p className="text-gray-500 text-sm mt-1">PDF, Word, or PowerPoint</p>
+                          <p className="text-gray-500 text-sm mt-1">or</p>
+                        </>
+                      )}
+
+                      <button
+                        type="button"
+                        className="mt-4 px-4 py-2 bg-blue-900 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBrowseClick();
+                        }}
+                      >
+                        BROWSE FILES
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cover Image Upload */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                    <Image size={18} className="mr-2" />
+                    Cover Image
+                  </h3>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors duration-200 h-48 ${isCoverDragging
+                      ? "border-blue-500 bg-blue-50"
+                      : coverFile
+                        ? "border-green-500 bg-green-50"
+                        : "border-gray-300 hover:border-blue-400"
+                      }`}
+                    onDragEnter={(e) => handleDragEnter(e, true)}
+                    onDragLeave={(e) => handleDragLeave(e, true)}
+                    onDragOver={(e) => handleDragOver(e, true)}
+                    onDrop={(e) => handleDrop(e, true)}
+                    onClick={handleCoverBrowseClick}
+                  >
+                    <input
+                      type="file"
+                      ref={coverInputRef}
+                      onChange={handleCoverFileChange}
+                      className="hidden"
+                      accept="image/*"
+                    />
+
+                    <Image
+                      size={32}
+                      className={`mb-3 ${isCoverDragging
+                        ? "text-blue-500"
+                        : coverFile
+                          ? "text-green-500"
+                          : "text-gray-400"
+                        }`}
+                    />
+
+                    <div className="text-center">
+                      {coverFile ? (
+                        <>
+                          <div className="flex justify-center mb-2">
+                            <img
+                              src={URL.createObjectURL(coverFile)}
+                              alt="Cover preview"
+                              className="h-16 object-contain rounded border"
+                            />
+                          </div>
+                          <p className="text-green-600 font-medium text-sm truncate max-w-xs">{coverFile.name}</p>
+                          <p className="text-gray-500 text-xs mt-1">
+                            {(coverFile.size / (1024)).toFixed(2)} KB
+                          </p>
+
+                          {/* Upload progress indicator */}
+                          {isLoadingCover && coverUploadProgress > 0 && (
+                            <div className="mt-3 w-full bg-gray-200 rounded-full h-2.5">
+                              <div
+                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                                style={{ width: `${coverUploadProgress}%` }}
+                              ></div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Uploading: {coverUploadProgress}%
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : isCoverDragging ? (
+                        <p className="text-blue-600 font-medium">Drop your image here</p>
+                      ) : (
+                        <>
+                          <p className="text-gray-700 font-medium">
+                            Drag and drop image
+                          </p>
+                          <p className="text-gray-500 text-sm mt-1">JPG, PNG, or WebP</p>
+                          <p className="text-gray-500 text-sm mt-1">Max 5MB</p>
+                          <p className="text-gray-500 text-sm mt-1">or</p>
+                        </>
+                      )}
+
+                      <button
+                        type="button"
+                        className="mt-4 px-4 py-2 bg-blue-900 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCoverBrowseClick();
+                        }}
+                      >
+                        BROWSE IMAGES
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="absolute bottom-0 right-16 bg-blue-400 rounded-full w-10 h-10 flex items-center justify-center transform translate-y-1/2">
-                <Home size={20} className="text-white" />
-              </div>
+              {/* Right Column - Book Details */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Book Details</h3>
 
-              <div className="absolute bottom-0 left-0 bg-yellow-400 w-8 h-8 rounded-full transform translate-y-1/2"></div>
-              <div className="absolute bottom-4 left-10 bg-green-400 w-6 h-6 rounded-full"></div>
-            </div>
-          </div>
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="title"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Title*
+                    </label>
+                    <input
+                      type="text"
+                      id="title"
+                      name="title"
+                      value={bookTitle}
+                      onChange={(e) => setBookTitle(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter book title"
+                    />
+                  </div>
 
-          {/* Book Details Fields */}
-          <div className="space-y-4 mt-8">
-            <div>
-              <label
-                htmlFor="title"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Title* (For Display Only)
-              </label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={bookTitle}
-                onChange={(e) => setBookTitle(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter book title"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                This title is for form display only and won't be saved to the
-                database
-              </p>
-            </div>
+                  <div>
+                    <label
+                      htmlFor="level"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Level*
+                    </label>
+                    <select
+                      id="level"
+                      name="level"
+                      value={groupLevel}
+                      onChange={(e) => setGroupLevel(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      required
+                    >
+                      <option value="">Select level</option>
+                      <option value="O Level">O Level</option>
+                      <option value="A Level">A Level</option>
+                      <option value="Others">Others</option>
+     
+                    </select>
+                  </div>
 
-            <div>
-              <label
-                htmlFor="level"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Level*
-              </label>
-              <select
-                id="level"
-                name="level"
-                value={groupLevel}
-                onChange={(e) => setGroupLevel(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">Select level</option>
-                <option value="O Level">O Level</option>
-                <option value="A Level">A Level</option>
-                <option value="Form 1">Form 1</option>
-                <option value="Form 2">Form 2</option>
-                <option value="Form 3">Form 3</option>
-                <option value="Form 4">Form 4</option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="subject"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Subject*
-              </label>
-              <select
-                id="subject"
-                name="subject"
-                value={groupSubject}
-                onChange={(e) => setGroupSubject(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-                disabled={isLoadingSubjects}
-                required
-              >
-                <option value="">
-                  {isLoadingSubjects ? "Loading subjects..." : "Select subject"}
-                </option>
-                {Array.isArray(subjects) &&
-                  subjects.map((subject, index) => {
-                    const subjectId = subject._id || subject.id;
-                    const subjectName =
-                      subject.subjectName || subject.name || "Unknown Subject";
-                    return (
-                      <option key={subjectId || index} value={subjectId}>
-                        {subjectName}
+                  <div>
+                    <label
+                      htmlFor="subject"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Subject*
+                    </label>
+                    <select
+                      id="subject"
+                      name="subject"
+                      value={groupSubject}
+                      onChange={(e) => setGroupSubject(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100"
+                      disabled={isLoadingSubjects}
+                      required
+                    >
+                      <option value="">
+                        {isLoadingSubjects ? "Loading subjects..." : "Select subject"}
                       </option>
-                    );
-                  })}
-              </select>
-            </div>
+                      {Array.isArray(subjects) &&
+                        subjects.map((subject, index) => {
+                          const subjectId = subject._id || subject.id;
+                          const subjectName =
+                            subject.subjectName || subject.name || "Unknown Subject";
+                          return (
+                            <option key={subjectId || index} value={subjectId}>
+                              {subjectName}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
 
-            <div>
-              <label
-                htmlFor="author"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Author*
-              </label>
-              <input
-                type="text"
-                id="author"
-                name="author"
-                value={authorFullName}
-                onChange={(e) => setAuthorFullName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter author name"
-                required
-              />
-            </div>
+                  <div>
+                    <label
+                      htmlFor="author"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Author*
+                    </label>
+                    <input
+                      type="text"
+                      id="author"
+                      name="author"
+                      value={authorFullName}
+                      onChange={(e) => setAuthorFullName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter author name"
+                      required
+                    />
+                  </div>
 
-            <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter book description (optional)"
-              ></textarea>
-            </div>
-          </div>
+                  <div>
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter book description (optional)"
+                    ></textarea>
+                  </div>
+                </div>
 
-          {/* Error message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded mt-4">
-              <p className="font-medium">Error:</p>
-              <p>{error}</p>
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <div className="mt-6">
-            <button
-              onClick={handleSubmit}
-              disabled={isLoading || isLoadingSubjects}
-              className={`w-full py-2 ${isLoading || isLoadingSubjects
-                ? "bg-blue-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-                } text-white rounded-md font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
+                {/* Submit Button */}
+                <div className="pt-4">
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isLoading || isLoadingSubjects || isLoadingCover}
+                    className={`w-full py-3 ${isLoading || isLoadingSubjects || isLoadingCover
+                      ? "bg-blue-400 cursor-not-allowed"
+                      : "bg-blue-900 hover:bg-blue-800"
+                      } text-white rounded-md font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex items-center justify-center`}
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  {uploadProgress > 0 ? `UPLOADING (${uploadProgress}%)` : "PROCESSING..."}
-                </span>
-              ) : isLoadingSubjects ? (
-                "LOADING SUBJECTS..."
-              ) : (
-                "UPLOAD BOOK"
-              )}
-            </button>
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        {uploadProgress > 0 || coverUploadProgress > 0
+                          ? `UPLOADING (${Math.max(uploadProgress, coverUploadProgress)}%)`
+                          : "PROCESSING..."
+                        }
+                      </span>
+                    ) : isLoadingSubjects ? (
+                      "LOADING SUBJECTS..."
+                    ) : (
+                      "UPLOAD BOOK"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

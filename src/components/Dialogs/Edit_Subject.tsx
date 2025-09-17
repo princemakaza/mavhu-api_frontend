@@ -304,10 +304,8 @@ const EditSubjectDialog: React.FC<EditSubjectDialogProps> = ({
               <SelectContent className="bg-white/95 backdrop-blur-lg border-white/30 rounded-xl shadow-xl">
                 <SelectItem value="O Level" className="rounded-lg">O Level</SelectItem>
                 <SelectItem value="A Level" className="rounded-lg">A Level</SelectItem>
-                <SelectItem value="Form 1" className="rounded-lg">Form 1</SelectItem>
-                <SelectItem value="Form 2" className="rounded-lg">Form 2</SelectItem>
-                <SelectItem value="Form 3" className="rounded-lg">Form 3</SelectItem>
-                <SelectItem value="Form 4" className="rounded-lg">Form 4</SelectItem>
+                <SelectItem value="Others" className="rounded-lg">Others</SelectItem>
+            
               </SelectContent>
             </Select>
           </div>

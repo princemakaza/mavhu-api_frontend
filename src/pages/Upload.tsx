@@ -4,19 +4,21 @@ import { Upload, Home } from "lucide-react";
 // SubjectService - moved inline since we can't import external files
 const SubjectService = {
   getAllSubjects: async () => {
+    const url = "/api/v1/subject/getall";
+    const token = localStorage.getItem("adminToken");
+    const headers = {
+      Authorization: `Bearer ${token}`,
+    };
+
+    // eslint-disable-next-line no-useless-catch
     try {
-      const response = await fetch(
-        "/api/v1/subject/getall",
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
-          },
-        }
-      );
+      const response = await fetch(url, { headers });
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.message || "Failed to retrieve subjects");
       }
+
       return data;
     } catch (error) {
       throw error;

@@ -210,10 +210,7 @@ const AddSubjectDialog: React.FC<AddSubjectDialogProps> = ({
               <SelectContent>
                 <SelectItem value="O Level">O Level</SelectItem>
                 <SelectItem value="A Level">A Level</SelectItem>
-                <SelectItem value="Form 1">Form 1</SelectItem>
-                <SelectItem value="Form 2">Form 2</SelectItem>
-                <SelectItem value="Form 3">Form 3</SelectItem>
-                <SelectItem value="Form 4">Form 4</SelectItem>
+                <SelectItem value="Others">Others</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -600,7 +600,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
 
     try {
       setIsSubmitting(true);
-      await TopicContentService.deleteTopicContent(contentToDelete);
+      await TopicContentService.moveToTrash(contentToDelete);
 
       // Remove deleted content from state
       setContents(

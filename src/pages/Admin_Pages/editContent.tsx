@@ -1,72 +1,51 @@
+// EditContent.tsx
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Plus,
-  X,
-  Upload,
-  File,
-  FileText,
-  Music,
-  Video,
-  ChevronLeft,
-  Edit,
-  Check,
-  ChevronDown,
-  Image as ImageIcon,
-  Eye
+  Plus, X, Upload, ChevronLeft, Edit, Check, ChevronDown,
+  Music, Video, FileText, Image as ImageIcon, Eye, Trash2, GripVertical
 } from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
-import TopicContentService from "@/services/Admin_Service/Topic_Content_service";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/helper/SupabaseClient";
 import { MathfieldElement } from "mathlive";
+import Sidebar from "@/components/Sidebar";
+import logo from "@/assets/logo2.png";
 
-// Define file type extensions mapping
-const fileTypeExtensions = {
-  video: [".mp4", ".avi", ".mov", ".wmv", ".mkv", ".webm"],
-  audio: [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"],
-  document: [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt"],
-  image: [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp"]
-};
+// 🚀 Import everything you need from your contentActions.ts
+import {
+  // types
+  ContentFormData,
+  LessonItem,
+  SubHeadingItem,
+  Comment as LessonComment,
+  Reaction,
+  MCQQuestion,
+  // helpers
+  getAcceptedFileTypes,
+  extractFilenameFromUrl,
+  shortenFilename,
+  // uploads
+  uploadSingleToSupabase,
+  mergeNewUploads,
+  fetchContentById,
+  updateContent as updateContentApi,
+  getLessonComments,
+  addLessonComment,
+  replyToComment,
+  deleteLessonComment,
+  getLessonReactions,
+  addLessonReaction,
+  deleteLessonReaction,
+} from "../Admin_Pages/functions_edit"; // <-- ensure this path is correct
 
-interface SubHeadingItem {
-  text: string;
-  question: string;
-  subheadingAudioPath: string;
-  expectedAnswer: string;
-  comment: string;
-  hint: string;
-  _id?: string;
-}
+/* ================================
+ * Math editor + UI bits (unchanged)
+ * ================================ */
 
-interface LessonItem {
-  text: string;
-  subHeading: SubHeadingItem[];
-  audio: string;
-  video: string;
-  image: string;
-  _id?: string;
-}
-
-interface ContentFormData {
-  _id?: string;
-  title: string;
-  description: string;
-  lesson: LessonItem[];
-  file_path: string[];
-  file_type: "video" | "audio" | "document" | "image";
-  Topic: string;
-}
-
-// Helper function to extract LaTeX from text
 const extractLatexFromText = (text: string): string => {
   if (!text) return "";
   if (text.startsWith("\\(") && text.endsWith("\\)")) {
@@ -75,33 +54,6 @@ const extractLatexFromText = (text: string): string => {
   return text;
 };
 
-// Helper function to extract filename from URL
-const extractFilenameFromUrl = (url: string): string => {
-  if (!url) return "";
-  try {
-    const decodedUrl = decodeURIComponent(url);
-    const filenameWithParams = decodedUrl.split('/').pop() || '';
-    const filename = filenameWithParams.split('?')[0];
-    const timestampRegex = /^\d+_/;
-    return filename.replace(timestampRegex, '');
-  } catch (e) {
-    console.error("Error extracting filename:", e);
-    return url;
-  }
-};
-
-// Helper function to shorten filename for display
-const shortenFilename = (filename: string, maxLength: number = 20): string => {
-  if (!filename) return "";
-  if (filename.length <= maxLength) return filename;
-  const extensionIndex = filename.lastIndexOf('.');
-  const extension = extensionIndex !== -1 ? filename.slice(extensionIndex) : '';
-  const nameWithoutExtension = extensionIndex !== -1 ? filename.slice(0, extensionIndex) : filename;
-  const shortenedName = nameWithoutExtension.slice(0, maxLength - extension.length - 3) + '...';
-  return shortenedName + extension;
-};
-
-// Reusable Math Input Component
 interface MathInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -113,13 +65,7 @@ interface MathInputProps {
 }
 
 const MathInput: React.FC<MathInputProps> = ({
-  value,
-  onChange,
-  onSave,
-  onCancel,
-  editing,
-  placeholder = "",
-  className = "",
+  value, onChange, onSave, onCancel, editing, placeholder = "", className = "",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mathfieldRef = useRef<MathfieldElement | null>(null);
@@ -137,10 +83,7 @@ const MathInput: React.FC<MathInputProps> = ({
         smartMode: true,
         virtualKeyboardMode: "onfocus",
         virtualKeyboards: "all",
-        inlineShortcuts: {
-          "++": "\\plus",
-          "->": "\\rightarrow",
-        },
+        inlineShortcuts: { "++": "\\plus", "->": "\\rightarrow" },
         readOnly: !editing,
       });
 
@@ -165,13 +108,11 @@ const MathInput: React.FC<MathInputProps> = ({
       containerRef.current.appendChild(mf);
     }
 
-    // Set initial value
+    // sync value + readonly
     const unwrappedValue = extractLatexFromText(value || "");
     if (mathfieldRef.current.value !== unwrappedValue) {
       mathfieldRef.current.value = unwrappedValue;
     }
-
-    // Update readOnly state
     mathfieldRef.current.setOptions({ readOnly: !editing });
     mathfieldRef.current.style.pointerEvents = editing ? "auto" : "none";
     mathfieldRef.current.style.backgroundColor = editing ? "#fff" : "transparent";
@@ -192,7 +133,6 @@ const MathInput: React.FC<MathInputProps> = ({
       ignoreNextChange.current = false;
       return;
     }
-
     const unwrappedValue = extractLatexFromText(value || "");
     if (mathfieldRef.current.value !== unwrappedValue) {
       mathfieldRef.current.value = unwrappedValue;
@@ -204,32 +144,46 @@ const MathInput: React.FC<MathInputProps> = ({
       <div ref={containerRef} />
       {editing && (
         <div className="flex justify-end gap-2 mt-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={onCancel}
-            className="h-8 px-3"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onSave}
-            className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white"
-          >
-            <Check size={14} className="mr-1" />
-            Save
+          <Button type="button" size="sm" variant="outline" onClick={onCancel} className="h-8 px-3">Cancel</Button>
+          <Button type="button" size="sm" onClick={onSave} className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white">
+            <Check size={14} className="mr-1" /> Save
           </Button>
         </div>
       )}
-      {!value && !editing && (
-        <div className="text-gray-400 italic text-sm">{placeholder}</div>
-      )}
+      {!value && !editing && <div className="text-gray-400 italic text-sm">{placeholder}</div>}
     </div>
   );
 };
+
+const LoadingShimmer = () => (
+  <div className="min-h-screen w-full bg-gray-100 flex">
+    <Sidebar />
+    <div className="flex-1 flex flex-col">
+      <div className="p-6 space-y-6">
+        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-10 bg-gray-200 rounded animate-pulse md:col-span-2"></div>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {[1, 2, 3].map((i) => <div key={i} className="w-24 h-10 bg-gray-200 rounded animate-pulse"></div>)}
+        </div>
+        <div className="bg-white rounded-xl p-4 border-2 border-gray-100">
+          <div className="h-8 bg-gray-200 rounded animate-pulse mb-4 w-1/3"></div>
+          <div className="space-y-4">
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded animate-pulse w-1/2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+/* ================================
+ * Main
+ * ================================ */
 
 const EditContent: React.FC = () => {
   const { contentId, topicId } = useParams<{ contentId: string; topicId: string }>();
@@ -242,16 +196,10 @@ const EditContent: React.FC = () => {
     lesson: [{
       text: "",
       subHeading: [{
-        text: "",
-        question: "",
-        subheadingAudioPath: "",
-        expectedAnswer: "",
-        comment: "",
-        hint: "",
+        text: "", question: "", subheadingAudioPath: "",
+        expectedAnswer: "", comment: "", hint: "", mcqQuestions: []
       }],
-      audio: "",
-      video: "",
-      image: ""
+      audio: "", video: "", image: ""
     }],
     file_path: [],
     file_type: "document",
@@ -259,22 +207,21 @@ const EditContent: React.FC = () => {
   });
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [initialExistingFileCount, setInitialExistingFileCount] = useState(0);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
-  const [showQuestionModal, setShowQuestionModal] = useState(false);
-  const [currentQuestionData, setCurrentQuestionData] = useState({
-    lessonIndex: -1,
-    subHeadingIndex: -1,
-  });
-  const [selectedFileType, setSelectedFileType] = useState<"audio" | "video" | "document" | "image">("audio");
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [editingStates, setEditingStates] = useState<{ [key: string]: boolean }>({});
-  const [initialExistingFileCount, setInitialExistingFileCount] = useState(0);
 
-  // Lesson media states
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [currentQuestionData, setCurrentQuestionData] = useState({ lessonIndex: -1, subHeadingIndex: -1 });
+  const [selectedFileType, setSelectedFileType] = useState<"audio" | "video" | "document" | "image">("audio");
+  const [uploading, setUploading] = useState(false);
+
+  // edit state for math fields
+  const [editingStates, setEditingStates] = useState<{ [key: string]: boolean }>({});
+
+  // per-lesson media states
   const [audioStatuses, setAudioStatuses] = useState<("idle" | "uploading" | "success")[]>([]);
   const [videoStatuses, setVideoStatuses] = useState<("idle" | "uploading" | "success")[]>([]);
   const [imageStatuses, setImageStatuses] = useState<("idle" | "uploading" | "success")[]>([]);
@@ -282,355 +229,191 @@ const EditContent: React.FC = () => {
   const [uploadedVideoNames, setUploadedVideoNames] = useState<(string | null)[]>([]);
   const [uploadedImageNames, setUploadedImageNames] = useState<(string | null)[]>([]);
 
-  // Get field path for editing state tracking
-  const getFieldPath = (lessonIndex: number, subHeadingIndex: number | null, fieldName: string) => {
-    if (subHeadingIndex === null) {
-      return `lesson_${lessonIndex}_${fieldName}`;
-    }
-    return `lesson_${lessonIndex}_subheading_${subHeadingIndex}_${fieldName}`;
+  // comments + reactions local entry state
+  const [newCommentByLesson, setNewCommentByLesson] = useState<Record<number, string>>({});
+  const [newReplyByLessonAndIndex, setNewReplyByLessonAndIndex] = useState<Record<string, string>>({}); // key: `${lessonIndex}_${commentIndex}`
+
+  const getFieldPath = (lessonIndex: number, subHeadingIndex: number | null, fieldName: string) =>
+    subHeadingIndex === null ? `lesson_${lessonIndex}_${fieldName}` : `lesson_${lessonIndex}_subheading_${subHeadingIndex}_${fieldName}`;
+
+  const toggleEditing = (fieldPath: string) =>
+    setEditingStates((prev) => ({ ...prev, [fieldPath]: !prev[fieldPath] }));
+
+  const saveMathValue = (fieldPath: string) =>
+    setEditingStates((prev) => ({ ...prev, [fieldPath]: false }));
+
+  const cancelEditing = (fieldPath: string) =>
+    setEditingStates((prev) => ({ ...prev, [fieldPath]: false }));
+
+  const updateAudioState = (i: number, status: "idle" | "uploading" | "success", name?: string | null) => {
+    setAudioStatuses((p) => { const a = [...p]; a[i] = status; return a; });
+    if (name !== undefined) setUploadedAudioNames((p) => { const a = [...p]; a[i] = name; return a; });
+  };
+  const updateVideoState = (i: number, status: "idle" | "uploading" | "success", name?: string | null) => {
+    setVideoStatuses((p) => { const a = [...p]; a[i] = status; return a; });
+    if (name !== undefined) setUploadedVideoNames((p) => { const a = [...p]; a[i] = name; return a; });
+  };
+  const updateImageState = (i: number, status: "idle" | "uploading" | "success", name?: string | null) => {
+    setImageStatuses((p) => { const a = [...p]; a[i] = status; return a; });
+    if (name !== undefined) setUploadedImageNames((p) => { const a = [...p]; a[i] = name; return a; });
   };
 
-  // Toggle editing state for a specific field
-  const toggleEditing = (fieldPath: string) => {
-    setEditingStates(prev => ({
-      ...prev,
-      [fieldPath]: !prev[fieldPath]
-    }));
-  };
-
-  // Save value for a specific field
-  const saveMathValue = (fieldPath: string) => {
-    setEditingStates(prev => ({
-      ...prev,
-      [fieldPath]: false
-    }));
-  };
-
-  // Cancel editing for a specific field
-  const cancelEditing = (fieldPath: string) => {
-    setEditingStates(prev => ({
-      ...prev,
-      [fieldPath]: false
-    }));
-  };
-
-  // Helper function to update per-lesson states
-  const updateAudioState = (lessonIndex: number, status: "idle" | "uploading" | "success", fileName?: string) => {
-    setAudioStatuses(prev => {
-      const newStatuses = [...prev];
-      newStatuses[lessonIndex] = status;
-      return newStatuses;
-    });
-
-    if (fileName !== undefined) {
-      setUploadedAudioNames(prev => {
-        const newNames = [...prev];
-        newNames[lessonIndex] = fileName;
-        return newNames;
-      });
-    }
-  };
-
-  const updateVideoState = (lessonIndex: number, status: "idle" | "uploading" | "success", fileName?: string) => {
-    setVideoStatuses(prev => {
-      const newStatuses = [...prev];
-      newStatuses[lessonIndex] = status;
-      return newStatuses;
-    });
-
-    if (fileName !== undefined) {
-      setUploadedVideoNames(prev => {
-        const newNames = [...prev];
-        newNames[lessonIndex] = fileName;
-        return newNames;
-      });
-    }
-  };
-
-  const updateImageState = (lessonIndex: number, status: "idle" | "uploading" | "success", fileName?: string) => {
-    setImageStatuses(prev => {
-      const newStatuses = [...prev];
-      newStatuses[lessonIndex] = status;
-      return newStatuses;
-    });
-
-    if (fileName !== undefined) {
-      setUploadedImageNames(prev => {
-        const newNames = [...prev];
-        newNames[lessonIndex] = fileName;
-        return newNames;
-      });
-    }
-  };
-
-  // Fetch content data
+  /* ============== Load content (DRY via fetchContentById) ============== */
   useEffect(() => {
-    const fetchContent = async () => {
+    (async () => {
       try {
         if (!contentId) return;
+        const { normalized } = await fetchContentById(contentId);
+        setContent((prev) => ({
+          ...prev,
+          ...normalized,
+          Topic: normalized.Topic || topicId || ""
+        }));
+        setInitialExistingFileCount(normalized.file_path?.length || 0);
 
-        const response = await TopicContentService.getTopicContentById(contentId);
-        const contentData = response.data;
+        // init media indicators
+        setAudioStatuses(normalized.lesson.map(l => l.audio ? "success" : "idle"));
+        setVideoStatuses(normalized.lesson.map(l => l.video ? "success" : "idle"));
+        setImageStatuses(normalized.lesson.map(l => l.image ? "success" : "idle"));
+        setUploadedAudioNames(normalized.lesson.map(l => l.audio ? shortenFilename(extractFilenameFromUrl(l.audio)) : null));
+        setUploadedVideoNames(normalized.lesson.map(l => l.video ? shortenFilename(extractFilenameFromUrl(l.video)) : null));
+        setUploadedImageNames(normalized.lesson.map(l => l.image ? shortenFilename(extractFilenameFromUrl(l.image)) : null));
 
-        const updatedContent = {
-          _id: contentData._id,
-          title: contentData.title,
-          description: contentData.description,
-          lesson: contentData.lesson.map((lessonItem: any) => ({
-            _id: lessonItem._id,
-            text: lessonItem.text,
-            audio: lessonItem.audio,
-            video: lessonItem.video,
-            image: lessonItem.image || "",
-            subHeading: lessonItem.subHeading?.map((subItem: any) => ({
-              _id: subItem._id,
-              text: subItem.text,
-              subheadingAudioPath: subItem.subheadingAudioPath,
-              question: subItem.question,
-              expectedAnswer: subItem.expectedAnswer,
-              comment: subItem.comment,
-              hint: subItem.hint,
-            })) || []
-          })),
-          file_path: contentData.file_path,
-          file_type: contentData.file_type,
-          Topic: contentData.Topic._id,
-        };
-
-        setContent(updatedContent);
-        setInitialExistingFileCount(contentData.file_path.length);
-
-        // Initialize media states
-        setAudioStatuses(updatedContent.lesson.map(lesson => lesson.audio ? "success" : "idle"));
-        setVideoStatuses(updatedContent.lesson.map(lesson => lesson.video ? "success" : "idle"));
-        setImageStatuses(updatedContent.lesson.map(lesson => lesson.image ? "success" : "idle"));
-        setUploadedAudioNames(updatedContent.lesson.map(lesson =>
-          lesson.audio ? shortenFilename(extractFilenameFromUrl(lesson.audio)) : null
-        ));
-        setUploadedVideoNames(updatedContent.lesson.map(lesson =>
-          lesson.video ? shortenFilename(extractFilenameFromUrl(lesson.video)) : null
-        ));
-        setUploadedImageNames(updatedContent.lesson.map(lesson =>
-          lesson.image ? shortenFilename(extractFilenameFromUrl(lesson.image)) : null
-        ));
-      } catch (error) {
-        console.error("Failed to fetch content:", error);
+        // preload comments & reactions per lesson (optional)
+        for (let i = 0; i < normalized.lesson.length; i++) {
+          try {
+            const commentsRes = await getLessonComments(contentId, i);
+            const reactionsRes = await getLessonReactions(contentId, i);
+            setContent((prev) => {
+              const clone = { ...prev };
+              clone.lesson = [...prev.lesson];
+              clone.lesson[i] = {
+                ...clone.lesson[i],
+                comments: commentsRes?.data || [],
+                reactions: reactionsRes?.data || []
+              };
+              return clone;
+            });
+          } catch { /* ignore per-lesson errors */ }
+        }
+      } catch (err) {
+        console.error("Failed to fetch content:", err);
         const t = toast({
           variant: "destructive",
           title: "Oops! Couldn't Load Content",
           description: "We couldn't load the content data right now. Please try again.",
           duration: 8000,
           action: (
-            <Button
-              variant="secondary"
-              className="bg-white text-red-600 hover:bg-red-100"
-              onClick={() => t.dismiss()}
-            >
+            <Button variant="secondary" className="bg-white text-red-600 hover:bg-red-100" onClick={() => t.dismiss()}>
               Dismiss
             </Button>
           ),
         });
-
         navigate(-1);
       } finally {
         setIsLoading(false);
       }
-    };
+    })();
+  }, [contentId, topicId, toast, navigate]);
 
-    fetchContent();
-  }, [contentId, toast, navigate]);
+  /* ============== Mutators (pure setState) ============== */
 
   const addLessonItem = () => {
     setContent((prev) => ({
       ...prev,
       lesson: [
         ...prev.lesson,
-        {
-          text: "",
-          subHeading: [{
-            text: "",
-            question: "",
-            subheadingAudioPath: "",
-            expectedAnswer: "",
-            comment: "",
-            hint: "",
-          }],
-          audio: "",
-          video: "",
-          image: ""
-        },
+        { text: "", subHeading: [{ text: "", question: "", subheadingAudioPath: "", expectedAnswer: "", comment: "", hint: "", mcqQuestions: [] }], audio: "", video: "", image: "" },
       ],
     }));
-
-    // Add new states for the new lesson
-    setAudioStatuses(prev => [...prev, "idle"]);
-    setVideoStatuses(prev => [...prev, "idle"]);
-    setImageStatuses(prev => [...prev, "idle"]);
-    setUploadedAudioNames(prev => [...prev, null]);
-    setUploadedVideoNames(prev => [...prev, null]);
-    setUploadedImageNames(prev => [...prev, null]);
-
+    setAudioStatuses((p) => [...p, "idle"]);
+    setVideoStatuses((p) => [...p, "idle"]);
+    setImageStatuses((p) => [...p, "idle"]);
+    setUploadedAudioNames((p) => [...p, null]);
+    setUploadedVideoNames((p) => [...p, null]);
+    setUploadedImageNames((p) => [...p, null]);
     setActiveLessonIndex(content.lesson.length);
   };
 
   const removeLessonItem = (index: number) => {
-    if (content.lesson.length > 1) {
-      setContent((prev) => ({
-        ...prev,
-        lesson: prev.lesson.filter((_, i) => i !== index),
-      }));
-
-      setAudioStatuses(prev => prev.filter((_, i) => i !== index));
-      setVideoStatuses(prev => prev.filter((_, i) => i !== index));
-      setImageStatuses(prev => prev.filter((_, i) => i !== index));
-      setUploadedAudioNames(prev => prev.filter((_, i) => i !== index));
-      setUploadedVideoNames(prev => prev.filter((_, i) => i !== index));
-      setUploadedImageNames(prev => prev.filter((_, i) => i !== index));
-
-      if (index === activeLessonIndex) {
-        setActiveLessonIndex(Math.max(0, index - 1));
-      }
-    }
+    if (content.lesson.length <= 1) return;
+    setContent((prev) => ({ ...prev, lesson: prev.lesson.filter((_, i) => i !== index) }));
+    setAudioStatuses((p) => p.filter((_, i) => i !== index));
+    setVideoStatuses((p) => p.filter((_, i) => i !== index));
+    setImageStatuses((p) => p.filter((_, i) => i !== index));
+    setUploadedAudioNames((p) => p.filter((_, i) => i !== index));
+    setUploadedVideoNames((p) => p.filter((_, i) => i !== index));
+    setUploadedImageNames((p) => p.filter((_, i) => i !== index));
+    if (index === activeLessonIndex) setActiveLessonIndex(Math.max(0, index - 1));
   };
 
   const addSubHeading = (lessonIndex: number) => {
-    const updatedLessons = [...content.lesson];
-    updatedLessons[lessonIndex] = {
-      ...updatedLessons[lessonIndex],
-      subHeading: [
-        ...updatedLessons[lessonIndex].subHeading,
-        {
-          text: "",
-          question: "",
-          subheadingAudioPath: "",
-          expectedAnswer: "",
-          comment: "",
-          hint: "",
-        },
-      ],
-    };
-    setContent({
-      ...content,
-      lesson: updatedLessons,
+    setContent((prev) => {
+      const copy = { ...prev, lesson: [...prev.lesson] };
+      const L = { ...copy.lesson[lessonIndex] };
+      L.subHeading = [...L.subHeading, { text: "", question: "", subheadingAudioPath: "", expectedAnswer: "", comment: "", hint: "", mcqQuestions: [] }];
+      copy.lesson[lessonIndex] = L;
+      return copy;
     });
   };
 
   const removeSubHeading = (lessonIndex: number, subHeadingIndex: number) => {
-    if (content.lesson[lessonIndex].subHeading.length > 1) {
-      const updatedLessons = [...content.lesson];
-      updatedLessons[lessonIndex] = {
-        ...updatedLessons[lessonIndex],
-        subHeading: updatedLessons[lessonIndex].subHeading.filter(
-          (_, i) => i !== subHeadingIndex
-        ),
-      };
-      setContent({
-        ...content,
-        lesson: updatedLessons,
-      });
-    }
-  };
-
-  const updateLessonItem = (
-    lessonIndex: number,
-    field: keyof LessonItem,
-    value: string
-  ) => {
-    const updatedLessons = [...content.lesson];
-    updatedLessons[lessonIndex] = {
-      ...updatedLessons[lessonIndex],
-      [field]: value,
-    };
-    setContent({
-      ...content,
-      lesson: updatedLessons,
+    if (content.lesson[lessonIndex].subHeading.length <= 1) return;
+    setContent((prev) => {
+      const copy = { ...prev, lesson: [...prev.lesson] };
+      const L = { ...copy.lesson[lessonIndex] };
+      L.subHeading = L.subHeading.filter((_, i) => i !== subHeadingIndex);
+      copy.lesson[lessonIndex] = L;
+      return copy;
     });
   };
 
-  const updateSubHeadingItem = (
-    lessonIndex: number,
-    subHeadingIndex: number,
-    field: keyof SubHeadingItem,
-    value: string
-  ) => {
-    const updatedLessons = [...content.lesson];
-    const updatedSubHeadings = [...updatedLessons[lessonIndex].subHeading];
-    updatedSubHeadings[subHeadingIndex] = {
-      ...updatedSubHeadings[subHeadingIndex],
-      [field]: value,
-    };
-    updatedLessons[lessonIndex] = {
-      ...updatedLessons[lessonIndex],
-      subHeading: updatedSubHeadings,
-    };
-    setContent({
-      ...content,
-      lesson: updatedLessons,
+  const updateLessonItem = (lessonIndex: number, field: keyof LessonItem, value: string) => {
+    setContent((prev) => {
+      const copy = { ...prev, lesson: [...prev.lesson] };
+      copy.lesson[lessonIndex] = { ...copy.lesson[lessonIndex], [field]: value };
+      return copy;
     });
   };
 
-  const getAcceptedFileTypes = (fileType: string) => {
-    return fileTypeExtensions[fileType as keyof typeof fileTypeExtensions].join(
-      ","
-    );
+  const updateSubHeadingItem = (lessonIndex: number, subHeadingIndex: number, field: keyof SubHeadingItem, value: any) => {
+    setContent((prev) => {
+      const copy = { ...prev, lesson: [...prev.lesson] };
+      const L = { ...copy.lesson[lessonIndex] };
+      const SH = [...L.subHeading];
+      SH[subHeadingIndex] = { ...SH[subHeadingIndex], [field]: value };
+      L.subHeading = SH;
+      copy.lesson[lessonIndex] = L;
+      return copy;
+    });
   };
+
+  /* ============== Files (DRY: only track new uploads, merge at save) ============== */
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
     const files = Array.from(e.target.files);
     setUploadedFiles((prev) => [...prev, ...files]);
 
-    const tempFilePaths = files.map((file) => URL.createObjectURL(file));
-    setContent((prev) => ({
-      ...prev,
-      file_path: [...prev.file_path, ...tempFilePaths],
-    }));
+    // show as "pending" in UI with blob URLs (optional)
+    const tempPaths = files.map((f) => URL.createObjectURL(f));
+    setContent((prev) => ({ ...prev, file_path: [...prev.file_path, ...tempPaths] }));
   };
 
   const removeFile = (index: number) => {
-    setContent((prev) => ({
-      ...prev,
-      file_path: prev.file_path.filter((_, i) => i !== index),
-    }));
-
-    // Remove from uploadedFiles if it's a new file
+    setContent((prev) => ({ ...prev, file_path: prev.file_path.filter((_, i) => i !== index) }));
     if (index >= initialExistingFileCount) {
-      const uploadedIndex = index - initialExistingFileCount;
-      setUploadedFiles(prev => prev.filter((_, i) => i !== uploadedIndex));
+      const newIndex = index - initialExistingFileCount;
+      setUploadedFiles((prev) => prev.filter((_, i) => i !== newIndex));
     }
   };
 
-  const uploadFilesToSupabase = async (files: File[]) => {
-    try {
-      const uploadPromises = files.map(async (file) => {
-        const fileName = `${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage
-          .from("topics")
-          .upload(fileName, file);
-
-        if (error) throw error;
-
-        const { data: publicData } = supabase.storage
-          .from("topics")
-          .getPublicUrl(fileName);
-
-        return publicData?.publicUrl || null;
-      });
-
-      const results = await Promise.all(uploadPromises);
-      return results.filter((url) => url !== null) as string[];
-    } catch (error) {
-      console.error("Error in file upload:", error);
-      throw error;
-    }
-  };
+  /* ============== Save (uses updateContent + mergeNewUploads) ============== */
 
   const handleUpdateContent = async () => {
     try {
       setIsSubmitting(true);
 
-      // Validate required fields
       if (!content.title.trim()) {
         const t = toast({
           variant: "destructive",
@@ -638,16 +421,11 @@ const EditContent: React.FC = () => {
           description: "Please provide a title before continuing.",
           duration: 8000,
           action: (
-            <Button
-              variant="secondary"
-              className="bg-white text-red-600 hover:bg-red-100"
-              onClick={() => t.dismiss()}
-            >
+            <Button variant="secondary" className="bg-white text-red-600 hover:bg-red-100" onClick={() => t.dismiss()}>
               Dismiss
             </Button>
           ),
         });
-
         return;
       }
 
@@ -658,392 +436,398 @@ const EditContent: React.FC = () => {
           description: "Please provide a short description before continuing.",
           duration: 8000,
           action: (
-            <Button
-              variant="secondary"
-              className="bg-white text-red-600 hover:bg-red-100"
-              onClick={() => t.dismiss()}
-            >
+            <Button variant="secondary" className="bg-white text-red-600 hover:bg-red-100" onClick={() => t.dismiss()}>
               Dismiss
             </Button>
           ),
         });
-
         return;
       }
 
-      // Validate lesson titles
       const lessonErrors: number[] = [];
-      content.lesson.forEach((lesson, index) => {
-        if (!lesson.text.trim()) {
-          lessonErrors.push(index + 1);
-        }
-      });
-
-      if (lessonErrors.length > 0) {
+      content.lesson.forEach((l, i) => { if (!l.text.trim()) lessonErrors.push(i + 1); });
+      if (lessonErrors.length) {
         const t = toast({
           variant: "destructive",
           title: "Oops! Missing Lesson Titles",
-          description: `Please provide titles for the following lessons: ${lessonErrors.join(", ")}`,
+          description: `Provide titles for lessons: ${lessonErrors.join(", ")}`,
           duration: 8000,
           action: (
-            <Button
-              variant="secondary"
-              className="bg-white text-red-600 hover:bg-red-100"
-              onClick={() => t.dismiss()}
-            >
+            <Button variant="secondary" className="bg-white text-red-600 hover:bg-red-100" onClick={() => t.dismiss()}>
               Dismiss
             </Button>
           ),
         });
-
         return;
       }
 
-      // Upload new files if any
-      let uploadedUrls = [...content.file_path];
-      if (uploadedFiles.length > 0) {
-        const newUrls = await uploadFilesToSupabase(uploadedFiles);
-        uploadedUrls = [
-          ...content.file_path.slice(0, initialExistingFileCount),
-          ...newUrls
-        ];
-      }
+      // Only upload newly added files and merge
+      const mergedPaths = await mergeNewUploads(
+        content.file_path.slice(0, initialExistingFileCount), // keep original persisted URLs only
+        uploadedFiles,                                      // upload newly added
+        "topics"
+      );
 
-      const contentToUpdate = {
-        ...content,
-        file_path: uploadedUrls,
-      };
+      const payload: ContentFormData = { ...content, file_path: mergedPaths };
+      await updateContentApi(content._id || contentId!, payload);
 
-      await TopicContentService.updateTopicContent(content._id || '', contentToUpdate);
-
-      const t = toast({
+      toast({
         title: "✅ Content Updated Successfully",
         description: "Your content has been updated and is ready to use.",
-        variant: "default",
-        duration: 8000,
-        action: (
-          <Button
-            variant="secondary"
-            className="bg-green-600 text-white hover:bg-green-700"
-            onClick={() => t.dismiss()}
-          >
-            Got it
-          </Button>
-        ),
+        duration: 6000,
       });
-    } catch (error) {
-      console.error("Failed to update content:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update content. Please try again.",
-      });
+
+      // refresh counts/UI
+      setInitialExistingFileCount(mergedPaths.length);
+      setUploadedFiles([]);
+      setContent((prev) => ({ ...prev, file_path: mergedPaths }));
+    } catch (err) {
+      console.error("Failed to update content:", err);
+      toast({ variant: "destructive", title: "Error", description: "Failed to update content. Please try again." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+
+
+  const getUserInfo = (user: any) => {
+    if (typeof user === "string") {
+      return { name: user, picture: null };
+    }
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+    const picture = user.profilePicture || user.profile_picture || null;
+    return { name: fullName || "User", picture };
+  };
+
+  /* ============== Comments (uses comments API fns) ============== */
+
+  const refreshLessonComments = async (lessonIndex: number) => {
+    if (!contentId) return;
+    try {
+      const res = await getLessonComments(contentId, lessonIndex);
+      setContent((prev) => {
+        const copy = { ...prev, lesson: [...prev.lesson] };
+        copy.lesson[lessonIndex] = { ...copy.lesson[lessonIndex], comments: res?.data || [] };
+        return copy;
+      });
+    } catch (e) { /* noop */ }
+  };
+
+
+
+  const storedAdmin = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("adminData"));
+    } catch {
+      return null;
+    }
+  })();
+
+  const adminId =
+    storedAdmin?._id || localStorage.getItem("adminId") || null;
+
+  useEffect(() => {
+    if (!adminId) {
+      console.warn("No adminId found in localStorage. Redirecting to login...");
+      navigate("/login"); // 👈 redirect to login
+    }
+  }, [adminId, navigate]);
+  const handleAddComment = async (lessonIndex: number) => {
+    if (!contentId) return;
+    const text = (newCommentByLesson[lessonIndex] || "").trim();
+    if (!text) return;
+    try {
+      await addLessonComment(contentId, lessonIndex, {
+        userId: adminId, // TODO: plug in your auth user id
+        userType: "Admin",
+        text,
+      });
+      setNewCommentByLesson((p) => ({ ...p, [lessonIndex]: "" }));
+      await refreshLessonComments(lessonIndex);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to add comment." });
+    }
+  };
+
+  const handleReply = async (lessonIndex: number, commentIndex: number) => {
+    if (!contentId) return;
+    const key = `${lessonIndex}_${commentIndex}`;
+    const text = (newReplyByLessonAndIndex[key] || "").trim();
+    if (!text) return;
+    try {
+      await replyToComment(contentId, lessonIndex, commentIndex, {
+        userId: adminId, // TODO
+        userType: "Admin",
+        text,
+      });
+      setNewReplyByLessonAndIndex((p) => ({ ...p, [key]: "" }));
+      await refreshLessonComments(lessonIndex);
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to reply." });
+    }
+  };
+
+  const handleDeleteComment = async (lessonIndex: number, commentIndex: number) => {
+    if (!contentId) return;
+    try {
+      await deleteLessonComment(contentId, lessonIndex, commentIndex);
+      await refreshLessonComments(lessonIndex);
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to delete comment." });
+    }
+  };
+
+  /* ============== Reactions (uses reactions API fns) ============== */
+
+  const refreshLessonReactions = async (lessonIndex: number) => {
+    if (!contentId) return;
+    try {
+      const res = await getLessonReactions(contentId, lessonIndex);
+      setContent((prev) => {
+        const copy = { ...prev, lesson: [...prev.lesson] };
+        copy.lesson[lessonIndex] = { ...copy.lesson[lessonIndex], reactions: res?.data || [] };
+        return copy;
+      });
+    } catch { /* noop */ }
+  };
+
+  const handleReact = async (lessonIndex: number, emoji: string) => {
+    if (!contentId) return;
+    try {
+      await addLessonReaction(contentId, lessonIndex, {
+        userId: adminId, // TODO
+        userType: "Admin",
+        emoji,
+      });
+      await refreshLessonReactions(lessonIndex);
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to add reaction." });
+    }
+  };
+
+  const handleDeleteReaction = async (lessonIndex: number, reactionIndex: number) => {
+    if (!contentId) return;
+    try {
+      await deleteLessonReaction(contentId, lessonIndex, reactionIndex);
+      await refreshLessonReactions(lessonIndex);
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to delete reaction." });
+    }
+  };
+
+  /* ============== MCQ Helpers (local state via content) ============== */
+
+  const currentSubHeadingItem =
+    currentQuestionData.lessonIndex !== -1 && currentQuestionData.subHeadingIndex !== -1
+      ? content.lesson[currentQuestionData.lessonIndex].subHeading[currentQuestionData.subHeadingIndex]
+      : null;
+
+  const ensureMcqArray = () => {
+    if (!currentSubHeadingItem) return;
+    if (!currentSubHeadingItem.mcqQuestions) {
+      updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", []);
+    }
+  };
+
+  const addMcq = () => {
+    if (!currentSubHeadingItem) return;
+    ensureMcqArray();
+    const next: MCQQuestion = { question: "", options: [""], correctAnswer: "", explanation: "" };
+    const arr = [...(currentSubHeadingItem.mcqQuestions || []), next];
+    updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
+  };
+
+  const removeMcq = (mcqIndex: number) => {
+    if (!currentSubHeadingItem) return;
+    const arr = (currentSubHeadingItem.mcqQuestions || []).filter((_, i) => i !== mcqIndex);
+    updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
+  };
+
+  const updateMcqField = (mcqIndex: number, key: keyof MCQQuestion, value: any) => {
+    if (!currentSubHeadingItem) return;
+    const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
+    arr[mcqIndex] = { ...arr[mcqIndex], [key]: value };
+    updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
+  };
+
+  const addMcqOption = (mcqIndex: number) => {
+    if (!currentSubHeadingItem) return;
+    const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
+    const opts = [...arr[mcqIndex].options, ""];
+    arr[mcqIndex] = { ...arr[mcqIndex], options: opts };
+    updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
+  };
+
+  const updateMcqOption = (mcqIndex: number, optionIndex: number, value: string) => {
+    if (!currentSubHeadingItem) return;
+    const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
+    const opts = [...arr[mcqIndex].options];
+    opts[optionIndex] = value;
+    arr[mcqIndex] = { ...arr[mcqIndex], options: opts };
+    // If correct answer was this option and it’s now blank, clear it
+    if (arr[mcqIndex].correctAnswer === arr[mcqIndex].options[optionIndex] && !value) {
+      arr[mcqIndex].correctAnswer = "";
+    }
+    updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
+  };
+
+  const removeMcqOption = (mcqIndex: number, optionIndex: number) => {
+    if (!currentSubHeadingItem) return;
+    const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
+    const target = { ...arr[mcqIndex] };
+    const removed = target.options[optionIndex];
+    target.options = target.options.filter((_, i) => i !== optionIndex);
+    if (target.correctAnswer === removed) {
+      target.correctAnswer = "";
+    }
+    arr[mcqIndex] = target;
+    updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
+  };
+
+  /* ============== UI ============== */
+
+  if (isLoading) return <LoadingShimmer />;
+
   const openQuestionModal = (lessonIndex: number, subHeadingIndex: number) => {
     setCurrentQuestionData({ lessonIndex, subHeadingIndex });
     setShowQuestionModal(true);
   };
-
-  const saveQuestion = () => {
-    setShowQuestionModal(false);
-  };
-
-  // Get the current subheading item for the modal
-  const currentSubHeadingItem = currentQuestionData.lessonIndex !== -1 &&
-    currentQuestionData.subHeadingIndex !== -1
-    ? content.lesson[currentQuestionData.lessonIndex].subHeading[currentQuestionData.subHeadingIndex]
-    : null;
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen w-full bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const saveQuestion = () => setShowQuestionModal(false);
 
   return (
-    <div className="min-h-screen w-full bg-gray-100">
-      <div className="w-full px-0 py-0">
+    <div className="min-h-screen w-full bg-gray-100 flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="relative p-6 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="relative flex items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(-1)}
-              className="text-white hover:bg-white/20"
-            >
-              <ChevronLeft size={20} className="mr-2" />
-              Back
+        <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <Button variant="ghost" onClick={() => navigate(-1)} className="mr-4">
+              <ChevronLeft size={20} className="mr-2" /> Back
             </Button>
-            <div className="text-center flex-1">
-              <h1 className="text-2xl font-bold tracking-tight flex items-center justify-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <Edit size={24} className="text-white" />
-                </div>
-                Edit Content
-              </h1>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-800">Edit Content</h1>
           </div>
+
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Content Type Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-            <div className="space-y-2 md:col-span-1">
-              <Input
-                value={content.title}
-                onChange={(e) =>
-                  setContent({ ...content, title: e.target.value })
-                }
-                placeholder="Title"
-                className="h-10 text-sm border border-gray-200 hover:border-green-300 focus:border-green-400 transition-all duration-200 bg-white/80 backdrop-blur-sm"
-              />
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto">
+            {/* Title + Description */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start mb-6">
+              <div className="space-y-2 md:col-span-1">
+                <label className="text-sm font-medium text-gray-700">Title</label>
+                <Input value={content.title} onChange={(e) => setContent({ ...content, title: e.target.value })} placeholder="Title" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Description</label>
+                <Input value={content.description} onChange={(e) => setContent({ ...content, description: e.target.value })} placeholder="Short description..." />
+              </div>
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Input
-                value={content.description}
-                onChange={(e) =>
-                  setContent({
-                    ...content,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Short description..."
-                className="h-10 text-sm border border-gray-200 hover:border-green-300 focus:border-green-400 transition-all duration-200 bg-white/80 backdrop-blur-sm"
-              />
-            </div>
-          </div>
 
-          {/* Lesson Tabs */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {content.lesson.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveLessonIndex(index)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${activeLessonIndex === index
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
-                  : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
-                  }`}
-              >
-                Lesson {index + 1}
+            {/* Lesson Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {content.lesson.map((_, index) => (
+                <button key={index} onClick={() => setActiveLessonIndex(index)}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeLessonIndex === index ? "bg-blue-600 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`}>
+                  Lesson {index + 1}
+                </button>
+              ))}
+              <button onClick={addLessonItem} className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm flex items-center gap-1 hover:bg-blue-700">
+                <Plus size={16} /> Add Lesson
               </button>
-            ))}
-            <button
-              onClick={addLessonItem}
-              className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-medium text-sm flex items-center gap-1 hover:from-orange-600 hover:to-red-600 transition-all duration-200"
-            >
-              <Plus size={16} /> Add Lesson
-            </button>
-          </div>
+            </div>
 
-          {/* Active Lesson Content */}
-          <div className="space-y-6">
-            {content.lesson.map(
-              (lessonItem, lessonIndex) =>
+            {/* Active Lesson */}
+            <div className="space-y-6">
+              {content.lesson.map((lessonItem, lessonIndex) =>
                 lessonIndex === activeLessonIndex && (
-                  <div
-                    key={lessonIndex}
-                    className="bg-gradient-to-br from-white via-gray-50 to-blue-50/30 rounded-xl p-4 border-2 border-gray-100 hover:border-blue-200 transition-all duration-300 shadow-sm hover:shadow-md"
-                  >
+                  <div key={lessonIndex} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
                           {lessonIndex + 1}
                         </div>
-                        <span className="text-sm font-semibold text-gray-700">
-                          Lesson {lessonIndex + 1}
-                        </span>
+                        <span className="text-sm font-semibold text-gray-700">Lesson {lessonIndex + 1}</span>
                       </div>
                       {content.lesson.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
-                          onClick={() => removeLessonItem(lessonIndex)}
-                        >
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50" onClick={() => removeLessonItem(lessonIndex)}>
                           <X size={14} />
                         </Button>
                       )}
                     </div>
 
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Lesson Title */}
-                        <div className="space-y-1">
-                          <Input
-                            value={lessonItem.text}
-                            onChange={(e) =>
-                              updateLessonItem(lessonIndex, "text", e.target.value)
-                            }
-                            placeholder="Enter lesson title"
-                            className="text-sm border border-gray-200 hover:border-blue-300 focus:border-blue-400 transition-all duration-200"
-                          />
-                        </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">Lesson Title</label>
+                        <Input value={lessonItem.text} onChange={(e) => updateLessonItem(lessonIndex, "text", e.target.value)} placeholder="Enter lesson title" />
                       </div>
 
-                      {/* Subheadings */}
+                      {/* Sections */}
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <label className="text-xs font-medium text-gray-600">
-                            Sections
-                          </label>
-                        </div>
-
+                        <label className="text-sm font-medium text-gray-700">Sections</label>
                         <div className="space-y-4">
-                          {lessonItem.subHeading.map(
-                            (subHeadingItem, subHeadingIndex) => (
-                              <div
-                                key={subHeadingIndex}
-                                className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                              >
+                          {lessonItem.subHeading.map((subHeadingItem, subHeadingIndex) => {
+                            const field = (f: string) => getFieldPath(lessonIndex, subHeadingIndex, f);
+                            return (
+                              <div key={subHeadingIndex} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                                 <div className="flex justify-between items-center mb-3">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full flex items-center justify-center text-white text-xs">
+                                    <div className="w-6 h-6 bg-blue-400 rounded-full text-white text-xs flex items-center justify-center">
                                       {subHeadingIndex + 1}
                                     </div>
-                                    <span className="text-xs font-medium text-gray-700">
-                                      Section {subHeadingIndex + 1}
-                                    </span>
+                                    <span className="text-xs font-medium text-gray-700">Section {subHeadingIndex + 1}</span>
                                   </div>
                                   {lessonItem.subHeading.length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50"
-                                      onClick={() =>
-                                        removeSubHeading(lessonIndex, subHeadingIndex)
-                                      }
-                                    >
+                                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50" onClick={() => removeSubHeading(lessonIndex, subHeadingIndex)}>
                                       <X size={12} />
                                     </Button>
                                   )}
                                 </div>
 
+                                {/* Section Content */}
                                 <div className="space-y-3">
-                                  {/* Subheading Text - Math Input */}
-                                  <div className="space-y-2">
-                                    <label className="text-xs font-medium text-gray-600">
-                                      Section Content
-                                    </label>
-                                    <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                                      {editingStates[getFieldPath(lessonIndex, subHeadingIndex, "text")] ? (
-                                        <MathInput
-                                          value={subHeadingItem.text}
-                                          onChange={(value) =>
-                                            updateSubHeadingItem(
-                                              lessonIndex,
-                                              subHeadingIndex,
-                                              "text",
-                                              value
-                                            )
-                                          }
-                                          editing={true}
-                                          onSave={() => saveMathValue(getFieldPath(lessonIndex, subHeadingIndex, "text"))}
-                                          onCancel={() => cancelEditing(getFieldPath(lessonIndex, subHeadingIndex, "text"))}
-                                        />
-                                      ) : (
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex-1">
-                                            <MathInput
-                                              value={subHeadingItem.text}
-                                              editing={false}
-                                              placeholder="Click edit to add content"
-                                            />
+                                  {(["text", "comment"] as const).map((key) => (
+                                    <div className="space-y-2" key={key}>
+                                      <label className="text-xs font-medium text-gray-600">
+                                        {key === "text" ? "Section Content" : "Comment"}
+                                      </label>
+                                      <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                                        {editingStates[field(key)] ? (
+                                          <MathInput
+                                            value={subHeadingItem[key]}
+                                            onChange={(v) => updateSubHeadingItem(lessonIndex, subHeadingIndex, key, v)}
+                                            editing={true}
+                                            onSave={() => saveMathValue(field(key))}
+                                            onCancel={() => cancelEditing(field(key))}
+                                          />
+                                        ) : (
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                              <MathInput value={subHeadingItem[key]} editing={false} placeholder={`Click edit to add ${key}`} />
+                                            </div>
+                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500" onClick={() => toggleEditing(field(key))}>
+                                              <Edit size={14} />
+                                            </Button>
                                           </div>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                                            onClick={() => toggleEditing(getFieldPath(lessonIndex, subHeadingIndex, "text"))}
-                                          >
-                                            <Edit size={14} />
-                                          </Button>
-                                        </div>
-                                      )}
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
+                                  ))}
 
-                                  {/* Comment Field - Math Input */}
-                                  <div className="space-y-2">
-                                    <label className="text-xs font-medium text-gray-600">
-                                      Comment
-                                    </label>
-                                    <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                                      {editingStates[getFieldPath(lessonIndex, subHeadingIndex, "comment")] ? (
-                                        <MathInput
-                                          value={subHeadingItem.comment}
-                                          onChange={(value) =>
-                                            updateSubHeadingItem(
-                                              lessonIndex,
-                                              subHeadingIndex,
-                                              "comment",
-                                              value
-                                            )
-                                          }
-                                          editing={true}
-                                          onSave={() => saveMathValue(getFieldPath(lessonIndex, subHeadingIndex, "comment"))}
-                                          onCancel={() => cancelEditing(getFieldPath(lessonIndex, subHeadingIndex, "comment"))}
-                                        />
-                                      ) : (
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex-1">
-                                            <MathInput
-                                              value={subHeadingItem.comment}
-                                              editing={false}
-                                              placeholder="Click edit to add comment"
-                                            />
-                                          </div>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                                            onClick={() => toggleEditing(getFieldPath(lessonIndex, subHeadingIndex, "comment"))}
-                                          >
-                                            <Edit size={14} />
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Question Button */}
+                                  {/* Upload (audio/video/document/image) for subheading; stores URL in subheadingAudioPath */}
                                   <div className="flex items-center justify-between w-full">
-                                    <div>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}
-                                        className="bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0 hover:from-blue-600 hover:to-purple-600 transition-all duration-200"
-                                      >
+                                    <div className="flex gap-2">
+                                      <Button type="button" variant="outline" size="sm" onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
                                         <Plus size={14} className="mr-1" />
-                                        {subHeadingItem.question ? "Edit Question" : "Add Question"}
+                                        {subHeadingItem.question ? "Edit Q&A / MCQs" : "Add Q&A / MCQs"}
                                       </Button>
                                     </div>
-
                                     <div className="flex flex-col items-end">
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className={`flex items-center gap-2 px-3 text-white h-9 shadow-md transition-all duration-200 border-0 ${subHeadingItem.subheadingAudioPath
-                                              ? "bg-green-600"
-                                              : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                                              }`}
-                                          >
+                                          <Button type="button" variant="outline" size="sm"
+                                            className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${subHeadingItem.subheadingAudioPath ? "bg-green-600" : "bg-green-500 hover:bg-green-600"}`}>
                                             {selectedFileType === "audio" && <Music size={16} />}
                                             {selectedFileType === "video" && <Video size={16} />}
                                             {selectedFileType === "document" && <FileText size={16} />}
@@ -1055,521 +839,435 @@ const EditContent: React.FC = () => {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent className="w-48">
-                                          <DropdownMenuItem
-                                            onClick={() => setSelectedFileType("audio")}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <Music size={14} /> Audio
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => setSelectedFileType("video")}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <Video size={14} /> Video
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => setSelectedFileType("document")}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <FileText size={14} /> Document
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => setSelectedFileType("image")}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <ImageIcon size={14} /> Image
-                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setSelectedFileType("audio")} className="flex items-center gap-2"><Music size={14} /> Audio</DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setSelectedFileType("video")} className="flex items-center gap-2"><Video size={14} /> Video</DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setSelectedFileType("document")} className="flex items-center gap-2"><FileText size={14} /> Document</DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setSelectedFileType("image")} className="flex items-center gap-2"><ImageIcon size={14} /> Image</DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>
 
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-2 bg-blue-500 text-white hover:bg-blue-600 w-full"
-                                        disabled={uploading}
+                                      <Button type="button" variant="outline" size="sm" className="mt-2 bg-blue-500 text-white hover:bg-blue-600 w-full" disabled={uploading}
                                         onClick={async () => {
                                           const input = document.createElement("input");
                                           input.type = "file";
                                           input.accept = getAcceptedFileTypes(selectedFileType);
                                           input.onchange = async (e) => {
                                             const file = (e.target as HTMLInputElement).files?.[0];
-                                            if (file) {
-                                              setUploadedFileName(file.name);
-                                              setUploading(true);
-
-                                              try {
-                                                const fileName = `${Date.now()}_${file.name}`;
-                                                const { error } = await supabase.storage
-                                                  .from("topics")
-                                                  .upload(fileName, file);
-
-                                                if (error) throw error;
-
-                                                const { data: publicData } = supabase.storage
-                                                  .from("topics")
-                                                  .getPublicUrl(fileName);
-
-                                                if (publicData) {
-                                                  updateSubHeadingItem(
-                                                    lessonIndex,
-                                                    subHeadingIndex,
-                                                    "subheadingAudioPath",
-                                                    publicData.publicUrl
-                                                  );
-
-                                                  toast({
-                                                    title: "Success",
-                                                    description: `${selectedFileType.charAt(0).toUpperCase() + selectedFileType.slice(1)} uploaded successfully`,
-                                                    duration: 5000,
-                                                  });
-                                                }
-                                              } catch (error) {
-                                                console.error("Upload failed:", error);
-                                                toast({
-                                                  variant: "destructive",
-                                                  title: "Error",
-                                                  description: `Failed to upload ${selectedFileType} file`,
-                                                });
-                                                setUploadedFileName(null);
-                                              } finally {
-                                                setUploading(false);
-                                              }
+                                            if (!file) return;
+                                            setUploading(true);
+                                            try {
+                                              const url = await uploadSingleToSupabase(file, "topics");
+                                              updateSubHeadingItem(lessonIndex, subHeadingIndex, "subheadingAudioPath", url);
+                                              toast({ title: "Success", description: `${selectedFileType} uploaded`, duration: 4000 });
+                                            } catch (err) {
+                                              console.error(err);
+                                              toast({ variant: "destructive", title: "Error", description: `Failed to upload ${selectedFileType}` });
+                                            } finally {
+                                              setUploading(false);
                                             }
                                           };
                                           input.click();
-                                        }}
-                                      >
-                                        {uploading ? (
-                                          <div className="flex items-center gap-2">
-                                            <div className="h-4 w-4 rounded-full border-2 border-t-transparent border-white animate-spin" />
-                                            Selecting...
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1">
-                                            <Upload size={14} className="mr-1" />
-                                            Select File
-                                          </div>
-                                        )}
+                                        }}>
+                                        <Upload size={14} className="mr-1" /> Select File
                                       </Button>
 
-                                      {/* View file button if file exists */}
                                       {subHeadingItem.subheadingAudioPath && (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="mt-2 bg-gray-500 text-white hover:bg-gray-600 w-full"
-                                          onClick={() => window.open(subHeadingItem.subheadingAudioPath, '_blank')}
-                                        >
-                                          <Eye size={14} className="mr-1" />
-                                          View File
+                                        <Button type="button" variant="outline" size="sm" className="mt-2 bg-gray-500 text-white hover:bg-gray-600 w-full"
+                                          onClick={() => window.open(subHeadingItem.subheadingAudioPath, "_blank")}>
+                                          <Eye size={14} className="mr-1" /> View File
                                         </Button>
                                       )}
                                     </div>
                                   </div>
 
-                                  {/* Show question if it exists */}
-                                  {subHeadingItem.question && (
+                                  {/* Quick Question preview */}
+                                  {(subHeadingItem.question || (subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0)) && (
                                     <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
-                                      <div className="flex justify-between items-start">
-                                        <div className="space-y-1 w-full">
-                                          <h4 className="text-xs font-medium text-blue-800">
-                                            Question:
-                                          </h4>
-                                          <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                                            <div className="flex items-start justify-between">
-                                              <div className="flex-1">
-                                                <MathInput
-                                                  value={subHeadingItem.question}
-                                                  editing={false}
-                                                  placeholder="No question added"
-                                                />
+                                      <div className="flex justify-between items-start gap-3">
+                                        <div className="space-y-2 w-full">
+                                          {subHeadingItem.question && (
+                                            <>
+                                              <h4 className="text-xs font-medium text-blue-800">Question:</h4>
+                                              <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                                                <MathInput value={subHeadingItem.question} editing={false} placeholder="No question added" />
                                               </div>
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                                                onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}
-                                              >
-                                                <Edit size={14} />
-                                              </Button>
+                                            </>
+                                          )}
+                                          {subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0 && (
+                                            <div className="text-xs text-blue-900">
+                                              {subHeadingItem.mcqQuestions.length} MCQ{subHeadingItem.mcqQuestions.length > 1 ? "s" : ""} attached
                                             </div>
-                                          </div>
+                                          )}
                                         </div>
+                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                                          onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}>
+                                          <Edit size={14} />
+                                        </Button>
                                       </div>
                                     </div>
                                   )}
                                 </div>
                               </div>
-                            )
-                          )}
+                            );
+                          })}
                         </div>
 
-                        <div className="space-y-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addSubHeading(lessonIndex)}
-                            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0 hover:from-blue-600 hover:to-purple-600 transition-all duration-200"
-                          >
-                            <Plus size={14} className="mr-1" />
-                            Add Section
+                        <div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => addSubHeading(lessonIndex)} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
+                            <Plus size={14} className="mr-1" /> Add Section
                           </Button>
                         </div>
                       </div>
 
-                      {/* Lesson media upload buttons */}
-                      <div className="flex justify-end gap-2 pt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
+                      {/* Media upload per-lesson (audio/video/image) */}
+                      <div className="flex flex-wrap justify-end gap-2 pt-4">
+                        {/* AUDIO */}
+                        <Button type="button" variant="outline" size="sm"
                           disabled={audioStatuses[lessonIndex] === "uploading"}
-                          className={`flex items-center gap-2 px-3 text-white h-9 shadow-md transition-all duration-200 border-0 ${audioStatuses[lessonIndex] === "success"
-                            ? "bg-green-600"
-                            : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                            }`}
-                          onClick={async () => {
+                          className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${audioStatuses[lessonIndex] === "success" ? "bg-green-600" : "bg-green-500 hover:bg-green-600"}`}
+                          onClick={() => {
                             const input = document.createElement("input");
                             input.type = "file";
                             input.accept = "audio/*";
                             input.onchange = async (e) => {
                               const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                updateAudioState(lessonIndex, "uploading", file.name);
-
-                                try {
-                                  const fileName = `${Date.now()}_${file.name}`;
-                                  const { error } = await supabase.storage
-                                    .from("topics")
-                                    .upload(fileName, file);
-
-                                  if (error) throw error;
-
-                                  const { data: publicData } = supabase.storage
-                                    .from("topics")
-                                    .getPublicUrl(fileName);
-
-                                  if (publicData) {
-                                    updateLessonItem(lessonIndex, "audio", publicData.publicUrl);
-                                    updateAudioState(lessonIndex, "success", shortenFilename(file.name));
-
-                                    toast({
-                                      title: "Success",
-                                      description: "Audio uploaded successfully",
-                                      duration: 5000,
-                                    });
-                                  }
-                                } catch (error) {
-                                  console.error("Audio upload failed:", error);
-                                  updateAudioState(lessonIndex, "idle", null);
-                                  toast({
-                                    variant: "destructive",
-                                    title: "Error",
-                                    description: "Failed to upload audio file",
-                                  });
-                                }
+                              if (!file) return;
+                              updateAudioState(lessonIndex, "uploading", file.name);
+                              try {
+                                const url = await uploadSingleToSupabase(file, "topics");
+                                updateLessonItem(lessonIndex, "audio", url);
+                                updateAudioState(lessonIndex, "success", shortenFilename(file.name));
+                                toast({ title: "Success", description: "Audio uploaded" });
+                              } catch (err) {
+                                updateAudioState(lessonIndex, "idle", null);
+                                toast({ variant: "destructive", title: "Error", description: "Failed to upload audio" });
                               }
                             };
                             input.click();
-                          }}
-                        >
+                          }}>
                           <Music size={16} />
-                          {audioStatuses[lessonIndex] === "uploading"
-                            ? `Uploading ${uploadedAudioNames[lessonIndex]}...`
-                            : audioStatuses[lessonIndex] === "success"
-                              ? (
-                                <span className="max-w-[100px] truncate">
-                                  {uploadedAudioNames[lessonIndex] || "Uploaded"}
-                                </span>
-                              )
+                          {audioStatuses[lessonIndex] === "uploading" ? `Uploading ${uploadedAudioNames[lessonIndex]}...`
+                            : audioStatuses[lessonIndex] === "success" ? <span className="max-w-[100px] truncate">{uploadedAudioNames[lessonIndex] || "Uploaded"}</span>
                               : "Upload Audio"}
                         </Button>
-
-                        {/* View audio button */}
                         {lessonItem.audio && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="bg-gray-500 text-white hover:bg-gray-600"
-                            onClick={() => window.open(lessonItem.audio, '_blank')}
-                          >
-                            <Eye size={16} className="mr-1" />
-                            View Audio
+                          <Button type="button" variant="outline" size="sm" className="bg-gray-500 text-white hover:bg-gray-600" onClick={() => window.open(lessonItem.audio, "_blank")}>
+                            <Eye size={16} className="mr-1" /> View Audio
                           </Button>
                         )}
 
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
+                        {/* VIDEO */}
+                        <Button type="button" variant="outline" size="sm"
                           disabled={videoStatuses[lessonIndex] === "uploading"}
-                          className={`flex items-center gap-2 px-3 text-white h-9 border-0 shadow-md transition-all duration-200 ${videoStatuses[lessonIndex] === "success"
-                            ? "bg-indigo-600"
-                            : "bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
-                            }`}
-                          onClick={async () => {
+                          className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${videoStatuses[lessonIndex] === "success" ? "bg-indigo-600" : "bg-indigo-500 hover:bg-indigo-600"}`}
+                          onClick={() => {
                             const input = document.createElement("input");
                             input.type = "file";
                             input.accept = "video/*";
                             input.onchange = async (e) => {
                               const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                updateVideoState(lessonIndex, "uploading", file.name);
-
-                                try {
-                                  const fileName = `${Date.now()}_${file.name}`;
-                                  const { error } = await supabase.storage
-                                    .from("topics")
-                                    .upload(fileName, file);
-
-                                  if (error) throw error;
-
-                                  const { data: publicData } = supabase.storage
-                                    .from("topics")
-                                    .getPublicUrl(fileName);
-
-                                  if (publicData) {
-                                    updateLessonItem(lessonIndex, "video", publicData.publicUrl);
-                                    updateVideoState(lessonIndex, "success", shortenFilename(file.name));
-
-                                    toast({
-                                      title: "Success",
-                                      description: "Video uploaded successfully",
-                                      duration: 3000,
-                                    });
-                                  }
-                                } catch (error) {
-                                  console.error("Video upload failed:", error);
-                                  updateVideoState(lessonIndex, "idle", null);
-                                  toast({
-                                    variant: "destructive",
-                                    title: "Error",
-                                    description: "Failed to upload video file",
-                                    duration: 5000,
-                                  });
-                                }
+                              if (!file) return;
+                              updateVideoState(lessonIndex, "uploading", file.name);
+                              try {
+                                const url = await uploadSingleToSupabase(file, "topics");
+                                updateLessonItem(lessonIndex, "video", url);
+                                updateVideoState(lessonIndex, "success", shortenFilename(file.name));
+                                toast({ title: "Success", description: "Video uploaded" });
+                              } catch (err) {
+                                updateVideoState(lessonIndex, "idle", null);
+                                toast({ variant: "destructive", title: "Error", description: "Failed to upload video" });
                               }
                             };
                             input.click();
-                          }}
-                        >
+                          }}>
                           <Video size={16} />
-                          {videoStatuses[lessonIndex] === "uploading"
-                            ? `Uploading ${uploadedVideoNames[lessonIndex]}...`
-                            : videoStatuses[lessonIndex] === "success"
-                              ? (
-                                <span className="max-w-[100px] truncate">
-                                  {uploadedVideoNames[lessonIndex] || "Uploaded"}
-                                </span>
-                              )
+                          {videoStatuses[lessonIndex] === "uploading" ? `Uploading ${uploadedVideoNames[lessonIndex]}...`
+                            : videoStatuses[lessonIndex] === "success" ? <span className="max-w-[100px] truncate">{uploadedVideoNames[lessonIndex] || "Uploaded"}</span>
                               : "Upload Video"}
                         </Button>
-
-                        {/* View video button */}
                         {lessonItem.video && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="bg-gray-500 text-white hover:bg-gray-600"
-                            onClick={() => window.open(lessonItem.video, '_blank')}
-                          >
-                            <Eye size={16} className="mr-1" />
-                            View Video
+                          <Button type="button" variant="outline" size="sm" className="bg-gray-500 text-white hover:bg-gray-600" onClick={() => window.open(lessonItem.video, "_blank")}>
+                            <Eye size={16} className="mr-1" /> View Video
                           </Button>
                         )}
 
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
+                        {/* IMAGE */}
+                        <Button type="button" variant="outline" size="sm"
                           disabled={imageStatuses[lessonIndex] === "uploading"}
-                          className={`flex items-center gap-2 px-3 text-white h-9 border-0 shadow-md transition-all duration-200 ${imageStatuses[lessonIndex] === "success"
-                            ? "bg-yellow-600"
-                            : "bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600"
-                            }`}
-                          onClick={async () => {
+                          className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${imageStatuses[lessonIndex] === "success" ? "bg-yellow-600" : "bg-yellow-500 hover:bg-yellow-600"}`}
+                          onClick={() => {
                             const input = document.createElement("input");
                             input.type = "file";
                             input.accept = "image/*";
                             input.onchange = async (e) => {
                               const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                updateImageState(lessonIndex, "uploading", file.name);
-
-                                try {
-                                  const fileName = `${Date.now()}_${file.name}`;
-                                  const { error } = await supabase.storage
-                                    .from("topics")
-                                    .upload(fileName, file);
-
-                                  if (error) throw error;
-
-                                  const { data: publicData } = supabase.storage
-                                    .from("topics")
-                                    .getPublicUrl(fileName);
-
-                                  if (publicData) {
-                                    updateLessonItem(lessonIndex, "image", publicData.publicUrl);
-                                    updateImageState(lessonIndex, "success", shortenFilename(file.name));
-
-                                    toast({
-                                      title: "Success",
-                                      description: "Image uploaded successfully",
-                                      duration: 3000,
-                                    });
-                                  }
-                                } catch (error) {
-                                  console.error("Image upload failed:", error);
-                                  updateImageState(lessonIndex, "idle", null);
-                                  toast({
-                                    variant: "destructive",
-                                    title: "Error",
-                                    description: "Failed to upload image file",
-                                    duration: 5000,
-                                  });
-                                }
+                              if (!file) return;
+                              updateImageState(lessonIndex, "uploading", file.name);
+                              try {
+                                const url = await uploadSingleToSupabase(file, "topics");
+                                updateLessonItem(lessonIndex, "image", url);
+                                updateImageState(lessonIndex, "success", shortenFilename(file.name));
+                                toast({ title: "Success", description: "Image uploaded" });
+                              } catch (err) {
+                                updateImageState(lessonIndex, "idle", null);
+                                toast({ variant: "destructive", title: "Error", description: "Failed to upload image" });
                               }
                             };
                             input.click();
-                          }}
-                        >
+                          }}>
                           <ImageIcon size={16} />
-                          {imageStatuses[lessonIndex] === "uploading"
-                            ? `Uploading ${uploadedImageNames[lessonIndex]}...`
-                            : imageStatuses[lessonIndex] === "success"
-                              ? (
-                                <span className="max-w-[100px] truncate">
-                                  {uploadedImageNames[lessonIndex] || "Uploaded"}
-                                </span>
-                              )
+                          {imageStatuses[lessonIndex] === "uploading" ? `Uploading ${uploadedImageNames[lessonIndex]}...`
+                            : imageStatuses[lessonIndex] === "success" ? <span className="max-w-[100px] truncate">{uploadedImageNames[lessonIndex] || "Uploaded"}</span>
                               : "Upload Image"}
                         </Button>
-
-                        {/* View image button */}
                         {lessonItem.image && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="bg-gray-500 text-white hover:bg-gray-600"
-                            onClick={() => window.open(lessonItem.image, '_blank')}
-                          >
-                            <Eye size={16} className="mr-1" />
-                            View Image
+                          <Button type="button" variant="outline" size="sm" className="bg-gray-500 text-white hover:bg-gray-600" onClick={() => window.open(lessonItem.image, "_blank")}>
+                            <Eye size={16} className="mr-1" /> View Image
                           </Button>
                         )}
+                      </div>
+
+                      {/* Comments */}
+                      <div className="mt-6 border-t pt-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-sm">Comments</h3>
+                          <Button variant="ghost" size="sm" onClick={() => refreshLessonComments(lessonIndex)}>Refresh</Button>
+                        </div>
+                        <div className="mt-3 space-y-3">
+                          {(lessonItem.comments || []).map((c, ci) => {
+                            // Helper function to get user display info
+                            const getUserInfo = (user) => {
+                              if (typeof user === "string") {
+                                return { name: user, avatar: null };
+                              }
+                              const firstName = user?.firstName || "";
+                              const lastName = user?.lastName || "";
+                              const fullName = `${firstName} ${lastName}`.trim() || user?.email || "User";
+                              const avatar = user?.profile_picture || user?.profilePicture || null;
+                              return { name: fullName, avatar };
+                            };
+
+                            const commentUserInfo = getUserInfo(c.userId);
+
+                            return (
+                              <div key={c._id ?? ci} className="border rounded p-3 bg-white">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex items-center gap-2">
+                                    {/* Profile Picture */}
+                                    <div className="flex-shrink-0">
+                                      {commentUserInfo.avatar ? (
+                                        <img
+                                          src={commentUserInfo.avatar}
+                                          alt={commentUserInfo.name}
+                                          className="w-8 h-8 rounded-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div
+                                        className={`w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600 ${commentUserInfo.avatar ? 'hidden' : 'flex'}`}
+                                      >
+                                        {commentUserInfo.name.charAt(0).toUpperCase()}
+                                      </div>
+                                    </div>
+
+                                    {/* User Info */}
+                                    <div>
+                                      <div className="text-sm font-medium">{commentUserInfo.name}</div>
+                                      <span className="text-xs text-gray-500">{c.userType}</span>
+                                    </div>
+                                  </div>
+
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-red-500"
+                                    onClick={() => handleDeleteComment(lessonIndex, ci)}
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </div>
+
+                                <div className="text-sm mt-2 ml-10">{c.text}</div>
+
+                                {/* Replies */}
+                                <div className="mt-3 ml-10 space-y-2">
+                                  {(c.replies || []).map((r, ri) => {
+                                    const replyUserInfo = getUserInfo(r.userId);
+
+                                    return (
+                                      <div key={r._id ?? ri} className="text-xs p-2 rounded bg-gray-50 border">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          {/* Reply Profile Picture */}
+                                          <div className="flex-shrink-0">
+                                            {replyUserInfo.avatar ? (
+                                              <img
+                                                src={replyUserInfo.avatar}
+                                                alt={replyUserInfo.name}
+                                                className="w-6 h-6 rounded-full object-cover"
+                                                onError={(e) => {
+                                                  e.target.style.display = 'none';
+                                                  e.target.nextSibling.style.display = 'flex';
+                                                }}
+                                              />
+                                            ) : null}
+                                            <div
+                                              className={`w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600 ${replyUserInfo.avatar ? 'hidden' : 'flex'}`}
+                                            >
+                                              {replyUserInfo.name.charAt(0).toUpperCase()}
+                                            </div>
+                                          </div>
+
+                                          <span className="font-medium">{replyUserInfo.name}</span>
+                                          <span className="text-gray-500">({r.userType})</span>
+                                        </div>
+                                        <div className="ml-8">{r.text}</div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  <div className="flex gap-2 mt-2">
+                                    <Input
+                                      value={newReplyByLessonAndIndex[`${lessonIndex}_${ci}`] || ""}
+                                      onChange={(e) => setNewReplyByLessonAndIndex((p) => ({
+                                        ...p,
+                                        [`${lessonIndex}_${ci}`]: e.target.value
+                                      }))}
+                                      placeholder="Write a reply..."
+                                      className="text-sm"
+                                    />
+                                    <Button
+                                      onClick={() => handleReply(lessonIndex, ci)}
+                                      size="sm"
+                                    >
+                                      Reply
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
+                          <Input
+                            value={newCommentByLesson[lessonIndex] || ""}
+                            onChange={(e) => setNewCommentByLesson((p) => ({ ...p, [lessonIndex]: e.target.value }))}
+                            placeholder="Add a comment..."
+                          />
+                          <Button onClick={() => handleAddComment(lessonIndex)} size="sm">Comment</Button>
+                        </div>
+                      </div>
+
+                      {/* Reactions */}
+                      <div className="mt-6 border-t pt-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-sm">Reactions</h3>
+                          <Button variant="ghost" size="sm" onClick={() => refreshLessonReactions(lessonIndex)}>Refresh</Button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {["👍", "🎉", "❤️", "😂", "🔥", "👏"].map((e) => (
+                            <Button key={e} variant="outline" size="sm" onClick={() => handleReact(lessonIndex, e)}>{e}</Button>
+                          ))}
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {(lessonItem.reactions || []).map((r, ri) => (
+                            <div key={r._id ?? ri} className="inline-flex items-center gap-2 border rounded px-2 py-1 bg-white">
+                              <span>{r.emoji}</span>
+                              <span className="text-xs text-gray-500">
+                                {(typeof r.userId === "string") ? r.userId : (r.userId?.firstName || "User")}
+                              </span>
+                              <Button size="xs" variant="ghost" className="text-red-500 h-6" onClick={() => handleDeleteReaction(lessonIndex, ri)}>remove</Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
                 )
-            )}
+              )}
+            </div>
+
+            {/* File attachments (topic-level) */}
+            <div className="mt-8 bg-white border rounded-xl p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold">Attachments</h3>
+                <div>
+                  <input id="filePicker" type="file" multiple hidden onChange={handleFileSelect} />
+                  <Button onClick={() => document.getElementById("filePicker")?.click()} variant="outline" size="sm">
+                    <Upload size={14} className="mr-1" /> Add Files
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {content.file_path.map((url, i) => (
+                  <div key={`${url}-${i}`} className="flex items-center justify-between border rounded p-2">
+                    <div className="text-sm truncate max-w-[70%]">{shortenFilename(extractFilenameFromUrl(url))}</div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => window.open(url, "_blank")}><Eye size={14} className="mr-1" /> View</Button>
+                      <Button variant="ghost" size="icon" onClick={() => removeFile(i)}><Trash2 size={16} className="text-red-500" /></Button>
+                    </div>
+                  </div>
+                ))}
+                {content.file_path.length === 0 && <div className="text-sm text-gray-500">No files yet.</div>}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 bg-gray-50/80 border-t border-gray-200">
+        <div className="flex-shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200">
           <div className="flex justify-between w-full items-center">
-            <Button
-              variant="outline"
-              onClick={() => navigate(-1)}
-              className="h-12 px-6 border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
-            >
-              Cancel
-            </Button>
-
-            <Button
-              onClick={handleUpdateContent}
-              disabled={isSubmitting}
-              className="h-12 px-6 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white border-0 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:hover:shadow-lg"
-            >
+            <Button variant="outline" onClick={() => navigate(-1)} className="h-12 px-6">Cancel</Button>
+            <Button onClick={handleUpdateContent} disabled={isSubmitting} className="h-12 px-6 bg-blue-600 text-white hover:bg-blue-700">
               {isSubmitting ? (
                 <div className="flex items-center gap-2">
                   <div className="h-5 w-5 rounded-full border-2 border-t-transparent border-white animate-spin" />
                   Updating...
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  Update Content
-                </div>
-              )}
+              ) : ("Update Content")}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Question Modal */}
+      {/* Question + MCQ Modal (WIDE, SCROLLABLE) */}
       {showQuestionModal && currentSubHeadingItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl mx-4 shadow-xl flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-800">
-                {currentSubHeadingItem.question ? "Edit Question" : "Add Question"}
+                {currentSubHeadingItem.question ? "Edit Q&A / MCQs" : "Add Q&A / MCQs"}
               </h3>
-              <button
-                onClick={() => setShowQuestionModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
+              <button onClick={() => setShowQuestionModal(false)} className="text-gray-500 hover:text-gray-700">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Question Field - Math Input */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">
-                  Question
-                </label>
+            {/* Body (scrollable) */}
+            <div className="px-6 py-4 overflow-y-auto" style={{ maxHeight: "75vh" }}>
+              {/* Question */}
+              <div className="space-y-2 mb-4">
+                <label className="text-xs font-medium text-gray-600">Main Question (optional)</label>
                 <div className="border border-gray-200 rounded-lg p-2 bg-white">
                   {editingStates[`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`] ? (
                     <MathInput
                       value={currentSubHeadingItem.question}
-                      onChange={(value) =>
-                        updateSubHeadingItem(
-                          currentQuestionData.lessonIndex,
-                          currentQuestionData.subHeadingIndex,
-                          "question",
-                          value
-                        )
-                      }
+                      onChange={(v) => updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "question", v)}
                       editing={true}
-                      onSave={() => {
-                        setEditingStates(prev => ({
-                          ...prev,
-                          [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false
-                        }));
-                      }}
-                      onCancel={() => {
-                        setEditingStates(prev => ({
-                          ...prev,
-                          [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false
-                        }));
-                      }}
+                      onSave={() => setEditingStates((p) => ({ ...p, [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
+                      onCancel={() => setEditingStates((p) => ({ ...p, [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
                     />
                   ) : (
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <MathInput
-                          value={currentSubHeadingItem.question}
-                          editing={false}
-                          placeholder="Click edit to add question"
-                        />
+                        <MathInput value={currentSubHeadingItem.question} editing={false} placeholder="Click edit to add question" />
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                        onClick={() => setEditingStates(prev => ({
-                          ...prev,
-                          [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true
-                        }))}
-                      >
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                        onClick={() => setEditingStates((p) => ({ ...p, [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true }))}>
                         <Edit size={14} />
                       </Button>
                     </div>
@@ -1577,56 +1275,25 @@ const EditContent: React.FC = () => {
                 </div>
               </div>
 
-              {/* Expected Answer Field - Math Input */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">
-                  Expected Answer
-                </label>
+              {/* Expected Answer */}
+              <div className="space-y-2 mb-4">
+                <label className="text-xs font-medium text-gray-600">Expected Answer (optional)</label>
                 <div className="border border-gray-200 rounded-lg p-2 bg-white">
                   {editingStates[`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`] ? (
                     <MathInput
                       value={currentSubHeadingItem.expectedAnswer}
-                      onChange={(value) =>
-                        updateSubHeadingItem(
-                          currentQuestionData.lessonIndex,
-                          currentQuestionData.subHeadingIndex,
-                          "expectedAnswer",
-                          value
-                        )
-                      }
+                      onChange={(v) => updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "expectedAnswer", v)}
                       editing={true}
-                      onSave={() => {
-                        setEditingStates(prev => ({
-                          ...prev,
-                          [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false
-                        }));
-                      }}
-                      onCancel={() => {
-                        setEditingStates(prev => ({
-                          ...prev,
-                          [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false
-                        }));
-                      }}
+                      onSave={() => setEditingStates((p) => ({ ...p, [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
+                      onCancel={() => setEditingStates((p) => ({ ...p, [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
                     />
                   ) : (
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <MathInput
-                          value={currentSubHeadingItem.expectedAnswer}
-                          editing={false}
-                          placeholder="Click edit to add expected answer"
-                        />
+                        <MathInput value={currentSubHeadingItem.expectedAnswer} editing={false} placeholder="Click edit to add expected answer" />
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                        onClick={() => setEditingStates(prev => ({
-                          ...prev,
-                          [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true
-                        }))}
-                      >
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                        onClick={() => setEditingStates((p) => ({ ...p, [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true }))}>
                         <Edit size={14} />
                       </Button>
                     </div>
@@ -1634,56 +1301,25 @@ const EditContent: React.FC = () => {
                 </div>
               </div>
 
-              {/* Hint Field - Math Input */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">
-                  Hint
-                </label>
+              {/* Hint */}
+              <div className="space-y-2 mb-6">
+                <label className="text-xs font-medium text-gray-600">Hint (optional)</label>
                 <div className="border border-gray-200 rounded-lg p-2 bg-white">
                   {editingStates[`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`] ? (
                     <MathInput
                       value={currentSubHeadingItem.hint}
-                      onChange={(value) =>
-                        updateSubHeadingItem(
-                          currentQuestionData.lessonIndex,
-                          currentQuestionData.subHeadingIndex,
-                          "hint",
-                          value
-                        )
-                      }
+                      onChange={(v) => updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "hint", v)}
                       editing={true}
-                      onSave={() => {
-                        setEditingStates(prev => ({
-                          ...prev,
-                          [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false
-                        }));
-                      }}
-                      onCancel={() => {
-                        setEditingStates(prev => ({
-                          ...prev,
-                          [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false
-                        }));
-                      }}
+                      onSave={() => setEditingStates((p) => ({ ...p, [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
+                      onCancel={() => setEditingStates((p) => ({ ...p, [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
                     />
                   ) : (
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <MathInput
-                          value={currentSubHeadingItem.hint}
-                          editing={false}
-                          placeholder="Click edit to add hint"
-                        />
+                        <MathInput value={currentSubHeadingItem.hint} editing={false} placeholder="Click edit to add hint" />
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                        onClick={() => setEditingStates(prev => ({
-                          ...prev,
-                          [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true
-                        }))}
-                      >
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                        onClick={() => setEditingStates((p) => ({ ...p, [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true }))}>
                         <Edit size={14} />
                       </Button>
                     </div>
@@ -1691,21 +1327,119 @@ const EditContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowQuestionModal(false)}
-                  className="border-2 border-gray-300 hover:border-gray-400"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={saveQuestion}
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0 hover:from-blue-600 hover:to-purple-600"
-                >
-                  Save Question
+              {/* MCQ Builder */}
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold text-gray-800">Multiple Choice Questions</h4>
+                <Button variant="outline" size="sm" onClick={addMcq} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
+                  <Plus size={14} className="mr-1" /> Add MCQ
                 </Button>
               </div>
+
+              {(!currentSubHeadingItem.mcqQuestions || currentSubHeadingItem.mcqQuestions.length === 0) && (
+                <div className="text-sm text-gray-500 mb-4">No MCQs yet. Click “Add MCQ” to create one.</div>
+              )}
+
+              <div className="space-y-4">
+                {(currentSubHeadingItem.mcqQuestions || []).map((mcq, mcqIndex) => (
+                  <div key={mcq._id || mcqIndex} className="border rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-between px-3 py-2 border-b">
+                      <div className="flex items-center gap-2">
+                        <GripVertical size={14} className="text-gray-400" />
+                        <span className="text-xs font-medium text-gray-600">MCQ {mcqIndex + 1}</span>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => removeMcq(mcqIndex)} className="text-red-500 h-7 w-7">
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+
+                    <div className="p-3 space-y-3">
+                      {/* MCQ Question */}
+                      <div>
+                        <label className="text-xs font-medium text-gray-600">Question</label>
+                        <div className="mt-1 border rounded bg-white p-2">
+                          <MathInput
+                            value={mcq.question}
+                            editing={true}
+                            onChange={(v) => updateMcqField(mcqIndex, "question", v)}
+                            onSave={() => { }}
+                            onCancel={() => { }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Options */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-medium text-gray-600">Options</label>
+                          <Button variant="outline" size="sm" onClick={() => addMcqOption(mcqIndex)} className="h-7 px-2">
+                            <Plus size={14} className="mr-1" /> Add Option
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {mcq.options.map((opt, oi) => {
+                            const isCorrect = mcq.correctAnswer === opt && opt !== "";
+                            return (
+                              <div key={oi} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name={`mcq-${mcqIndex}-correct`}
+                                  className="h-4 w-4 cursor-pointer"
+                                  checked={isCorrect}
+                                  onChange={() => updateMcqField(mcqIndex, "correctAnswer", opt)}
+                                  title="Mark as correct answer"
+                                />
+                                <Input
+                                  value={opt}
+                                  onChange={(e) => updateMcqOption(mcqIndex, oi, e.target.value)}
+                                  placeholder={`Option ${oi + 1}`}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-500"
+                                  onClick={() => removeMcqOption(mcqIndex, oi)}
+                                  disabled={mcq.options.length <= 1}
+                                  title="Remove option"
+                                >
+                                  <Trash2 size={16} />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Correct answer helper */}
+                        <div className="text-xs text-gray-500 mt-1">
+                          Select the radio next to the correct option. Changing an option text will keep the selection if it still matches.
+                        </div>
+                      </div>
+
+                      {/* Explanation */}
+                      <div>
+                        <label className="text-xs font-medium text-gray-600">Explanation (optional)</label>
+                        <Input
+                          value={mcq.explanation || ""}
+                          onChange={(e) => updateMcqField(mcqIndex, "explanation", e.target.value)}
+                          placeholder="Brief explanation to show after answering"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer (sticky) */}
+            <div className="px-6 py-4 border-t bg-white sticky bottom-0 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowQuestionModal(false)} className="border-2 border-gray-300 hover:border-gray-400">
+                Cancel
+              </Button>
+              <Button onClick={saveQuestion} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
+                Save
+              </Button>
             </div>
           </div>
         </div>

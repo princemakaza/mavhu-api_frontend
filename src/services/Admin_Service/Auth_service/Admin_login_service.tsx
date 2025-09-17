@@ -12,6 +12,8 @@ const loginAdmin = async (userData) => {
     // Store the token using the TokenStorageService
     if (response.data.token) {
       localStorage.setItem("adminToken", response.data.token);
+      localStorage.setItem("adminData", JSON.stringify(response.data.admin)); // 👈 store role & info
+      localStorage.setItem("adminId", response.data.admin._id);               // convenience ID
       console.log("Token stored successfully!");
     }
     // Store the token using the TokenStorageService

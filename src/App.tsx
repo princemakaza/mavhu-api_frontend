@@ -10,22 +10,7 @@ import { AuthProvider } from "./context/AuthContext";
 // Pages
 
 import Register from "./pages/auth/user/Login";
-// import Dashboard from "./pages/Dashboard";
-// import Courses from "./pages/Courses";
-// import Lesson from "./pages/Lesson";
-// import QA from "./pages/QA";
-// import Wallet from "./pages/Wallet";
-// import Layout from "./components/Layout";
-// import NotFound from "./pages/NotFound";
-// import Courses from "./pages/Courses";
-// import Lesson from "./pages/Lesson";
-// import QA from "./pages/QA";
-// import Wallet from "./pages/Wallet";
-// import Layout from "./components/Layout";
-// import Admin_Dashboard from "./pages/Admin_Pages/Admin_Dashboard";
-// import Admin_login from "./pages/auth/Admin/Login";
-// import AdminSubjects from "./pages/Admin_Pages/Subjects";
-// import Homepage from "./pages/User_Pages/Hompage";
+
 import Aboutpage from "./pages/User_Pages/Aboutpage";
 import StudentDashboard from "./pages/Admin_Pages/Student";
 import ChatApp from "./pages/Admin_Pages/Chat";
@@ -35,28 +20,21 @@ import SettingsPage from "./pages/Admin_Pages/Settings";
 import CourseDetailPage from "./pages/Admin_Pages/Course_Details";
 
 import Navrbar from "./components/Navbar";
-// import Admin_Register from "./pages/auth/Admin/Register";
-// import Email_Password_Reset from "./pages/auth/user/Email_Password_Reset";
+
 import Forgot_password from "./pages/auth/user/Forgot_Password";
-//  import Sms_Password_Reset from "./pages/auth/user/Sms_Password_Reset";
- import Email_Password_Reset from "./pages/auth/user/Email_Password_Reset";
+import Email_Password_Reset from "./pages/auth/user/Email_Password_Reset";
 import Admin_Dashboard from "./pages/Admin_Pages/Admin_Dashboard";
 import Admin_Register from "./pages/auth/Admin/Register";
 import Admin_login from "./pages/auth/Admin/Login";
 import AdminCourses from "./pages/Admin_Pages/Subjects";
- import Login from "./pages/auth/user/Login";
-// import Register from "./pages/auth/Register";
+import Login from "./pages/auth/user/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Courses from "./pages/dashboard/Courses";
 import Lesson from "./pages/dashboard/Lesson";
 import QA from "./pages/dashboard/QA";
 import Wallet from "./pages/dashboard/Wallet";
 import Layout from "./pages/dashboard/components/Layout";
-// import NotFound from "./pages/NotFound";
-// import Forgot_password from "./pages/auth/Forgot_Password";
 import Auth_Layout from "./pages/auth/authLayout";
-// import Sms_Password_Reset from "./pages/auth/Sms_Password_Reset";
-// import Email_Password_Reset from "./pages/auth/Email_Password_Reset";
 import Homepage from "./pages/welcome/Homepage";
 import WelcomeLayout from "./pages/welcome/WelcomeLayout";
 import About from "./pages/welcome/About";
@@ -68,11 +46,8 @@ import Profile from "./pages/dashboard/user/Profile";
 import Settings from "./pages/dashboard/user/Settings";
 import Chat from "./pages/dashboard/Chat";
 import Community from "./pages/dashboard/Community";
-
 import Sms_Password_Reset from "./pages/auth/user/Sms_Password_Reset";
-
 import NotFound from "./pages/NotFound";
-
 import ReserourceWalle from "./pages/Walle";
 import AdminSubjects from "./pages/Admin_Pages/Subjects";
 import CreateNewContent from "./pages/Admin_Pages/CreateNewContent";
@@ -81,9 +56,12 @@ import Exams from "./pages/Admin_Pages/exams";
 import CreateExam from "./pages/Admin_Pages/add_exams";
 import EditExam from "./pages/Admin_Pages/edit_exam";
 import ViewStudentMarks from "./pages/Admin_Pages/view_student";
-
+import HelpDeskScreen from "./pages/Admin_Pages/admin_student_chat";
+import ViewStudentActivities from "./pages/Admin_Pages/student_dashboard_admin";
+import AdminManagement from "./pages/Admin_Pages/all_admins";
+import ContentTrashManagement from "./pages/Admin_Pages/content_trash_page";
+import AdminProfile from "./pages/Admin_Pages/admin_profile";
 const queryClient = new QueryClient();
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -105,7 +83,6 @@ const App = () => (
               path="/email_password_reset"
               element={<Email_Password_Reset />}
             />
-
             <Route path="/reserourceupload" element={<ReserourceUpload />} />
             <Route path="/reserourcewalle" element={<ReserourceWalle />} />
             <Route path="/admin_dashboard" element={<Admin_Dashboard />} />
@@ -113,17 +90,22 @@ const App = () => (
             <Route path="/chat" element={<ChatApp />} />
             <Route path="/library" element={<Library />} />
             <Route path="/exams" element={<Exams />} />
+            <Route path="/help_desk" element={<HelpDeskScreen />} />
+            <Route path="/content_trash" element={<ContentTrashManagement />} />
+            <Route path="/admin_profile" element={<AdminProfile />} />
+            <Route path="/all_admins_page" element={<AdminManagement />} />
+            <Route path="/student_activities/:studentId" element={<ViewStudentActivities />} />
             <Route path="/createExam" element={<CreateExam />} />
             <Route path="/exam/:examId/" element={<EditExam />} />
             <Route path="/exam/view/:examId/" element={<ViewStudentMarks />} />
             <Route path="/reserourceupload" element={<ReserourceUpload />} />
             <Route path="/settingspage" element={<SettingsPage />} />
             <Route path="/admin/courses/:id" element={<CourseDetailPage />} />
-              <Route path="courses/topics/:topicId/content/new" element={<CreateNewContent />} />
-              <Route 
-        path="/admin_dashboard/courses/topics/:topicId/content/edit/:contentId" 
-        element={<EditContent />} 
-      />
+            <Route path="courses/topics/:topicId/content/new" element={<CreateNewContent />} />
+            <Route
+              path="/admin_dashboard/courses/topics/:topicId/content/edit/:contentId"
+              element={<EditContent />}
+            />
             {/* <Route path="/dashboard" element={<Dashboard />} /> */}
             <Route path="/courses" element={<AdminSubjects />} />
             <Route path="/homepage" element={<Homepage />} />

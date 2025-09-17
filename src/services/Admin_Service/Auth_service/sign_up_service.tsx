@@ -23,6 +23,8 @@ const SignUpAdmin = async (userData) => {
     // Store the token if it exists
     if (response.data.token) {
       localStorage.setItem("adminToken", response.data.token);
+      localStorage.setItem("adminData", JSON.stringify(response.data.admin)); // 👈 store role & info
+      localStorage.setItem("adminId", response.data.admin._id); 
       console.log("Token stored successfully!");
     } else {
       console.warn("No token received during signup");

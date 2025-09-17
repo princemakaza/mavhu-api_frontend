@@ -32,6 +32,78 @@ interface ApiResponse {
     data: StudentMark[];
 }
 
+// Shimmer Loading Components
+const ShimmerCard: React.FC = () => (
+    <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 bg-gray-200 rounded-lg animate-pulse w-10 h-10 md:w-12 md:h-12"></div>
+            <div className="flex-1">
+                <div className="h-3 md:h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-5 md:h-6 bg-gray-200 rounded animate-pulse w-16"></div>
+            </div>
+        </div>
+    </div>
+);
+
+const ShimmerTable: React.FC = () => (
+    <div className="bg-white rounded-lg md:rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Desktop Header Shimmer */}
+        <div className="hidden md:block bg-gray-50 px-6 py-4 border-b border-gray-200">
+            <div className="grid grid-cols-12 gap-4 items-center">
+                {[...Array(7)].map((_, i) => (
+                    <div key={i} className="col-span-1 h-4 bg-gray-200 rounded animate-pulse"></div>
+                ))}
+            </div>
+        </div>
+
+        {/* Desktop Rows Shimmer */}
+        <div className="hidden md:block divide-y divide-gray-200">
+            {[...Array(5)].map((_, rowIndex) => (
+                <div key={rowIndex} className="px-6 py-4">
+                    <div className="grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-1 h-4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="col-span-2 h-4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="col-span-2 h-4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="col-span-3 h-4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="col-span-2 h-4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="col-span-1 h-4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="col-span-1 h-6 bg-gray-200 rounded-full animate-pulse"></div>
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {/* Mobile Cards Shimmer */}
+        <div className="md:hidden divide-y divide-gray-200">
+            {[...Array(5)].map((_, cardIndex) => (
+                <div key={cardIndex} className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-8"></div>
+                        <div className="text-right">
+                            <div className="h-5 bg-gray-200 rounded animate-pulse w-12 mb-2"></div>
+                            <div className="h-6 bg-gray-200 rounded-full animate-pulse w-10"></div>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="h-4 bg-gray-200 rounded animate-pulse flex-1"></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="h-4 bg-gray-200 rounded animate-pulse flex-1"></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 const ViewStudentMarks: React.FC = () => {
     const { examId } = useParams<{ examId: string }>();
     const navigate = useNavigate();
@@ -74,7 +146,7 @@ const ViewStudentMarks: React.FC = () => {
                         <Button
                             variant="secondary"
                             className="bg-white text-red-600 hover:bg-red-100"
-                            onClick={() => t.dismiss()} // dismiss the toast safely
+                            onClick={() => t.dismiss()}
                         >
                             Dismiss
                         </Button>
@@ -105,14 +177,14 @@ const ViewStudentMarks: React.FC = () => {
                 console.error("Failed to fetch student marks:", error);
                 const t = toast({
                     variant: "destructive",
-                    title: "Oops! Couldn’t Fetch Marks",
-                    description: "We couldn’t fetch the student marks right now. Please try again.",
+                    title: "Oops! Couldn't Fetch Marks",
+                    description: "We couldn't fetch the student marks right now. Please try again.",
                     duration: 8000,
                     action: (
                         <Button
                             variant="secondary"
                             className="bg-white text-red-600 hover:bg-red-100"
-                            onClick={() => t.dismiss()} // dismiss the toast safely
+                            onClick={() => t.dismiss()}
                         >
                             Dismiss
                         </Button>
@@ -145,7 +217,7 @@ const ViewStudentMarks: React.FC = () => {
             case 'F':
                 return 'bg-red-100 text-red-800 border-red-200';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-blue-900 text-white border-blue-900'; // Default blue-900 theme
         }
     };
 
@@ -209,7 +281,7 @@ const ViewStudentMarks: React.FC = () => {
             <div className="flex flex-col md:flex-row min-h-screen bg-gray-100">
                 {/* Mobile Menu Toggle */}
                 <button
-                    className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
+                    className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md shadow-lg"
                     onClick={toggleSidebar}
                 >
                     {sidebarOpen && !isLargeScreen ? <X size={20} /> : <Menu size={20} />}
@@ -229,11 +301,75 @@ const ViewStudentMarks: React.FC = () => {
                     <Sidebar />
                 </div>
 
-                {/* Main Content */}
-                <div className="flex-1 w-full min-h-screen flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="mt-4 text-gray-600">Loading student marks...</p>
-                        <p className="mt-4 text-gray-600">Loading student marks...</p>
+                {/* Main Content with Shimmer Loading */}
+                <div className="flex-1 w-full">
+                    <div className="w-full min-h-screen">
+                        {/* Header Shimmer */}
+                        <div className="relative p-4 md:p-6 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white">
+                            <div className="absolute inset-0 bg-black/10"></div>
+                            <div className="relative flex items-center justify-between">
+                                <div className="w-8 h-8 bg-white/20 rounded animate-pulse"></div>
+                                <div className="text-center flex-1">
+                                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
+                                        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm animate-pulse">
+                                            <Users size={20} className="text-white opacity-50" />
+                                        </div>
+                                        <div className="h-6 bg-white/20 rounded animate-pulse w-32"></div>
+                                    </div>
+                                    <div className="h-4 bg-white/20 rounded animate-pulse w-48 mx-auto mt-2"></div>
+                                </div>
+                                <div className="w-8"></div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 md:p-6 space-y-6">
+                            {/* Statistics Cards Shimmer */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                <ShimmerCard />
+                                <ShimmerCard />
+                                <ShimmerCard />
+                            </div>
+
+                            {/* Top Performers Shimmer */}
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg md:rounded-xl p-4 md:p-6 border border-blue-200">
+                                <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-4">
+                                    <div className="p-2 md:p-3 bg-blue-200 rounded-lg animate-pulse w-10 h-10 md:w-12 md:h-12"></div>
+                                    <div className="flex-1">
+                                        <div className="h-5 bg-blue-200 rounded animate-pulse mb-2 w-32"></div>
+                                        <div className="h-4 bg-blue-200 rounded animate-pulse w-48"></div>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {[...Array(2)].map((_, i) => (
+                                        <div key={i} className="bg-white rounded-md md:rounded-lg p-3 md:p-4 border border-blue-200">
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 md:gap-3">
+                                                    <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-200 rounded-full animate-pulse"></div>
+                                                    <div className="p-1 md:p-2 bg-gray-200 rounded-full animate-pulse w-8 h-8"></div>
+                                                    <div className="flex-1">
+                                                        <div className="h-4 bg-gray-200 rounded animate-pulse mb-1 w-32"></div>
+                                                        <div className="h-3 bg-gray-200 rounded animate-pulse w-48"></div>
+                                                    </div>
+                                                </div>
+                                                <div className="md:text-right pl-8 md:pl-0">
+                                                    <div className="h-6 bg-gray-200 rounded-full animate-pulse w-12 mb-1"></div>
+                                                    <div className="h-5 bg-gray-200 rounded animate-pulse w-16"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Table Shimmer */}
+                            <div className="mt-6 md:mt-8">
+                                <div className="flex justify-between items-center mb-4 md:mb-6">
+                                    <div className="h-6 bg-gray-200 rounded animate-pulse w-40"></div>
+                                    <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                                </div>
+                                <ShimmerTable />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -247,7 +383,7 @@ const ViewStudentMarks: React.FC = () => {
         <div className="flex flex-col md:flex-row min-h-screen bg-gray-100">
             {/* Mobile Menu Toggle */}
             <button
-                className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
+                className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md shadow-lg hover:bg-blue-800 transition-colors"
                 onClick={toggleSidebar}
             >
                 {sidebarOpen && !isLargeScreen ? <X size={20} /> : <Menu size={20} />}
@@ -278,14 +414,14 @@ const ViewStudentMarks: React.FC = () => {
             {/* Main Content */}
             <div className="flex-1 w-full">
                 <div className="w-full min-h-screen">
-                    {/* Header */}
-                    <div className="relative p-4 md:p-6 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white">
+                    {/* Header with Blue-900 Theme */}
+                    <div className="relative p-4 md:p-6 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white">
                         <div className="absolute inset-0 bg-black/10"></div>
                         <div className="relative flex items-center justify-between">
                             <Button
                                 variant="ghost"
                                 onClick={() => navigate(-1)}
-                                className="text-white hover:bg-white/20"
+                                className="text-white hover:bg-white/20 border-white/20 hover:border-white/40"
                             >
                                 <ChevronLeft size={20} className="mr-2" />
                                 <span className="sr-only md:not-sr-only">Back</span>
@@ -308,40 +444,40 @@ const ViewStudentMarks: React.FC = () => {
                     </div>
 
                     <div className="p-4 md:p-6 space-y-6">
-                        {/* Statistics Cards */}
+                        {/* Statistics Cards with Blue-900 accents */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
+                            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-center gap-3 md:gap-4">
                                     <div className="p-2 md:p-3 bg-blue-100 rounded-lg">
-                                        <Users size={20} className="text-blue-600" />
+                                        <Users size={20} className="text-blue-900" />
                                     </div>
                                     <div>
                                         <p className="text-xs md:text-sm text-gray-600">Total Students</p>
-                                        <p className="text-xl md:text-2xl font-bold text-gray-800">{studentMarks.length}</p>
+                                        <p className="text-xl md:text-2xl font-bold text-blue-900">{studentMarks.length}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
+                            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-center gap-3 md:gap-4">
                                     <div className="p-2 md:p-3 bg-green-100 rounded-lg">
                                         <Percent size={20} className="text-green-600" />
                                     </div>
                                     <div>
                                         <p className="text-xs md:text-sm text-gray-600">Average Score</p>
-                                        <p className="text-xl md:text-2xl font-bold text-gray-800">{averageScore}%</p>
+                                        <p className="text-xl md:text-2xl font-bold text-blue-900">{averageScore}%</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
+                            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-center gap-3 md:gap-4">
                                     <div className="p-2 md:p-3 bg-yellow-100 rounded-lg">
                                         <Trophy size={20} className="text-yellow-600" />
                                     </div>
                                     <div>
                                         <p className="text-xs md:text-sm text-gray-600">Top Score</p>
-                                        <p className="text-xl md:text-2xl font-bold text-gray-800">
+                                        <p className="text-xl md:text-2xl font-bold text-blue-900">
                                             {topPerformers.length > 0 ? topPerformers[0].percentange : '0%'}
                                         </p>
                                     </div>
@@ -349,18 +485,18 @@ const ViewStudentMarks: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Top Performers Highlight */}
+                        {/* Top Performers Highlight with Blue theme */}
                         {topPerformers.length > 0 && (
-                            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg md:rounded-xl p-4 md:p-6 border border-yellow-200">
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg md:rounded-xl p-4 md:p-6 border border-blue-200">
                                 <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-4">
-                                    <div className="p-2 md:p-3 bg-yellow-100 rounded-lg">
-                                        <Trophy size={20} className="text-yellow-600" />
+                                    <div className="p-2 md:p-3 bg-blue-200 rounded-lg">
+                                        <Trophy size={20} className="text-blue-900" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base md:text-lg font-semibold text-gray-800">
+                                        <h3 className="text-base md:text-lg font-semibold text-blue-900">
                                             Top Performer{topPerformers.length > 1 ? 's' : ''}
                                         </h3>
-                                        <p className="text-xs md:text-sm text-gray-600">
+                                        <p className="text-xs md:text-sm text-blue-700">
                                             {topPerformers.length > 1
                                                 ? `${topPerformers.length} students tied for the highest score!`
                                                 : 'Congratulations to our highest scorer!'
@@ -370,17 +506,17 @@ const ViewStudentMarks: React.FC = () => {
                                 </div>
                                 <div className="space-y-3">
                                     {topPerformers.map((performer, index) => (
-                                        <div key={performer._id} className="bg-white rounded-md md:rounded-lg p-3 md:p-4 border border-yellow-200">
+                                        <div key={performer._id} className="bg-white rounded-md md:rounded-lg p-3 md:p-4 border border-blue-200 hover:shadow-md transition-shadow">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                                                 <div className="flex items-center gap-2 md:gap-3">
-                                                    <div className="p-1 md:p-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full text-white font-bold text-xs md:text-sm w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+                                                    <div className="p-1 md:p-2 bg-gradient-to-r from-blue-800 to-blue-900 rounded-full text-white font-bold text-xs md:text-sm w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
                                                         {index + 1}
                                                     </div>
                                                     <div className="p-1 md:p-2 bg-gray-100 rounded-full">
                                                         <User size={16} className="text-gray-600" />
                                                     </div>
                                                     <div>
-                                                        <p className="font-semibold text-sm md:text-base text-gray-800 line-clamp-1">
+                                                        <p className="font-semibold text-sm md:text-base text-blue-900 line-clamp-1">
                                                             {performer.studentId.firstName} {performer.studentId.lastName}
                                                         </p>
                                                         <p className="text-xs md:text-sm text-gray-600 line-clamp-1">{performer.studentId.email}</p>
@@ -404,22 +540,22 @@ const ViewStudentMarks: React.FC = () => {
                         {/* Student Results Section */}
                         <div className="mt-6 md:mt-8">
                             <div className="flex justify-between items-center mb-4 md:mb-6">
-                                <h2 className="text-lg md:text-xl font-semibold text-gray-800">All Student Results</h2>
+                                <h2 className="text-lg md:text-xl font-semibold text-blue-900">All Student Results</h2>
                                 <p className="text-xs md:text-sm text-gray-600">{studentMarks.length} student{studentMarks.length !== 1 ? 's' : ''}</p>
                             </div>
 
                             {studentMarks.length === 0 ? (
                                 <div className="bg-white rounded-lg md:rounded-xl p-6 md:p-12 border border-gray-200 shadow-sm text-center">
-                                    <div className="p-3 md:p-4 bg-gray-100 rounded-full w-14 h-14 md:w-16 md:h-16 flex items-center justify-center mx-auto mb-3 md:mb-4">
-                                        <Users size={24} className="text-gray-400" />
+                                    <div className="p-3 md:p-4 bg-blue-100 rounded-full w-14 h-14 md:w-16 md:h-16 flex items-center justify-center mx-auto mb-3 md:mb-4">
+                                        <Users size={24} className="text-blue-900" />
                                     </div>
-                                    <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-1 md:mb-2">No Results Found</h3>
+                                    <h3 className="text-base md:text-lg font-semibold text-blue-900 mb-1 md:mb-2">No Results Found</h3>
                                     <p className="text-sm md:text-base text-gray-600">No students have taken this exam yet.</p>
                                 </div>
                             ) : (
                                 <div className="bg-white rounded-lg md:rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                                     {/* Table Header - Desktop Only */}
-                                    <div className="hidden md:grid bg-gray-50 px-6 py-4 border-b border-gray-200 grid-cols-12 gap-4 items-center font-semibold text-gray-700 text-sm">
+                                    <div className="hidden md:grid bg-blue-50 px-6 py-4 border-b border-blue-200 grid-cols-12 gap-4 items-center font-semibold text-blue-900 text-sm">
                                         <div className="col-span-1">#</div>
                                         <div className="col-span-2">Name</div>
                                         <div className="col-span-2">Surname</div>
@@ -432,21 +568,21 @@ const ViewStudentMarks: React.FC = () => {
                                     {/* Desktop Table Body */}
                                     <div className="hidden md:block divide-y divide-gray-200">
                                         {sortedStudentMarks.map((mark, index) => (
-                                            <div key={mark._id} className="px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
+                                            <div key={mark._id} className="px-6 py-4 hover:bg-blue-50 transition-colors duration-150">
                                                 <div className="grid grid-cols-12 gap-4 items-center">
                                                     <div className="col-span-1">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-gray-600 font-medium">{index + 1}</span>
+                                                            <span className="text-blue-900 font-medium">{index + 1}</span>
                                                             {topPerformers.some(tp => tp._id === mark._id) && (
                                                                 <Trophy size={16} className="text-yellow-500" />
                                                             )}
                                                         </div>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <span className="font-medium text-gray-800 line-clamp-1">{mark.studentId.firstName}</span>
+                                                        <span className="font-medium text-blue-900 line-clamp-1">{mark.studentId.firstName}</span>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <span className="font-medium text-gray-800 line-clamp-1">{mark.studentId.lastName}</span>
+                                                        <span className="font-medium text-blue-900 line-clamp-1">{mark.studentId.lastName}</span>
                                                     </div>
                                                     <div className="col-span-3">
                                                         <span className="text-gray-600 text-sm line-clamp-1">{mark.studentId.email}</span>
@@ -472,10 +608,10 @@ const ViewStudentMarks: React.FC = () => {
                                     {/* Mobile List */}
                                     <div className="md:hidden divide-y divide-gray-200">
                                         {sortedStudentMarks.map((mark, index) => (
-                                            <div key={mark._id} className="p-4 hover:bg-gray-50 transition-colors duration-150">
+                                            <div key={mark._id} className="p-4 hover:bg-blue-50 transition-colors duration-150">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-medium text-gray-700">{index + 1}.</span>
+                                                        <span className="font-medium text-blue-900">{index + 1}.</span>
                                                         {topPerformers.some(tp => tp._id === mark._id) && (
                                                             <Trophy size={16} className="text-yellow-500" />
                                                         )}
@@ -494,8 +630,8 @@ const ViewStudentMarks: React.FC = () => {
 
                                                 <div className="mt-3">
                                                     <div className="flex items-center gap-2 text-sm">
-                                                        <User size={16} className="text-gray-500" />
-                                                        <span className="font-medium text-gray-800">
+                                                        <User size={16} className="text-blue-900" />
+                                                        <span className="font-medium text-blue-900">
                                                             {mark.studentId.firstName} {mark.studentId.lastName}
                                                         </span>
                                                     </div>
