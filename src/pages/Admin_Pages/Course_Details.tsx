@@ -86,8 +86,7 @@ const t = toast({
     const t = toast({
   variant: "destructive",
   title: "Oops! Couldn’t Create Topic",
-  description:
-    error.message || "We couldn’t create the topic right now. Please try again.",
+ 
   duration: 8000,
   action: (
     <Button
@@ -130,7 +129,6 @@ const t = toast({
             value={topicData.description}
             onChange={handleChange}
             placeholder="Topic description..."
-            required
           />
         </div>
 

@@ -4,7 +4,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
     ChevronLeft,
-    User,
     Mail,
     Phone,
     MapPin,
@@ -12,7 +11,6 @@ import {
     Trophy,
     BookOpen,
     Clock,
-    TrendingUp,
     Wallet,
     Users,
     CheckCircle,
@@ -21,18 +19,31 @@ import {
     Menu,
     X,
     Award,
-    Target,
-    Activity,
+    Activity as ActivityIcon,
     PieChart,
     BarChart3,
     AlertCircle,
-    Eye
+    Eye,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import Sidebar from "@/components/Sidebar";
-import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Pie } from 'recharts';
+import {
+    PieChart as RechartsPieChart,
+    Cell,
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    Pie,
+} from "recharts";
 import AdminService from "@/services/Admin_Service/admin_service";
 import StudentService from "@/services/Admin_Service/Student_service";
+
+/** ---------------- Types (hardened to match your API) ---------------- */
 
 interface StudentInfo {
     _id: string;
@@ -44,13 +55,24 @@ interface StudentInfo {
     address: string;
     school: string;
     subscription_status: string;
-    profile_picture: string;
-    profile_picture_status: string;
+    profile_picture?: string;
+    profile_picture_status?: string;
     next_of_kin_full_name: string;
     next_of_kin_phone_number: string;
     isPhoneVerified: boolean;
+    // support either key casing seen in code/BE
+    rejection_reason?: string;
     profile_picture_rejection_reason?: string;
 }
+
+type TopicRef =
+    | {
+        _id: string;
+        title?: string;
+        subject?: string;
+    }
+    | string
+    | null;
 
 interface ExamRecord {
     _id: string;
@@ -71,19 +93,15 @@ interface ExamRecord {
 interface TopicProgress {
     _id: string;
     student: string;
-    topic: {
-        _id: string;
-        title: string;
-        subject: string;
-    };
+    topic: TopicRef;
     status: string;
     startedAt: string;
     completedAt: string | null;
     lastAccessed: string;
     timeSpent: number;
     minimumTimeRequirementMet: boolean;
-    currentLessonIndex: number;
-    currentSubheadingIndex: number;
+    currentLessonIndex?: number;
+    currentSubheadingIndex?: number;
 }
 
 interface WalletInfo {
@@ -119,12 +137,12 @@ interface StudentActivitiesData {
         completionRate: number;
     };
     charts: {
-        performanceChart: {
+        performanceChart?: {
             title: string;
             labels: string[];
             data: number[];
         };
-        progressChart: {
+        progressChart?: {
             title: string;
             labels: string[];
             datasets: Array<{
@@ -132,7 +150,7 @@ interface StudentActivitiesData {
                 data: number[];
             }>;
         };
-        timeSpentChart: {
+        timeSpentChart?: {
             title: string;
             labels: string[];
             data: number[];
@@ -145,14 +163,15 @@ interface ApiResponse {
     data: StudentActivitiesData;
 }
 
-// Shimmer Loading Components
+/** ---------------- Shimmer Loading Components ---------------- */
+
 const ShimmerCard: React.FC = () => (
     <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
         <div className="flex items-center gap-3 md:gap-4">
-            <div className="p-2 md:p-3 bg-gray-200 rounded-lg animate-pulse w-10 h-10 md:w-12 md:h-12"></div>
+            <div className="p-2 md:p-3 bg-gray-200 rounded-lg animate-pulse w-10 h-10 md:w-12 md:h-12" />
             <div className="flex-1">
-                <div className="h-3 md:h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-                <div className="h-5 md:h-6 bg-gray-200 rounded animate-pulse w-16"></div>
+                <div className="h-3 md:h-4 bg-gray-200 rounded animate-pulse mb-2" />
+                <div className="h-5 md:h-6 bg-gray-200 rounded animate-pulse w-16" />
             </div>
         </div>
     </div>
@@ -161,12 +180,12 @@ const ShimmerCard: React.FC = () => (
 const ShimmerProfile: React.FC = () => (
     <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
-            <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-200 rounded-full animate-pulse"></div>
+            <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-200 rounded-full animate-pulse" />
             <div className="flex-1 text-center md:text-left">
-                <div className="h-6 bg-gray-200 rounded animate-pulse mb-2 w-48"></div>
-                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2 w-64"></div>
-                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2 w-32"></div>
-                <div className="h-8 bg-gray-200 rounded animate-pulse w-32 mx-auto md:mx-0 mt-4"></div>
+                <div className="h-6 bg-gray-200 rounded animate-pulse mb-2 w-48" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2 w-64" />
+                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2 w-32" />
+                <div className="h-8 bg-gray-200 rounded animate-pulse w-32 mx-auto md:mx-0 mt-4" />
             </div>
         </div>
     </div>
@@ -174,10 +193,12 @@ const ShimmerProfile: React.FC = () => (
 
 const ShimmerChart: React.FC = () => (
     <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
-        <div className="h-5 bg-gray-200 rounded animate-pulse mb-4 w-32"></div>
-        <div className="h-64 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-5 bg-gray-200 rounded animate-pulse mb-4 w-32" />
+        <div className="h-64 bg-gray-200 rounded animate-pulse" />
     </div>
 );
+
+/** ---------------- Component ---------------- */
 
 const ViewStudentActivities: React.FC = () => {
     const { studentId } = useParams<{ studentId: string }>();
@@ -194,25 +215,22 @@ const ViewStudentActivities: React.FC = () => {
     const [showRejectionModal, setShowRejectionModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
 
-    // Toggle sidebar function
-    const toggleSidebar = () => {
-        setSidebarOpen(!sidebarOpen);
-    };
+    // Toggle sidebar
+    const toggleSidebar = () => setSidebarOpen((s) => !s);
 
-    // Update screen size state and handle sidebar visibility
+    // Screen size handler
     useEffect(() => {
         const checkScreenSize = () => {
             const isLarge = window.innerWidth >= 768;
             setIsLargeScreen(isLarge);
             setSidebarOpen(isLarge);
         };
-
         checkScreenSize();
         window.addEventListener("resize", checkScreenSize);
-
         return () => window.removeEventListener("resize", checkScreenSize);
     }, []);
 
+    // Fetch data
     useEffect(() => {
         const fetchStudentActivities = async () => {
             if (!studentId) {
@@ -222,16 +240,11 @@ const ViewStudentActivities: React.FC = () => {
                     description: "Please provide a student ID before continuing.",
                     duration: 8000,
                     action: (
-                        <Button
-                            variant="secondary"
-                            className="bg-white text-red-600 hover:bg-red-100"
-                            onClick={() => t.dismiss()}
-                        >
+                        <Button variant="secondary" className="bg-white text-red-600 hover:bg-red-100" onClick={() => t.dismiss()}>
                             Dismiss
                         </Button>
                     ),
                 });
-
                 navigate(-1);
                 return;
             }
@@ -248,16 +261,11 @@ const ViewStudentActivities: React.FC = () => {
                     description: "We couldn't fetch the student activities right now. Please try again.",
                     duration: 8000,
                     action: (
-                        <Button
-                            variant="secondary"
-                            className="bg-white text-red-600 hover:bg-red-100"
-                            onClick={() => t.dismiss()}
-                        >
+                        <Button variant="secondary" className="bg-white text-red-600 hover:bg-red-100" onClick={() => t.dismiss()}>
                             Dismiss
                         </Button>
                     ),
                 });
-
                 navigate(-1);
             } finally {
                 setLoading(false);
@@ -267,22 +275,24 @@ const ViewStudentActivities: React.FC = () => {
         fetchStudentActivities();
     }, [studentId, toast, navigate]);
 
+    /** ---------------- Actions ---------------- */
+
     const handleApproveProfile = async () => {
         if (!studentData) return;
-
         try {
             setApprovingProfile(true);
             await StudentService.approveProfilePicture(studentId);
-
-            // Update local state
-            setStudentData(prev => prev ? {
-                ...prev,
-                studentInfo: {
-                    ...prev.studentInfo,
-                    profile_picture_status: 'approved'
-                }
-            } : null);
-
+            setStudentData((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        studentInfo: {
+                            ...prev.studentInfo,
+                            profile_picture_status: "approved",
+                        },
+                    }
+                    : null
+            );
             toast({
                 title: "Profile Picture Approved",
                 description: "The student's profile picture has been approved successfully.",
@@ -316,15 +326,19 @@ const ViewStudentActivities: React.FC = () => {
             setRejectingProfile(true);
             await StudentService.rejectProfilePicture(studentId, rejectionReason);
 
-            // Update local state
-            setStudentData(prev => prev ? {
-                ...prev,
-                studentInfo: {
-                    ...prev.studentInfo,
-                    profile_picture_status: 'rejected',
-                    rejection_reason: rejectionReason
-                }
-            } : null);
+            setStudentData((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        studentInfo: {
+                            ...prev.studentInfo,
+                            profile_picture_status: "rejected",
+                            rejection_reason: rejectionReason,
+                            profile_picture_rejection_reason: rejectionReason,
+                        },
+                    }
+                    : null
+            );
 
             toast({
                 title: "Profile Picture Rejected",
@@ -332,7 +346,6 @@ const ViewStudentActivities: React.FC = () => {
                 duration: 5000,
             });
 
-            // Close the modal and reset the reason
             setShowRejectionModal(false);
             setRejectionReason("");
         } catch (error) {
@@ -348,96 +361,100 @@ const ViewStudentActivities: React.FC = () => {
         }
     };
 
-    // Function to get initials
-    // Function to get initials safely
+    /** ---------------- Helpers ---------------- */
+
     const getInitials = (firstName?: string, lastName?: string): string => {
         const safeFirst = (firstName || "").trim();
         const safeLast = (lastName || "").trim();
-
         const firstInitial = safeFirst.length > 0 ? safeFirst[0].toUpperCase() : "";
         const lastInitial = safeLast.length > 0 ? safeLast[0].toUpperCase() : "";
-
-        // If both are empty, fallback to "?"
         return (firstInitial + lastInitial) || "?";
     };
 
-
     const getGradeColor = (grade: string): string => {
-        switch (grade.toUpperCase()) {
-            case 'A+':
-            case 'A':
-                return 'bg-green-100 text-green-800 border-green-200';
-            case 'B+':
-            case 'B':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'C+':
-            case 'C':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'D+':
-            case 'D':
-                return 'bg-orange-100 text-orange-800 border-orange-200';
-            case 'F':
-                return 'bg-red-100 text-red-800 border-red-200';
+        switch ((grade || "").toUpperCase()) {
+            case "A+":
+            case "A":
+                return "bg-green-100 text-green-800 border-green-200";
+            case "B+":
+            case "B":
+                return "bg-blue-100 text-blue-800 border-blue-200";
+            case "C+":
+            case "C":
+                return "bg-yellow-100 text-yellow-800 border-yellow-200";
+            case "D+":
+            case "D":
+                return "bg-orange-100 text-orange-800 border-orange-200";
+            case "F":
+                return "bg-red-100 text-red-800 border-red-200";
             default:
-                return 'bg-blue-900 text-white border-blue-900';
+                return "bg-blue-900 text-white border-blue-900";
         }
     };
 
-    const getStatusColor = (status: string): string => {
-        switch (status.toLowerCase()) {
-            case 'completed':
-                return 'bg-green-100 text-green-800 border-green-200';
-            case 'in_progress':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'pending':
-                return 'bg-orange-100 text-orange-800 border-orange-200';
-            case 'approved':
-                return 'bg-green-100 text-green-800 border-green-200';
-            case 'rejected':
-                return 'bg-red-100 text-red-800 border-red-200';
-            case 'active':
-                return 'bg-green-100 text-green-800 border-green-200';
-            case 'inactive':
-                return 'bg-red-100 text-red-800 border-red-200';
+    const getStatusColor = (status?: string): string => {
+        switch ((status || "").toLowerCase()) {
+            case "completed":
+            case "approved":
+            case "active":
+                return "bg-green-100 text-green-800 border-green-200";
+            case "in_progress":
+            case "pending":
+                return "bg-yellow-100 text-yellow-800 border-yellow-200";
+            case "rejected":
+            case "inactive":
+                return "bg-red-100 text-red-800 border-red-200";
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return "bg-gray-100 text-gray-800 border-gray-200";
         }
+    };
+
+    const safeDate = (dateString?: string) => {
+        const d = dateString ? new Date(dateString) : null;
+        return d && !isNaN(d.getTime()) ? d : null;
     };
 
     const formatDate = (dateString: string): string => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+        const d = safeDate(dateString);
+        if (!d) return "—";
+        return d.toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
         });
     };
 
-    // Prepare chart data
+    // Charts data prep (defensive)
     const preparePieChartData = () => {
-        if (!studentData) return [];
-
-        const { performanceChart } = studentData.charts;
-        return performanceChart.labels.map((label, index) => ({
-            name: label,
-            value: performanceChart.data[index],
-            color: index === 0 ? '#1e40af' : index === 1 ? '#059669' : '#dc2626'
+        const perf = studentData?.charts?.performanceChart;
+        if (!perf || !Array.isArray(perf.labels) || !Array.isArray(perf.data)) return [];
+        return perf.labels.map((label, index) => ({
+            name: label ?? `Item ${index + 1}`,
+            value: Number(perf.data[index] ?? 0),
         }));
     };
 
     const prepareBarChartData = () => {
-        if (!studentData) return [];
-
-        const { progressChart } = studentData.charts;
-        return progressChart.labels.map((label, index) => ({
-            subject: label,
-            completed: progressChart.datasets[0]?.data[index] || 0,
-            inProgress: progressChart.datasets[1]?.data[index] || 0
+        const prog = studentData?.charts?.progressChart;
+        if (
+            !prog ||
+            !Array.isArray(prog.labels) ||
+            !Array.isArray(prog.datasets) ||
+            prog.datasets.length < 2
+        )
+            return [];
+        return prog.labels.map((label, index) => ({
+            subject: label ?? `Item ${index + 1}`,
+            completed: Number(prog.datasets[0]?.data?.[index] ?? 0),
+            inProgress: Number(prog.datasets[1]?.data?.[index] ?? 0),
         }));
     };
 
-    const COLORS = ['#1e40af', '#059669', '#dc2626', '#f59e0b', '#8b5cf6'];
+    const COLORS = ["#1e40af", "#059669", "#dc2626", "#f59e0b", "#8b5cf6"];
+
+    /** ---------------- Render ---------------- */
 
     if (loading) {
         return (
@@ -452,14 +469,8 @@ const ViewStudentActivities: React.FC = () => {
 
                 {/* Sidebar */}
                 <div
-                    className={`
-                        ${sidebarOpen
-                            ? "translate-x-0 opacity-100"
-                            : "-translate-x-full opacity-0"
-                        } 
-                        transition-all duration-300 ease-in-out 
-                        fixed md:relative z-40 md:z-auto w-64
-                    `}
+                    className={`${sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+                        } transition-all duration-300 ease-in-out fixed md:relative z-40 md:z-auto w-64`}
                 >
                     <Sidebar />
                 </div>
@@ -469,18 +480,18 @@ const ViewStudentActivities: React.FC = () => {
                     <div className="w-full min-h-screen">
                         {/* Header Shimmer */}
                         <div className="relative p-4 md:p-6 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white">
-                            <div className="absolute inset-0 bg-black/10"></div>
+                            <div className="absolute inset-0 bg-black/10" />
                             <div className="relative flex items-center justify-between">
-                                <div className="w-8 h-8 bg-white/20 rounded animate-pulse"></div>
+                                <div className="w-8 h-8 bg-white/20 rounded animate-pulse" />
                                 <div className="text-center flex-1">
                                     <div className="flex flex-col md:flex-row items-center justify-center gap-3">
                                         <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm animate-pulse">
-                                            <Activity size={20} className="text-white opacity-50" />
+                                            <ActivityIcon size={20} className="text-white opacity-50" />
                                         </div>
-                                        <div className="h-6 bg-white/20 rounded animate-pulse w-40"></div>
+                                        <div className="h-6 bg-white/20 rounded animate-pulse w-40" />
                                     </div>
                                 </div>
-                                <div className="w-8"></div>
+                                <div className="w-8" />
                             </div>
                         </div>
 
@@ -522,7 +533,18 @@ const ViewStudentActivities: React.FC = () => {
         );
     }
 
-    const { studentInfo, activities, summary, charts } = studentData;
+    const { studentInfo, activities, summary } = studentData;
+
+    // Normalize rejection reason key
+    const rejectionReasonDisplay =
+        studentInfo.rejection_reason ?? studentInfo.profile_picture_rejection_reason;
+
+    // Helper to safely read topic title
+    const getTopicTitle = (topic: TopicRef) => {
+        if (!topic) return "(Topic unavailable)";
+        if (typeof topic === "string") return `Topic #${topic.slice(0, 6)}…`;
+        return topic.title || "(Untitled topic)";
+    };
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gray-100">
@@ -536,32 +558,23 @@ const ViewStudentActivities: React.FC = () => {
 
             {/* Sidebar */}
             <div
-                className={`
-                    ${sidebarOpen
-                        ? "translate-x-0 opacity-100"
-                        : "-translate-x-full opacity-0"
-                    } 
-                    transition-all duration-300 ease-in-out 
-                    fixed md:relative z-40 md:z-auto w-64
-                `}
+                className={`${sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+                    } transition-all duration-300 ease-in-out fixed md:relative z-40 md:z-auto w-64`}
             >
                 <Sidebar />
             </div>
 
-            {/* Backdrop Overlay for Mobile */}
+            {/* Backdrop for Mobile */}
             {sidebarOpen && !isLargeScreen && (
-                <div
-                    className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-                    onClick={toggleSidebar}
-                />
+                <div className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30" onClick={toggleSidebar} />
             )}
 
             {/* Main Content */}
             <div className="flex-1 w-full">
                 <div className="w-full min-h-screen">
-                    {/* Header with Blue-900 Theme */}
+                    {/* Header */}
                     <div className="relative p-4 md:p-6 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white">
-                        <div className="absolute inset-0 bg-black/10"></div>
+                        <div className="absolute inset-0 bg-black/10" />
                         <div className="relative flex items-center justify-between">
                             <Button
                                 variant="ghost"
@@ -574,7 +587,7 @@ const ViewStudentActivities: React.FC = () => {
                             <div className="text-center flex-1">
                                 <h1 className="text-xl md:text-2xl font-bold tracking-tight flex flex-col md:flex-row items-center justify-center gap-3">
                                     <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                                        <Activity size={20} className="text-white" />
+                                        <ActivityIcon size={20} className="text-white" />
                                     </div>
                                     Student Activities
                                 </h1>
@@ -582,12 +595,12 @@ const ViewStudentActivities: React.FC = () => {
                                     {studentInfo.firstName} {studentInfo.lastName}
                                 </p>
                             </div>
-                            <div className="w-10"></div>
+                            <div className="w-10" />
                         </div>
                     </div>
 
                     <div className="p-4 md:p-6 space-y-6">
-                        {/* Student Profile Section */}
+                        {/* Student Profile */}
                         <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
                             <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
                                 {/* Profile Picture */}
@@ -600,26 +613,24 @@ const ViewStudentActivities: React.FC = () => {
                                                 className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-gray-200 cursor-pointer"
                                                 onClick={() => setShowProfileModal(true)}
                                             />
-                                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
-                                                onClick={() => setShowProfileModal(true)}>
+                                            <div
+                                                className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
+                                                onClick={() => setShowProfileModal(true)}
+                                            >
                                                 <Eye size={16} className="text-white" />
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-blue-900 text-white 
-                flex items-center justify-center text-xl md:text-2xl font-bold 
-                border-4 border-gray-200">
+                                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-blue-900 text-white flex items-center justify-center text-xl md:text-2xl font-bold border-4 border-gray-200">
                                             {getInitials(studentInfo.firstName, studentInfo.lastName)}
                                         </div>
-
-
                                     )}
-                                    {studentInfo.profile_picture_status === 'pending' && (
+                                    {studentInfo.profile_picture_status === "pending" && (
                                         <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                                             <Clock size={12} className="text-white" />
                                         </div>
                                     )}
-                                    {studentInfo.profile_picture_status === 'rejected' && (
+                                    {studentInfo.profile_picture_status === "rejected" && (
                                         <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
                                             <XCircle size={12} className="text-white" />
                                         </div>
@@ -641,14 +652,14 @@ const ViewStudentActivities: React.FC = () => {
                                         <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-1 md:gap-2">
                                             <Phone size={16} className="text-gray-500 mx-auto md:mx-0" />
                                             <span className="text-gray-600">{studentInfo.phone_number}</span>
-                                            {studentInfo.isPhoneVerified && (
-                                                <CheckCircle size={16} className="text-green-500" />
-                                            )}
+                                            {studentInfo.isPhoneVerified && <CheckCircle size={16} className="text-green-500" />}
                                         </div>
 
                                         <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-1 md:gap-2">
                                             <GraduationCap size={16} className="text-gray-500 mx-auto md:mx-0" />
-                                            <span className="text-gray-600">{studentInfo.level} - {studentInfo.school}</span>
+                                            <span className="text-gray-600">
+                                                {studentInfo.level} - {studentInfo.school}
+                                            </span>
                                         </div>
 
                                         <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-1 md:gap-2">
@@ -657,13 +668,22 @@ const ViewStudentActivities: React.FC = () => {
                                         </div>
 
                                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(studentInfo.subscription_status)}`}>
+                                            <span
+                                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                    studentInfo.subscription_status
+                                                )}`}
+                                            >
                                                 Subscription: {studentInfo.subscription_status}
                                             </span>
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(studentInfo.profile_picture_status)}`}>
-                                                Profile: {studentInfo.profile_picture_status}
+                                            <span
+                                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                    studentInfo.profile_picture_status
+                                                )}`}
+                                            >
+                                                Profile: {studentInfo.profile_picture_status ?? "—"}
                                             </span>
-                                            {studentInfo.profile_picture_status === 'pending' && (
+
+                                            {studentInfo.profile_picture_status === "pending" && (
                                                 <div className="flex gap-2 mt-2 md:mt-0">
                                                     <Button
                                                         size="sm"
@@ -684,14 +704,15 @@ const ViewStudentActivities: React.FC = () => {
                                                     </Button>
                                                 </div>
                                             )}
-                                            {studentInfo.profile_picture_status === 'rejected' && studentInfo.rejection_reason && (
+
+                                            {studentInfo.profile_picture_status === "rejected" && !!rejectionReasonDisplay && (
                                                 <div className="mt-2 w-full md:w-auto">
                                                     <div className="bg-red-50 border border-red-200 rounded-md p-2 text-sm text-red-800">
                                                         <div className="font-medium flex items-center gap-1">
                                                             <AlertCircle size={14} />
                                                             Rejection Reason:
                                                         </div>
-                                                        <p className="mt-1">{studentInfo.rejection_reason}</p>
+                                                        <p className="mt-1">{rejectionReasonDisplay}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -730,7 +751,7 @@ const ViewStudentActivities: React.FC = () => {
                             <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-center gap-3 md:gap-4">
                                     <div className="p-2 md:p-3 bg-yellow-100 rounded-lg">
-                                        <Target size={20} className="text-yellow-600" />
+                                        <Clock size={20} className="text-yellow-600" />
                                     </div>
                                     <div>
                                         <p className="text-xs md:text-sm text-gray-600">Completion Rate</p>
@@ -747,14 +768,14 @@ const ViewStudentActivities: React.FC = () => {
                                     <div>
                                         <p className="text-xs md:text-sm text-gray-600">Wallet Balance</p>
                                         <p className="text-xl md:text-2xl font-bold text-blue-900">
-                                            ${activities.walletInfo.balance}
+                                            ${activities.walletInfo.balance} {activities.walletInfo.currency}
                                         </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Charts Section */}
+                        {/* Charts */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Performance Pie Chart */}
                             <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
@@ -773,7 +794,7 @@ const ViewStudentActivities: React.FC = () => {
                                             dataKey="value"
                                             label={({ name, value }) => `${name}: ${value}%`}
                                         >
-                                            {preparePieChartData().map((entry, index) => (
+                                            {preparePieChartData().map((_, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
@@ -795,15 +816,15 @@ const ViewStudentActivities: React.FC = () => {
                                         <YAxis />
                                         <Tooltip />
                                         <Legend />
-                                        <Bar dataKey="completed" fill="#059669" name="Completed" />
-                                        <Bar dataKey="inProgress" fill="#f59e0b" name="In Progress" />
+                                        <Bar dataKey="completed" name="Completed" />
+                                        <Bar dataKey="inProgress" name="In Progress" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
                         {/* Recent Exam Results */}
-                        {activities.examRecords.length > 0 && (
+                        {activities.examRecords?.length > 0 && (
                             <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
                                 <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
                                     <Award size={20} />
@@ -811,9 +832,12 @@ const ViewStudentActivities: React.FC = () => {
                                 </h3>
                                 <div className="space-y-4">
                                     {activities.examRecords.slice(0, 5).map((exam) => (
-                                        <div key={exam._id} className="flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                        <div
+                                            key={exam._id}
+                                            className="flex flex-col md:flex-row md:items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                        >
                                             <div className="flex-1">
-                                                <h4 className="font-medium text-blue-900">{exam.ExamId.title}</h4>
+                                                <h4 className="font-medium text-blue-900">{exam.ExamId?.title ?? "Untitled Exam"}</h4>
                                                 <p className="text-sm text-gray-600 mt-1">{exam.comment}</p>
                                                 <p className="text-xs text-gray-500 mt-1">
                                                     <Calendar size={12} className="inline mr-1" />
@@ -823,7 +847,11 @@ const ViewStudentActivities: React.FC = () => {
                                             <div className="mt-3 md:mt-0 md:ml-4 text-right">
                                                 <div className="flex flex-row md:flex-col items-center md:items-end gap-2">
                                                     <span className="text-xl font-bold text-blue-900">{exam.percentange}</span>
-                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getGradeColor(exam.results)}`}>
+                                                    <span
+                                                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getGradeColor(
+                                                            exam.results
+                                                        )}`}
+                                                    >
                                                         {exam.results}
                                                     </span>
                                                 </div>
@@ -842,50 +870,59 @@ const ViewStudentActivities: React.FC = () => {
                         )}
 
                         {/* Topic Progress */}
-                        {activities.topicProgress.length > 0 && (
+                        {activities.topicProgress?.length > 0 && (
                             <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
                                 <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
                                     <BookOpen size={20} />
                                     Topic Progress
                                 </h3>
                                 <div className="space-y-4">
-                                    {activities.topicProgress.map((topic) => (
-                                        <div key={topic._id} className="p-4 border border-gray-200 rounded-lg">
-                                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
-                                                <h4 className="font-medium text-blue-900">{topic.topic.title}</h4>
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(topic.status)} mt-2 md:mt-0`}>
-                                                    {topic.status.replace('_', ' ')}
-                                                </span>
+                                    {activities.topicProgress.map((tp) => {
+                                        const pct =
+                                            tp.status === "completed"
+                                                ? 100
+                                                : Math.max(
+                                                    0,
+                                                    Math.min(100, Math.round(((tp.currentLessonIndex ?? 0) / 10) * 100))
+                                                ); // keep your visual logic but safe
+                                        return (
+                                            <div key={tp._id} className="p-4 border border-gray-200 rounded-lg">
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
+                                                    <h4 className="font-medium text-blue-900">{getTopicTitle(tp.topic)}</h4>
+                                                    <span
+                                                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                            tp.status
+                                                        )} mt-2 md:mt-0`}
+                                                    >
+                                                        {(tp.status || "").replace("_", " ")}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                                    <div>
+                                                        <p className="text-gray-600">Started:</p>
+                                                        <p className="font-medium">{formatDate(tp.startedAt)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-600">Last Accessed:</p>
+                                                        <p className="font-medium">{formatDate(tp.lastAccessed)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-600">Time Spent:</p>
+                                                        <p className="font-medium">{tp.timeSpent ?? 0} minutes</p>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 flex items-center gap-2">
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div
+                                                            className="bg-blue-900 h-2 rounded-full transition-all duration-300"
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-sm text-gray-600">{pct}%</span>
+                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                                <div>
-                                                    <p className="text-gray-600">Started:</p>
-                                                    <p className="font-medium">{formatDate(topic.startedAt)}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-600">Last Accessed:</p>
-                                                    <p className="font-medium">{formatDate(topic.lastAccessed)}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-600">Time Spent:</p>
-                                                    <p className="font-medium">{topic.timeSpent} minutes</p>
-                                                </div>
-                                            </div>
-                                            <div className="mt-3 flex items-center gap-2">
-                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                    <div
-                                                        className="bg-blue-900 h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${topic.status === 'completed' ? 100 : (topic.currentLessonIndex || 0) * 10}%`
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-sm text-gray-600">
-                                                    {topic.status === 'completed' ? '100%' : `${(topic.currentLessonIndex || 0) * 10}%`}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -908,16 +945,23 @@ const ViewStudentActivities: React.FC = () => {
                                 <div>
                                     <h4 className="font-semibold text-blue-900 mb-3">Recent Transactions</h4>
                                     <div className="space-y-2 max-h-40 overflow-y-auto">
-                                        {activities.walletInfo.deposits.length > 0 ? (
+                                        {activities.walletInfo.deposits?.length > 0 ? (
                                             activities.walletInfo.deposits.slice(0, 3).map((deposit, index) => (
-                                                <div key={index} className="flex justify-between items-center p-2 border border-gray-200 rounded">
+                                                <div
+                                                    key={`${deposit.reference}-${index}`}
+                                                    className="flex justify-between items-center p-2 border border-gray-200 rounded"
+                                                >
                                                     <div>
                                                         <p className="text-sm font-medium">{deposit.description}</p>
                                                         <p className="text-xs text-gray-600">{formatDate(deposit.date)}</p>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-sm font-bold text-green-600">+${deposit.amount}</p>
-                                                        <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium border ${getStatusColor(deposit.status)}`}>
+                                                        <span
+                                                            className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium border ${getStatusColor(
+                                                                deposit.status
+                                                            )}`}
+                                                        >
                                                             {deposit.status}
                                                         </span>
                                                     </div>
@@ -931,8 +975,8 @@ const ViewStudentActivities: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Next of Kin Information */}
-                        {studentInfo.next_of_kin_full_name !== 'None' && (
+                        {/* Next of Kin */}
+                        {studentInfo.next_of_kin_full_name !== "None" && (
                             <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
                                 <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
                                     <Users size={20} />

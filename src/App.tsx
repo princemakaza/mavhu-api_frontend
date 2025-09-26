@@ -6,11 +6,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import PrivateRoute from "./components/PrivateRoute";
 import { AuthProvider } from "./context/AuthContext";
-
-// Pages
-
 import Register from "./pages/auth/user/Login";
-
 import Aboutpage from "./pages/User_Pages/Aboutpage";
 import StudentDashboard from "./pages/Admin_Pages/Student";
 import ChatApp from "./pages/Admin_Pages/Chat";
@@ -18,9 +14,7 @@ import ReserourceUpload from "./pages/Admin_Pages/Upload";
 import Library from "./pages/Admin_Pages/Library";
 import SettingsPage from "./pages/Admin_Pages/Settings";
 import CourseDetailPage from "./pages/Admin_Pages/Course_Details";
-
 import Navrbar from "./components/Navbar";
-
 import Forgot_password from "./pages/auth/user/Forgot_Password";
 import Email_Password_Reset from "./pages/auth/user/Email_Password_Reset";
 import Admin_Dashboard from "./pages/Admin_Pages/Admin_Dashboard";
@@ -110,7 +104,6 @@ const App = () => (
             <Route path="/courses" element={<AdminSubjects />} />
             <Route path="/homepage" element={<Homepage />} />
             <Route path="/aboutpage" element={<Aboutpage />} />
-
             <Route path="/navbar" element={<Navrbar />} />
             <Route path="/courses" element={<AdminCourses />} />
             <Route element={<WelcomeLayout />}>
@@ -165,5 +158,4 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
-
 export default App;

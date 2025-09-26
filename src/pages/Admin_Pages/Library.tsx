@@ -82,7 +82,7 @@ const Library = () => {
   const confirmDeleteBook = async () => {
     try {
       await LibraryService.deleteBook(confirmDelete);
-      setBooks(books.filter((book) => book._id !== confirmDelete));
+      setBooks((prev) => prev.filter((book) => book._id !== confirmDelete));
       setConfirmDelete(null);
     } catch (err) {
       alert("Failed to delete book");
@@ -386,6 +386,22 @@ const Library = () => {
                     />
                     <div className="absolute top-2 left-2 bg-[#032155] text-white px-2 py-1 rounded text-xs font-medium">
                       PDF
+                    </div>
+
+                    {/* DELETE ICON — top-right on the card */}
+                    <div className="absolute top-2 right-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-sm"
+                        title="Delete book"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeleteConfirmation(book._id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
                     </div>
                   </div>
 

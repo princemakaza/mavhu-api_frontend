@@ -28,14 +28,19 @@ const AdminService = {
    * @returns {Promise} Promise with admin data
    */
   getAdminById: async (id) => {
+    console.log("admin by id response", id)
+
     try {
       const response = await axios.get(`${BASE_URL}/admins/${id}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
         },
       });
+      console.log("admin by id response", response.data)
+      console.log(response.data)
       return response.data;
     } catch (error) {
+      console.log("error ", error)
       throw error.response?.data || "Failed to retrieve admin";
     }
   },
@@ -47,13 +52,16 @@ const AdminService = {
    */
   getAdminByEmail: async (email) => {
     try {
+      console.log("admin by email response", email)
       const response = await axios.get(`${BASE_URL}/getadmin/${email}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
         },
       });
+      console.log("admin by email response", response.data)
       return response.data;
     } catch (error) {
+      console.log("error ", error)
       throw error.response?.data || "Failed to retrieve admin";
     }
   },
@@ -130,18 +138,30 @@ const AdminService = {
           Authorization: `Bearer ${getAuthToken()}`,
         },
       };
+
       const response = await axios.request(config);
+
+      // 👉 Log the full response
+      console.log("Student Activities Response:", response);
+
+      // 👉 Or just the data
+      console.log("Student Activities Data:", response.data);
+
       return response.data;
     } catch (error) {
       if (error.response) {
+        console.error("API Error Response:", error.response.data);
         throw error.response.data;
       } else if (error.request) {
+        console.error("API Request Error:", error.request);
         throw "Network error: No response from server";
       } else {
+        console.error("Unexpected Error:", error.message);
         throw error.message || "Failed to retrieve student activities";
       }
     }
   },
+
 };
 
 /**

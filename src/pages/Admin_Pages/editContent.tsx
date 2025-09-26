@@ -14,6 +14,22 @@ import { Input } from "@/components/ui/input";
 import { MathfieldElement } from "mathlive";
 import Sidebar from "@/components/Sidebar";
 import logo from "@/assets/logo2.png";
+import {
+  DndContext,
+  DragEndEvent,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // 🚀 Import everything you need from your contentActions.ts
 import {
@@ -181,6 +197,38 @@ const LoadingShimmer = () => (
   </div>
 );
 
+const Sortable = ({
+  id,
+  children,
+  className = "",
+  disabled = false,
+}: {
+  id: string;
+  className?: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={className}>
+      {/* Pass drag handlers down so you can attach them to the Grip icon */}
+      {typeof children === "function"
+        ? (children as any)({ attributes, listeners, isDragging })
+        : children}
+    </div>
+  );
+};
+
+
+
 /* ================================
  * Main
  * ================================ */
@@ -189,6 +237,7 @@ const EditContent: React.FC = () => {
   const { contentId, topicId } = useParams<{ contentId: string; topicId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const [content, setContent] = useState<ContentFormData>({
     title: "",
@@ -232,6 +281,63 @@ const EditContent: React.FC = () => {
   // comments + reactions local entry state
   const [newCommentByLesson, setNewCommentByLesson] = useState<Record<number, string>>({});
   const [newReplyByLessonAndIndex, setNewReplyByLessonAndIndex] = useState<Record<string, string>>({}); // key: `${lessonIndex}_${commentIndex}`
+
+
+  // Reorder lessons
+  const onLessonDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = Number(String(active.id).split("-")[1]);
+    const newIndex = Number(String(over.id).split("-")[1]);
+
+    setContent((prev) => {
+      const nextLessons = arrayMove(prev.lesson, oldIndex, newIndex);
+      return { ...prev, lesson: nextLessons };
+    });
+
+    setActiveLessonIndex((prevActive) => {
+      // keep the same lesson focused visually after reordering
+      if (prevActive === oldIndex) return newIndex;
+      if (oldIndex < prevActive && newIndex >= prevActive) return prevActive - 1;
+      if (oldIndex > prevActive && newIndex <= prevActive) return prevActive + 1;
+      return prevActive;
+    });
+
+    toast({
+      title: "Lesson moved",
+      description: `Moved to position ${newIndex + 1}`,
+      duration: 2500,
+    });
+  };
+
+  // Reorder sections within the active lesson
+  const onSectionDragEnd = (event: DragEndEvent, lessonIndex: number) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = Number(String(active.id).split("-")[1]);
+    const newIndex = Number(String(over.id).split("-")[1]);
+
+    setContent((prev) => {
+      const copy = { ...prev, lesson: [...prev.lesson] };
+      const L = { ...copy.lesson[lessonIndex] };
+      L.subHeading = arrayMove(L.subHeading, oldIndex, newIndex);
+      copy.lesson[lessonIndex] = L;
+      return copy;
+    });
+
+    toast({
+      title: "Section moved",
+      description: `Moved to position ${newIndex + 1}`,
+      duration: 2500,
+    });
+  };
+
+
+
+
+
 
   const getFieldPath = (lessonIndex: number, subHeadingIndex: number | null, fieldName: string) =>
     subHeadingIndex === null ? `lesson_${lessonIndex}_${fieldName}` : `lesson_${lessonIndex}_subheading_${subHeadingIndex}_${fieldName}`;
@@ -726,17 +832,48 @@ const EditContent: React.FC = () => {
             </div>
 
             {/* Lesson Tabs */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {content.lesson.map((_, index) => (
-                <button key={index} onClick={() => setActiveLessonIndex(index)}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeLessonIndex === index ? "bg-blue-600 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`}>
-                  Lesson {index + 1}
-                </button>
-              ))}
-              <button onClick={addLessonItem} className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm flex items-center gap-1 hover:bg-blue-700">
-                <Plus size={16} /> Add Lesson
-              </button>
-            </div>
+            {/* Lesson Tabs (Draggable) */}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onLessonDragEnd}>
+              <SortableContext
+                // ids must match what's used by Sortable items
+                items={content.lesson.map((_, i) => `lesson-${i}`)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {content.lesson.map((_, index) => (
+                    <Sortable key={`lesson-${index}`} id={`lesson-${index}`}>
+                      {({ attributes, listeners }) => (
+                        <button
+                          onClick={() => setActiveLessonIndex(index)}
+                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeLessonIndex === index
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                            }`}
+                        >
+                          <GripVertical
+                            size={16}
+                            className="text-gray-400 cursor-grab active:cursor-grabbing"
+                            {...attributes}
+                            {...listeners}
+                            // Keeps click-to-select working while allowing drag
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          Lesson {index + 1}
+                        </button>
+                      )}
+                    </Sortable>
+                  ))}
+
+                  <button
+                    onClick={addLessonItem}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm flex items-center gap-1 hover:bg-blue-700"
+                  >
+                    <Plus size={16} /> Add Lesson
+                  </button>
+                </div>
+              </SortableContext>
+            </DndContext>
+
 
             {/* Active Lesson */}
             <div className="space-y-6">
@@ -764,160 +901,289 @@ const EditContent: React.FC = () => {
                       </div>
 
                       {/* Sections */}
+                      {/* =========================
+    Sections (DRAGGABLE)
+   ========================= */}
                       <div className="space-y-4">
                         <label className="text-sm font-medium text-gray-700">Sections</label>
-                        <div className="space-y-4">
-                          {lessonItem.subHeading.map((subHeadingItem, subHeadingIndex) => {
-                            const field = (f: string) => getFieldPath(lessonIndex, subHeadingIndex, f);
-                            return (
-                              <div key={subHeadingIndex} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                <div className="flex justify-between items-center mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-blue-400 rounded-full text-white text-xs flex items-center justify-center">
-                                      {subHeadingIndex + 1}
-                                    </div>
-                                    <span className="text-xs font-medium text-gray-700">Section {subHeadingIndex + 1}</span>
-                                  </div>
-                                  {lessonItem.subHeading.length > 1 && (
-                                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50" onClick={() => removeSubHeading(lessonIndex, subHeadingIndex)}>
-                                      <X size={12} />
-                                    </Button>
-                                  )}
-                                </div>
 
-                                {/* Section Content */}
-                                <div className="space-y-3">
-                                  {(["text", "comment"] as const).map((key) => (
-                                    <div className="space-y-2" key={key}>
-                                      <label className="text-xs font-medium text-gray-600">
-                                        {key === "text" ? "Section Content" : "Comment"}
-                                      </label>
-                                      <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                                        {editingStates[field(key)] ? (
-                                          <MathInput
-                                            value={subHeadingItem[key]}
-                                            onChange={(v) => updateSubHeadingItem(lessonIndex, subHeadingIndex, key, v)}
-                                            editing={true}
-                                            onSave={() => saveMathValue(field(key))}
-                                            onCancel={() => cancelEditing(field(key))}
-                                          />
-                                        ) : (
-                                          <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                              <MathInput value={subHeadingItem[key]} editing={false} placeholder={`Click edit to add ${key}`} />
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(e) => onSectionDragEnd(e, lessonIndex)}
+                        >
+                          <SortableContext
+                            items={lessonItem.subHeading.map((_, i) => `section-${i}`)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="space-y-4">
+                              {lessonItem.subHeading.map((subHeadingItem, subHeadingIndex) => {
+                                const field = (f: string) => getFieldPath(lessonIndex, subHeadingIndex, f);
+                                return (
+                                  <Sortable key={`section-${subHeadingIndex}`} id={`section-${subHeadingIndex}`}>
+                                    {({ attributes, listeners }) => (
+                                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                        <div className="flex justify-between items-center mb-3">
+                                          <div className="flex items-center gap-2">
+                                            <GripVertical
+                                              size={16}
+                                              className="text-gray-400 cursor-grab active:cursor-grabbing"
+                                              {...attributes}
+                                              {...listeners}
+                                              onMouseDown={(e) => e.stopPropagation()}
+                                              onTouchStart={(e) => e.stopPropagation()}
+                                              title="Drag to reorder section"
+                                            />
+                                            <div className="w-6 h-6 bg-blue-400 rounded-full text-white text-xs flex items-center justify-center">
+                                              {subHeadingIndex + 1}
                                             </div>
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500" onClick={() => toggleEditing(field(key))}>
-                                              <Edit size={14} />
-                                            </Button>
+                                            <span className="text-xs font-medium text-gray-700">
+                                              Section {subHeadingIndex + 1}
+                                            </span>
                                           </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
 
-                                  {/* Upload (audio/video/document/image) for subheading; stores URL in subheadingAudioPath */}
-                                  <div className="flex items-center justify-between w-full">
-                                    <div className="flex gap-2">
-                                      <Button type="button" variant="outline" size="sm" onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
-                                        <Plus size={14} className="mr-1" />
-                                        {subHeadingItem.question ? "Edit Q&A / MCQs" : "Add Q&A / MCQs"}
-                                      </Button>
-                                    </div>
-                                    <div className="flex flex-col items-end">
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button type="button" variant="outline" size="sm"
-                                            className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${subHeadingItem.subheadingAudioPath ? "bg-green-600" : "bg-green-500 hover:bg-green-600"}`}>
-                                            {selectedFileType === "audio" && <Music size={16} />}
-                                            {selectedFileType === "video" && <Video size={16} />}
-                                            {selectedFileType === "document" && <FileText size={16} />}
-                                            {selectedFileType === "image" && <ImageIcon size={16} />}
-                                            {subHeadingItem.subheadingAudioPath
-                                              ? shortenFilename(extractFilenameFromUrl(subHeadingItem.subheadingAudioPath))
-                                              : `Upload ${selectedFileType}`}
-                                            <ChevronDown size={14} className="ml-1" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-48">
-                                          <DropdownMenuItem onClick={() => setSelectedFileType("audio")} className="flex items-center gap-2"><Music size={14} /> Audio</DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => setSelectedFileType("video")} className="flex items-center gap-2"><Video size={14} /> Video</DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => setSelectedFileType("document")} className="flex items-center gap-2"><FileText size={14} /> Document</DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => setSelectedFileType("image")} className="flex items-center gap-2"><ImageIcon size={14} /> Image</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-
-                                      <Button type="button" variant="outline" size="sm" className="mt-2 bg-blue-500 text-white hover:bg-blue-600 w-full" disabled={uploading}
-                                        onClick={async () => {
-                                          const input = document.createElement("input");
-                                          input.type = "file";
-                                          input.accept = getAcceptedFileTypes(selectedFileType);
-                                          input.onchange = async (e) => {
-                                            const file = (e.target as HTMLInputElement).files?.[0];
-                                            if (!file) return;
-                                            setUploading(true);
-                                            try {
-                                              const url = await uploadSingleToSupabase(file, "topics");
-                                              updateSubHeadingItem(lessonIndex, subHeadingIndex, "subheadingAudioPath", url);
-                                              toast({ title: "Success", description: `${selectedFileType} uploaded`, duration: 4000 });
-                                            } catch (err) {
-                                              console.error(err);
-                                              toast({ variant: "destructive", title: "Error", description: `Failed to upload ${selectedFileType}` });
-                                            } finally {
-                                              setUploading(false);
-                                            }
-                                          };
-                                          input.click();
-                                        }}>
-                                        <Upload size={14} className="mr-1" /> Select File
-                                      </Button>
-
-                                      {subHeadingItem.subheadingAudioPath && (
-                                        <Button type="button" variant="outline" size="sm" className="mt-2 bg-gray-500 text-white hover:bg-gray-600 w-full"
-                                          onClick={() => window.open(subHeadingItem.subheadingAudioPath, "_blank")}>
-                                          <Eye size={14} className="mr-1" /> View File
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Quick Question preview */}
-                                  {(subHeadingItem.question || (subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0)) && (
-                                    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
-                                      <div className="flex justify-between items-start gap-3">
-                                        <div className="space-y-2 w-full">
-                                          {subHeadingItem.question && (
-                                            <>
-                                              <h4 className="text-xs font-medium text-blue-800">Question:</h4>
-                                              <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                                                <MathInput value={subHeadingItem.question} editing={false} placeholder="No question added" />
-                                              </div>
-                                            </>
-                                          )}
-                                          {subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0 && (
-                                            <div className="text-xs text-blue-900">
-                                              {subHeadingItem.mcqQuestions.length} MCQ{subHeadingItem.mcqQuestions.length > 1 ? "s" : ""} attached
-                                            </div>
+                                          {lessonItem.subHeading.length > 1 && (
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                              onClick={() => removeSubHeading(lessonIndex, subHeadingIndex)}
+                                              title="Remove section"
+                                            >
+                                              <X size={12} />
+                                            </Button>
                                           )}
                                         </div>
-                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                                          onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}>
-                                          <Edit size={14} />
-                                        </Button>
+
+                                        {/* Section Content + Comment (your existing math fields) */}
+                                        <div className="space-y-3">
+                                          {(["text", "comment"] as const).map((key) => (
+                                            <div className="space-y-2" key={key}>
+                                              <label className="text-xs font-medium text-gray-600">
+                                                {key === "text" ? "Section Content" : "Comment"}
+                                              </label>
+                                              <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                                                {editingStates[field(key)] ? (
+                                                  <MathInput
+                                                    value={subHeadingItem[key]}
+                                                    onChange={(v) =>
+                                                      updateSubHeadingItem(lessonIndex, subHeadingIndex, key, v)
+                                                    }
+                                                    editing={true}
+                                                    onSave={() => saveMathValue(field(key))}
+                                                    onCancel={() => cancelEditing(field(key))}
+                                                  />
+                                                ) : (
+                                                  <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                      <MathInput
+                                                        value={subHeadingItem[key]}
+                                                        editing={false}
+                                                        placeholder={`Click edit to add ${key}`}
+                                                      />
+                                                    </div>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="icon"
+                                                      className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                                                      onClick={() => toggleEditing(field(key))}
+                                                    >
+                                                      <Edit size={14} />
+                                                    </Button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+
+                                          {/* Upload (audio/video/document/image) for subheading; stores URL in subheadingAudioPath */}
+                                          <div className="flex items-center justify-between w-full">
+                                            <div className="flex gap-2">
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}
+                                                className="bg-blue-600 text-white border-0 hover:bg-blue-700"
+                                              >
+                                                <Plus size={14} className="mr-1" />
+                                                {subHeadingItem.question ? "Edit Q&A / MCQs" : "Add Q&A / MCQs"}
+                                              </Button>
+                                            </div>
+
+                                            <div className="flex flex-col items-end">
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${subHeadingItem.subheadingAudioPath
+                                                        ? "bg-green-600"
+                                                        : "bg-green-500 hover:bg-green-600"
+                                                      }`}
+                                                  >
+                                                    {selectedFileType === "audio" && <Music size={16} />}
+                                                    {selectedFileType === "video" && <Video size={16} />}
+                                                    {selectedFileType === "document" && <FileText size={16} />}
+                                                    {selectedFileType === "image" && <ImageIcon size={16} />}
+
+                                                    {subHeadingItem.subheadingAudioPath
+                                                      ? shortenFilename(
+                                                        extractFilenameFromUrl(subHeadingItem.subheadingAudioPath)
+                                                      )
+                                                      : `Upload ${selectedFileType}`}
+                                                    <ChevronDown size={14} className="ml-1" />
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-48">
+                                                  <DropdownMenuItem
+                                                    onClick={() => setSelectedFileType("audio")}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <Music size={14} /> Audio
+                                                  </DropdownMenuItem>
+                                                  <DropdownMenuItem
+                                                    onClick={() => setSelectedFileType("video")}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <Video size={14} /> Video
+                                                  </DropdownMenuItem>
+                                                  <DropdownMenuItem
+                                                    onClick={() => setSelectedFileType("document")}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <FileText size={14} /> Document
+                                                  </DropdownMenuItem>
+                                                  <DropdownMenuItem
+                                                    onClick={() => setSelectedFileType("image")}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <ImageIcon size={14} /> Image
+                                                  </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
+
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-2 bg-blue-500 text-white hover:bg-blue-600 w-full"
+                                                disabled={uploading}
+                                                onClick={async () => {
+                                                  const input = document.createElement("input");
+                                                  input.type = "file";
+                                                  input.accept = getAcceptedFileTypes(selectedFileType);
+                                                  input.onchange = async (e) => {
+                                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                                    if (!file) return;
+                                                    try {
+                                                      const url = await uploadSingleToSupabase(file, "topics");
+                                                      updateSubHeadingItem(
+                                                        lessonIndex,
+                                                        subHeadingIndex,
+                                                        "subheadingAudioPath",
+                                                        url
+                                                      );
+                                                      toast({
+                                                        title: "Success",
+                                                        description: `${selectedFileType} uploaded`,
+                                                        duration: 4000,
+                                                      });
+                                                    } catch (err) {
+                                                      console.error(err);
+                                                      toast({
+                                                        variant: "destructive",
+                                                        title: "Error",
+                                                        description: `Failed to upload ${selectedFileType}`,
+                                                      });
+                                                    }
+                                                  };
+                                                  input.click();
+                                                }}
+                                              >
+                                                <Upload size={14} className="mr-1" /> Select File
+                                              </Button>
+
+                                              {subHeadingItem.subheadingAudioPath && (
+                                                <Button
+                                                  type="button"
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="mt-2 bg-gray-500 text-white hover:bg-gray-600 w-full"
+                                                  onClick={() =>
+                                                    window.open(subHeadingItem.subheadingAudioPath, "_blank")
+                                                  }
+                                                >
+                                                  <Eye size={14} className="mr-1" /> View File
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Quick Question preview */}
+                                          {(subHeadingItem.question ||
+                                            (subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0)) && (
+                                              <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
+                                                <div className="flex justify-between items-start gap-3">
+                                                  <div className="space-y-2 w-full">
+                                                    {subHeadingItem.question && (
+                                                      <>
+                                                        <h4 className="text-xs font-medium text-blue-800">Question:</h4>
+                                                        <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                                                          <MathInput
+                                                            value={subHeadingItem.question}
+                                                            editing={false}
+                                                            placeholder="No question added"
+                                                          />
+                                                        </div>
+                                                      </>
+                                                    )}
+                                                    {subHeadingItem.mcqQuestions &&
+                                                      subHeadingItem.mcqQuestions.length > 0 && (
+                                                        <div className="text-xs text-blue-900">
+                                                          {subHeadingItem.mcqQuestions.length} MCQ
+                                                          {subHeadingItem.mcqQuestions.length > 1 ? "s" : ""} attached
+                                                        </div>
+                                                      )}
+                                                  </div>
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                                                    onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}
+                                                  >
+                                                    <Edit size={14} />
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                                    )}
+                                  </Sortable>
+                                );
+                              })}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
 
                         <div>
-                          <Button type="button" variant="outline" size="sm" onClick={() => addSubHeading(lessonIndex)} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addSubHeading(lessonIndex)}
+                            className="bg-blue-600 text-white border-0 hover:bg-blue-700"
+                          >
                             <Plus size={14} className="mr-1" /> Add Section
                           </Button>
                         </div>
                       </div>
+
 
                       {/* Media upload per-lesson (audio/video/image) */}
                       <div className="flex flex-wrap justify-end gap-2 pt-4">
