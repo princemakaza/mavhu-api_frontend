@@ -80,7 +80,7 @@ export interface ApiGetContentResponse {
  * Config
  * ================================ */
 
-const BASE_URL = "/api/v1/topic_content";
+const BASE_URL = "http://13.61.185.238:4071/api/v1/topic_content";
 
 const getAuthToken = () => localStorage.getItem("adminToken") || "";
 

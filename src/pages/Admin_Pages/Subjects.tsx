@@ -9,6 +9,8 @@ import {
   Download,
   Eye,
   Trash2,
+  MessageSquare,
+  Bell,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -57,10 +59,12 @@ import AddSubjectDialog from "@/components/Dialogs/Add__Subject";
 import DeleteSubjectDialog from "@/components/Dialogs/Delete_Subject";
 import EditSubjectDialog from "@/components/Dialogs/Edit_Subject";
 
-// Shimmer Loading Components
+// Enhanced Shimmer Loading Components with Request Badge
 const SubjectCardShimmer = () => (
-  <Card className="overflow-hidden">
-    <div className="h-48 bg-gray-200 animate-pulse"></div>
+  <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div className="relative h-48 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse">
+      <div className="absolute top-2 right-2 h-6 w-16 bg-gray-300 rounded-full"></div>
+    </div>
     <CardHeader>
       <div className="h-6 bg-gray-200 rounded animate-pulse mb-2"></div>
       <div className="h-4 bg-gray-200 rounded animate-pulse w-1/3"></div>
@@ -77,8 +81,8 @@ const SubjectCardShimmer = () => (
 );
 
 const TopicCardShimmer = () => (
-  <Card className="overflow-hidden">
-    <div className="h-40 bg-gray-200 animate-pulse"></div>
+  <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div className="h-40 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse"></div>
     <CardHeader>
       <div className="h-6 bg-gray-200 rounded animate-pulse mb-2"></div>
       <div className="h-4 bg-gray-200 rounded animate-pulse w-1/3"></div>
@@ -92,62 +96,129 @@ const TopicCardShimmer = () => (
   </Card>
 );
 
-const AdminSubjects: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("all");
-  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
-  const [topicDialogOpen, setTopicDialogOpen] = useState<boolean>(false);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [isLargeScreen, setIsLargeScreen] = useState<boolean>(false);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+// Enhanced Subject Card Component with Topic Requests
+const EnhancedSubjectCard = ({ subject, onClickView, onClickDelete, onUpdate }) => {
+  const hasRequests = subject.topicRequests && subject.topicRequests > 0;
+  
+  return (
+    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-0 shadow-md">
+      <div className="relative h-48 overflow-hidden">
+        <img
+          src={subject.imageUrl || "https://media.istockphoto.com/id/1500285927/photo/young-woman-a-university-student-studying-online.jpg?s=612x612&w=0&k=20&c=yvFDnYMNEJ6WEDYrAaOOLXv-Jhtv6ViBRXSzJhL9S_k="}
+          alt={subject.subjectName}
+          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        
+        {/* Topic Requests Badge */}
+        {hasRequests && (
+          <div className="absolute top-3 right-3 animate-pulse">
+            <div className="relative">
+              <Badge className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-xs font-semibold shadow-lg border-2 border-white flex items-center gap-1.5">
+                <Bell className="h-3.5 w-3.5 animate-bounce" />
+                <span>{subject.topicRequests} Request{subject.topicRequests > 1 ? 's' : ''}</span>
+              </Badge>
+              <div className="absolute -inset-1 bg-red-400 rounded-full blur opacity-40 animate-ping"></div>
+            </div>
+          </div>
+        )}
+        
+        {/* Level Badge */}
+        <Badge className="absolute top-3 left-3 bg-blue-900/90 hover:bg-blue-900 backdrop-blur-sm">
+          {subject.Level}
+        </Badge>
+      </div>
+      
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-bold text-blue-900 line-clamp-1">
+          {subject.subjectName}
+        </CardTitle>
+        <CardDescription className="flex items-center gap-2 text-sm">
+          <BookOpen className="h-4 w-4" />
+          <span>{subject.numberOfLessons || subject.lessons || 0} Lessons</span>
+          {subject.duration && (
+            <>
+              <span className="text-gray-400">•</span>
+              <span>{subject.duration}</span>
+            </>
+          )}
+        </CardDescription>
+      </CardHeader>
+      
+      <CardFooter className="flex justify-between gap-2 pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClickView}
+          className="flex-1 hover:bg-blue-50 hover:text-blue-900 hover:border-blue-900 transition-colors"
+        >
+          <Eye className="h-4 w-4 mr-1" />
+          View
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onUpdate}
+          className="flex-1 hover:bg-green-50 hover:text-green-700 hover:border-green-700 transition-colors"
+        >
+          Edit
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClickDelete}
+          className="hover:bg-red-50 hover:text-red-600 hover:border-red-600 transition-colors"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const AdminSubjects = () => {
+  const [activeTab, setActiveTab] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
-  const [viewingTopic, setViewingTopic] = useState<Topic | null>(null);
-  const [viewTopicDialogOpen, setViewTopicDialogOpen] =
-    useState<boolean>(false);
-  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
-  const [editTopicDialogOpen, setEditTopicDialogOpen] =
-    useState<boolean>(false);
-  const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null);
-  const [deletingTopicTitle, setDeletingTopicTitle] = useState<string>("");
-  const [deleteTopicDialogOpen, setDeleteTopicDialogOpen] =
-    useState<boolean>(false);
-  const [viewingContentTopic, setViewingContentTopic] = useState<Topic | null>(
-    null
-  );
-  const [viewContentDialogOpen, setViewContentDialogOpen] =
-    useState<boolean>(false);
-  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+  const [viewingTopic, setViewingTopic] = useState(null);
+  const [viewTopicDialogOpen, setViewTopicDialogOpen] = useState(false);
+  const [editingTopic, setEditingTopic] = useState(null);
+  const [editTopicDialogOpen, setEditTopicDialogOpen] = useState(false);
+  const [deletingTopicId, setDeletingTopicId] = useState(null);
+  const [deletingTopicTitle, setDeletingTopicTitle] = useState("");
+  const [deleteTopicDialogOpen, setDeleteTopicDialogOpen] = useState(false);
+  const [viewingContentTopic, setViewingContentTopic] = useState(null);
+  const [viewContentDialogOpen, setViewContentDialogOpen] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deletingSubjectId, setDeletingSubjectId] = useState(null);
+  const [deletingSubjectTitle, setDeletingSubjectTitle] = useState("");
+  const [deleteSubjectDialogOpen, setDeleteSubjectDialogOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState(null);
+  const [editSubjectDialogOpen, setEditSubjectDialogOpen] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [loadingTopics, setLoadingTopics] = useState(false);
 
-  // State for subject deletion
-  const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(
-    null
-  );
-  const [deletingSubjectTitle, setDeletingSubjectTitle] = useState<string>("");
-  const [deleteSubjectDialogOpen, setDeleteSubjectDialogOpen] =
-    useState<boolean>(false);
+  // Calculate total topic requests across all subjects
+  const totalTopicRequests = subjects.reduce((sum, subject) => {
+    return sum + (subject.topicRequests || 0);
+  }, 0);
 
-  //editi subject
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [editSubjectDialogOpen, setEditSubjectDialogOpen] =
-    useState<boolean>(false);
-
-  // State for viewing a specific subject's topics
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-  const [loadingTopics, setLoadingTopics] = useState<boolean>(false);
-
-  // Get unique levels from subjects
-  const getUniqueLevels = (subjects: Subject[]): string[] => {
+  const getUniqueLevels = (subjects) => {
     const levels = subjects
       .map((subject) => subject.Level)
-      .filter((level): level is string => !!level); // Filter out undefined/null/empty
-    return Array.from(new Set(levels)); // Remove duplicates
+      .filter((level) => !!level);
+    return Array.from(new Set(levels));
   };
 
-  // Generate tabs based on unique levels
-  const generateTabs = (subjects: Subject[]) => {
+  const generateTabs = (subjects) => {
     const uniqueLevels = getUniqueLevels(subjects);
     const baseTabs = [{ id: "all", label: "All" }];
     const levelTabs = uniqueLevels.map((level) => ({
@@ -157,17 +228,14 @@ const AdminSubjects: React.FC = () => {
     return [...baseTabs, ...levelTabs];
   };
 
-  // Add these handler functions in your AdminSubjects component
-  const handleEditSubject = (subject: Subject) => {
+  const handleEditSubject = (subject) => {
     setEditingSubject(subject);
     setEditSubjectDialogOpen(true);
   };
 
-  const handleSubjectUpdated = async (updatedSubject: Subject) => {
-    // Create a more robust update that preserves existing subject data
+  const handleSubjectUpdated = async (updatedSubject) => {
     setSubjects((prevSubjects) =>
       prevSubjects.map((subject) => {
-        // Check if this is the subject being updated
         const isTargetSubject =
           (subject._id &&
             updatedSubject._id &&
@@ -175,29 +243,22 @@ const AdminSubjects: React.FC = () => {
           (subject.id &&
             updatedSubject.id &&
             subject.id === updatedSubject.id) ||
-          // Fallback comparison using multiple possible ID fields
           subject._id === updatedSubject.id ||
           subject.id === updatedSubject._id;
 
         if (isTargetSubject) {
-          // Only update the target subject, preserving topics and other existing data
           return {
-            ...subject, // Keep existing data (including topics)
-            ...updatedSubject, // Apply updates
-            // Ensure topics are preserved if they exist in the original subject
+            ...subject,
+            ...updatedSubject,
             topics: updatedSubject.topics || subject.topics,
-            // Preserve the correct ID structure
             _id: subject._id || updatedSubject._id,
             id: subject.id || updatedSubject.id,
           };
         }
-
-        // Return other subjects unchanged
         return subject;
       })
     );
 
-    // Only update selectedSubject if it's the one being updated
     if (selectedSubject) {
       const isSelectedSubject =
         (selectedSubject._id &&
@@ -213,7 +274,6 @@ const AdminSubjects: React.FC = () => {
         setSelectedSubject({
           ...selectedSubject,
           ...updatedSubject,
-          // Preserve topics from the selected subject
           topics: updatedSubject.topics || selectedSubject.topics,
           _id: selectedSubject._id || updatedSubject._id,
           id: selectedSubject.id || updatedSubject.id,
@@ -222,27 +282,22 @@ const AdminSubjects: React.FC = () => {
     }
   };
 
-  // Handler for viewing a topic's content
-  const handleViewContent = (topic: Topic) => {
+  const handleViewContent = (topic) => {
     setViewingContentTopic(topic);
     setViewContentDialogOpen(true);
   };
 
-  // Handler for viewing a topic's details
-  const handleViewTopic = (topic: Topic) => {
+  const handleViewTopic = (topic) => {
     setViewingTopic(topic);
     setViewTopicDialogOpen(true);
   };
 
-  // Handler for editing a topic
-  const handleEditTopic = (topic: Topic) => {
+  const handleEditTopic = (topic) => {
     setEditingTopic(topic);
     setEditTopicDialogOpen(true);
   };
 
-  // Handler for deleting a topic
-  const handleDeleteTopic = (topicId: string) => {
-    // Find topic by ID to get the title
+  const handleDeleteTopic = (topicId) => {
     const topic = selectedSubject?.topics?.find(
       (t) => t._id === topicId || t.id === topicId
     );
@@ -254,9 +309,7 @@ const AdminSubjects: React.FC = () => {
     }
   };
 
-  // Handler for deleting a subject
-  const handleDeleteSubject = (subjectId: string) => {
-    // Find subject by ID to get the title
+  const handleDeleteSubject = (subjectId) => {
     const subject = subjects.find(
       (s) => s._id === subjectId || s.id === subjectId
     );
@@ -270,44 +323,34 @@ const AdminSubjects: React.FC = () => {
     }
   };
 
-  // Handler for when a subject is deleted
   const handleSubjectDeleted = async () => {
-    // Refresh the subjects list
     await fetchSubjects();
   };
 
-  // Handler for when a topic is updated
   const handleTopicUpdated = async () => {
     if (selectedSubject) {
       const subjectId = selectedSubject._id || selectedSubject.id;
       if (!subjectId) return;
 
-      // Refresh topics for the selected subject
       const topics = await fetchTopicsForSubject(subjectId);
 
-      // Update subjects in state
       setSubjects((prev) =>
         prev.map((s) =>
           s._id === subjectId || s.id === subjectId ? { ...s, topics } : s
         )
       );
 
-      // Update selected subject
       setSelectedSubject((prev) => (prev ? { ...prev, topics } : null));
     }
   };
 
-  // Handler for when a topic is deleted
   const handleTopicDeleted = async () => {
-    // Reuse the same function as for topic updates
     await handleTopicUpdated();
   };
 
-  // Fetch topics for a specific subject
-  const fetchTopicsForSubject = async (subjectId: string): Promise<Topic[]> => {
+  const fetchTopicsForSubject = async (subjectId) => {
     try {
       setLoadingTopics(true);
-      // Use getTopicsBySubjectId to filter topics by subject ID
       const result = await TopicInSubjectService.getTopicsBySubjectId(
         subjectId
       );
@@ -324,7 +367,7 @@ const AdminSubjects: React.FC = () => {
           <Button
             variant="secondary"
             className="bg-white text-red-600 hover:bg-red-100"
-            onClick={() => t.dismiss()} // dismiss the toast safely
+            onClick={() => t.dismiss()}
           >
             Dismiss
           </Button>
@@ -337,23 +380,19 @@ const AdminSubjects: React.FC = () => {
     }
   };
 
-  // Function to view a specific subject's topics
-  const viewSubjectTopics = async (subject: Subject) => {
+  const viewSubjectTopics = async (subject) => {
     const subjectId = subject._id || subject.id;
     if (!subjectId) return;
 
     try {
       setSelectedSubject(subject);
-      // If topics are already fetched, no need to fetch again
       if (!subject.topics || subject.topics.length === 0) {
         const topics = await fetchTopicsForSubject(subjectId);
-        // Update the subject in state with fetched topics
         setSubjects((prev) =>
           prev.map((s) =>
             s._id === subjectId || s.id === subjectId ? { ...s, topics } : s
           )
         );
-        // Also update the selected subject
         setSelectedSubject((prev) => (prev ? { ...prev, topics } : null));
       }
     } catch (err) {
@@ -361,15 +400,12 @@ const AdminSubjects: React.FC = () => {
     }
   };
 
-  // Fetch subjects and their topics from API
-  const fetchSubjects = async (): Promise<void> => {
+  const fetchSubjects = async () => {
     try {
       setLoading(true);
       const result = await SubjectService.getAllSubjects();
       const subjectsData = result.data || [];
 
-      // Initially we don't fetch topics for all subjects to improve performance
-      // Topics will be fetched when a user clicks on a specific subject
       setSubjects(subjectsData);
       setError(null);
     } catch (err) {
@@ -384,7 +420,7 @@ const AdminSubjects: React.FC = () => {
           <Button
             variant="secondary"
             className="bg-white text-red-600 hover:bg-red-100"
-            onClick={() => t.dismiss()} // dismiss the toast safely
+            onClick={() => t.dismiss()}
           >
             Dismiss
           </Button>
@@ -395,127 +431,83 @@ const AdminSubjects: React.FC = () => {
     }
   };
 
-  // Initial load of subjects
   useEffect(() => {
     fetchSubjects();
   }, []);
 
-  // Add subject handler
-  const handleSubjectAdded = async (newSubject: Subject): Promise<void> => {
+  const handleSubjectAdded = async (newSubject) => {
     setSubjects([...subjects, newSubject]);
   };
 
-  // Handle topic added
   const handleTopicAdded = async () => {
     if (selectedSubject) {
       const subjectId = selectedSubject._id || selectedSubject.id;
       if (!subjectId) return;
 
-      // Refresh topics for the selected subject
       const topics = await fetchTopicsForSubject(subjectId);
 
-      // Update subject in state
       setSubjects((prev) =>
         prev.map((s) =>
           s._id === subjectId || s.id === subjectId ? { ...s, topics } : s
         )
       );
 
-      // Update selected subject
       setSelectedSubject((prev) => (prev ? { ...prev, topics } : null));
     }
   };
 
-  // Update screen size state and handle sidebar visibility
   useEffect(() => {
-    // Check initial screen size
     const checkScreenSize = () => {
       const isLarge = window.innerWidth >= 768;
       setIsLargeScreen(isLarge);
       setSidebarOpen(isLarge);
     };
 
-    // Run on initial load
     checkScreenSize();
-
-    // Add event listener for window resize
     window.addEventListener("resize", checkScreenSize);
-
-    // Cleanup
     return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
-  // Toggle sidebar function
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
   };
 
-  // Back to subjects list
   const backToSubjects = () => {
     setSelectedSubject(null);
   };
 
-  // Filter subjects based on active tab and search query
   const filteredSubjects = subjects.filter((subject) => {
-    // Filter by tab category
     let matchesTab = false;
 
     if (activeTab === "all") {
       matchesTab = true;
     } else {
-      // Filter by Level field (exact match)
       matchesTab = subject.Level === activeTab;
     }
 
-    // Filter by search query (only check fields that exist in your model)
     const matchesSearch =
       !searchQuery ||
       (subject.subjectName &&
         subject.subjectName.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    // Filter by showSubject field
     const isVisible = subject.showSubject === true;
 
     return matchesTab && matchesSearch && isVisible;
   });
 
-  // Map API subject data to the format expected by the SubjectCard component
-  const mapSubjectToCardProps = (subject: Subject) => {
-    const subjectId = subject._id || subject.id || "";
-
-    return {
-      id: subjectId,
-      title: subject.subjectName || "Untitled Subject", // Use subjectName from model
-      category: subject.Level || "Unknown Level", // Use Level from model
-      lessons: subject.numberOfLessons || subject.lessons || 0,
-      duration: subject.duration || "0h",
-      topics: subject.topics || [],
-      imageUrl:
-        subject.imageUrl ||
-        "https://media.istockphoto.com/id/1500285927/photo/young-woman-a-university-student-studying-online.jpg?s=612x612&w=0&k=20&c=yvFDnYMNEJ6WEDYrAaOOLXv-Jhtv6ViBRXSzJhL9S_k=",
-      showSubject: subject.showSubject,
-      onClickView: () => viewSubjectTopics(subject),
-      onClickDelete: () => handleDeleteSubject(subjectId),
-      onUpdate: () => handleEditSubject(subject),
-    };
-  };
-
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-100">
-      {/* Mobile Menu Toggle */}
+    <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
+        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-lg shadow-lg hover:bg-blue-800 transition-colors"
         onClick={toggleSidebar}
       >
         {sidebarOpen && !isLargeScreen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Sidebar - Mobile: overlay, Desktop: static */}
       <div
         className={`
         ${sidebarOpen
@@ -529,45 +521,48 @@ const AdminSubjects: React.FC = () => {
         <Sidebar />
       </div>
 
-      {/* Backdrop Overlay for Mobile */}
       {sidebarOpen && !isLargeScreen && (
         <div
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30 backdrop-blur-sm"
           onClick={toggleSidebar}
         />
       )}
 
-      {/* Main Content */}
       <div className="flex-1 w-full">
         <div className="p-4 md:p-6">
           {selectedSubject ? (
-            // Topic View for selected subject
             <>
-              {/* Header with back button */}
               <div className="flex items-center mb-6 mt-10 md:mt-0">
                 <Button
                   variant="ghost"
-                  className="mr-2 p-2"
+                  className="mr-2 p-2 hover:bg-blue-50 rounded-lg"
                   onClick={backToSubjects}
                 >
                   <ChevronLeft size={20} />
                 </Button>
-                <h1 className="text-2xl font-bold text-blue-900">
-                  {selectedSubject.name ||
-                    selectedSubject.title ||
-                    selectedSubject.subjectName ||
-                    "Topics"}
-                </h1>
+                <div>
+                  <h1 className="text-2xl font-bold text-blue-900">
+                    {selectedSubject.name ||
+                      selectedSubject.title ||
+                      selectedSubject.subjectName ||
+                      "Topics"}
+                  </h1>
+                  {selectedSubject.topicRequests > 0 && (
+                    <Badge className="mt-1 bg-red-100 text-red-700 hover:bg-red-200">
+                      <Bell className="h-3 w-3 mr-1" />
+                      {selectedSubject.topicRequests} Pending Request{selectedSubject.topicRequests > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
               </div>
 
-              {/* Add Topic Button */}
               <div className="mb-6">
                 <Dialog
                   open={topicDialogOpen}
                   onOpenChange={setTopicDialogOpen}
                 >
                   <DialogTrigger asChild>
-                    <Button className="bg-blue-900 hover:bg-blue-800">
+                    <Button className="bg-blue-900 hover:bg-blue-800 shadow-md">
                       <Plus className="h-4 w-4 mr-2" /> Add Topic
                     </Button>
                   </DialogTrigger>
@@ -580,7 +575,6 @@ const AdminSubjects: React.FC = () => {
                 </Dialog>
               </div>
 
-              {/* Loading State for Topics */}
               {loadingTopics && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[...Array(6)].map((_, index) => (
@@ -589,7 +583,6 @@ const AdminSubjects: React.FC = () => {
                 </div>
               )}
 
-              {/* Topics List */}
               {!loadingTopics &&
                 selectedSubject.topics &&
                 selectedSubject.topics.length > 0 ? (
@@ -615,7 +608,6 @@ const AdminSubjects: React.FC = () => {
                 </div>
               ) : null}
 
-              {/* View Topic Dialog */}
               <Dialog
                 open={viewTopicDialogOpen}
                 onOpenChange={setViewTopicDialogOpen}
@@ -627,7 +619,6 @@ const AdminSubjects: React.FC = () => {
                 />
               </Dialog>
 
-              {/* Edit Topic Dialog */}
               <Dialog
                 open={editTopicDialogOpen}
                 onOpenChange={setEditTopicDialogOpen}
@@ -639,7 +630,7 @@ const AdminSubjects: React.FC = () => {
                   onTopicUpdated={handleTopicUpdated}
                 />
               </Dialog>
-              {/* Delete Topic Confirmation Dialog */}
+
               <Dialog
                 open={deleteTopicDialogOpen}
                 onOpenChange={setDeleteTopicDialogOpen}
@@ -652,7 +643,7 @@ const AdminSubjects: React.FC = () => {
                   onTopicDeleted={handleTopicDeleted}
                 />
               </Dialog>
-              {/* View Topic Content Dialog */}
+
               <Dialog
                 open={viewContentDialogOpen}
                 onOpenChange={setViewContentDialogOpen}
@@ -665,31 +656,35 @@ const AdminSubjects: React.FC = () => {
               </Dialog>
             </>
           ) : (
-            // Subjects View
             <>
-              {/* Header */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 mt-10 md:mt-0">
-                <h1 className="text-2xl font-bold text-blue-900">SUBJECTS</h1>
+                <div>
+                  <h1 className="text-3xl font-bold text-blue-900 mb-1">SUBJECTS</h1>
+                  {totalTopicRequests > 0 && (
+                    <Badge className="bg-red-100 text-red-700 hover:bg-red-200 animate-pulse">
+                      <Bell className="h-3.5 w-3.5 mr-1.5" />
+                      {totalTopicRequests} Total Request{totalTopicRequests > 1 ? 's' : ''} Pending
+                    </Badge>
+                  )}
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
-                  {/* Search Bar */}
                   <div className="relative w-full sm:w-64">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Search className="h-4 w-4 text-gray-400" />
                     </div>
                     <input
                       type="text"
-                      className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Search..."
+                      className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                      placeholder="Search subjects..."
                       value={searchQuery}
                       onChange={handleSearchChange}
                     />
                   </div>
 
-                  {/* Add Subject Button */}
                   <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button className="bg-blue-900 hover:bg-blue-800 w-full sm:w-auto">
+                      <Button className="bg-blue-900 hover:bg-blue-800 w-full sm:w-auto shadow-md">
                         <Plus className="h-4 w-4 mr-2" /> Add Subject
                       </Button>
                     </DialogTrigger>
@@ -702,15 +697,14 @@ const AdminSubjects: React.FC = () => {
                 </div>
               </div>
 
-              {/* Tabs - Scrollable on mobile */}
               <div className="mb-8 overflow-x-auto pb-2">
                 <ul className="flex space-x-6 border-b border-gray-200 whitespace-nowrap min-w-max md:min-w-0">
                   {generateTabs(subjects).map((tab) => (
                     <li key={tab.id}>
                       <button
-                        className={`py-2 ${activeTab === tab.id
-                            ? "text-blue-900 font-medium border-b-2 border-blue-900"
-                            : "text-gray-600"
+                        className={`py-3 px-1 transition-all duration-200 ${activeTab === tab.id
+                            ? "text-blue-900 font-semibold border-b-2 border-blue-900"
+                            : "text-gray-600 hover:text-blue-700"
                           }`}
                         onClick={() => setActiveTab(tab.id)}
                       >
@@ -721,7 +715,6 @@ const AdminSubjects: React.FC = () => {
                 </ul>
               </div>
 
-              {/* Loading State */}
               {loading && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[...Array(6)].map((_, index) => (
@@ -730,9 +723,8 @@ const AdminSubjects: React.FC = () => {
                 </div>
               )}
 
-              {/* Error State */}
               {error && !loading && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md my-4">
+                <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg my-4 shadow-sm">
                   <p>{error}</p>
                   <Button
                     variant="outline"
@@ -744,7 +736,6 @@ const AdminSubjects: React.FC = () => {
                 </div>
               )}
 
-              {/* Empty State */}
               {!loading && !error && filteredSubjects.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-gray-500 mb-4">
@@ -753,7 +744,7 @@ const AdminSubjects: React.FC = () => {
                   </p>
                   <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button className="bg-blue-900 hover:bg-blue-800">
+                      <Button className="bg-blue-900 hover:bg-blue-800 shadow-md">
                         <Plus className="h-4 w-4 mr-2" /> Add New Subject
                       </Button>
                     </DialogTrigger>
@@ -766,13 +757,15 @@ const AdminSubjects: React.FC = () => {
                 </div>
               )}
 
-              {/* Subject Grid */}
               {!loading && !error && filteredSubjects.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredSubjects.map((subject) => (
-                    <SubjectCard
+                    <EnhancedSubjectCard
                       key={subject._id || subject.id}
-                      {...mapSubjectToCardProps(subject)}
+                      subject={subject}
+                      onClickView={() => viewSubjectTopics(subject)}
+                      onClickDelete={() => handleDeleteSubject(subject._id || subject.id)}
+                      onUpdate={() => handleEditSubject(subject)}
                     />
                   ))}
                 </div>
@@ -782,7 +775,6 @@ const AdminSubjects: React.FC = () => {
         </div>
       </div>
 
-      {/* Delete Subject Dialog */}
       <Dialog
         open={deleteSubjectDialogOpen}
         onOpenChange={setDeleteSubjectDialogOpen}
@@ -796,7 +788,6 @@ const AdminSubjects: React.FC = () => {
         />
       </Dialog>
 
-      {/* Edit Subject Dialog */}
       <Dialog
         open={editSubjectDialogOpen}
         onOpenChange={setEditSubjectDialogOpen}

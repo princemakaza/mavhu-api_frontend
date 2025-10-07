@@ -56,7 +56,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL =
-  "/api/v1/student_route";
+  "http://13.61.185.238:4071/api/v1/student_route";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

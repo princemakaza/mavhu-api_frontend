@@ -26,7 +26,7 @@ const Lesson = () => {
       setLessonError(null);
       try {
         const response = await axios.get(
-          `/api/v1/topic_content/by-topic/${topicID}`,
+          `http://13.61.185.238:4071/api/v1/topic_content/by-topic/${topicID}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

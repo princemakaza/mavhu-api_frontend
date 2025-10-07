@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL =
-  "/api/v1/message_community_route";
+  "http://13.61.185.238:4071/api/v1/message_community_route";
 
 /**
  * Service for handling community message-related API requests

@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const BASE_URL =
-  "/api/v1/library_book";
+  "http://13.61.185.238:4071/api/v1/library_book";
 
 /**
  * Service for handling file upload and update operations
@@ -34,7 +34,6 @@ uploadBook: async (bookData) => {
     return response.data;
   } catch (error: any) {
     console.error("Full error object:", error);
-
     if (error.isAxiosError) {
       const serverMessage = error.response?.data?.message || "Server error";
       const validationErrors = error.response?.data?.error || "Validation failed";
@@ -46,7 +45,6 @@ uploadBook: async (bookData) => {
         status: error.response?.status,
       };
     }
-
     throw {
       message: "Upload failed",
       error: error.message,

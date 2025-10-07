@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "/api/v1/admin_student_chat";
+const BASE_URL = "http://13.61.185.238:4071/api/v1/admin_student_chat";
 
 /**
  * Service for handling help desk chat-related API requests

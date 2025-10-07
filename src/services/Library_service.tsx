@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL =
-  "/api/v1/library_book";
+  "http://13.61.185.238:4071/api/v1/library_book";
 
 /**
  * Service for handling library book-related API requests

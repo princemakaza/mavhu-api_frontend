@@ -1,5 +1,5 @@
 import axios from "axios";
-const BASE_URL = "/api/v1/admin_route";
+const BASE_URL = "http://13.61.185.238:4071/api/v1/admin_route";
 
 /**
  * Service for handling admin-related API requests
@@ -91,7 +91,7 @@ const AdminService = {
   getAdminDashboard: async () => {
     try {
       const response = await axios.get(
-        `/api/v1/dashboards/dashboard`,
+        `http://13.61.185.238:4071/api/v1/dashboards/dashboard`,
         {
           headers: {
             Authorization: `Bearer ${getAuthToken()}`,
@@ -111,7 +111,7 @@ const AdminService = {
   getWalletDashboard: async () => {
     try {
       const response = await axios.get(
-        `/api/v1/dashboards/wallet-analytics`,
+        `http://13.61.185.238:4071/api/v1/dashboards/wallet-analytics`,
         {
           headers: {
             Authorization: `Bearer ${getAuthToken()}`,
@@ -133,7 +133,7 @@ const AdminService = {
     try {
       const config = {
         method: "get",
-        url: `/api/v1/dashboards/student-activities/${studentId}`,
+        url: `http://13.61.185.238:4071/api/v1/dashboards/student-activities/${studentId}`,
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
         },
