@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL =
-  "http://13.61.185.238:4071/api/v1/message_community_route";
+  "/api/v1/message_community_route";
 
 /**
  * Service for handling community message-related API requests
@@ -13,33 +13,35 @@ const CommunityMessageService = {
    * @param {Object} messageData - Message payload
    * @returns {Promise} Promise containing response data
    */
-  createMessage: async (communityId, messageData) => {
-    try {
-      const payload = {
-        community: communityId,
-        sender: messageData.sender, // This maps to 'sender' field in your schema
-        message: messageData.message, // This maps to 'message' field in your schema
-        // imagePath: messageData.imagePath || [] // Add if you need image support
-      };
+createMessage: async (communityId, messageData) => {
+  try {
+    const payload = {
+      community: communityId || messageData.community,
+      sender: messageData.sender,          // must be a valid ObjectId
+      senderModel:"Admin", // "Student" or "Admin"
+      message: messageData.message,
+      imagePath: messageData.imagePath || [], // optional image support
+    };
 
-      console.log("Payload being sent to backend:", payload);
+    console.log("Payload being sent to backend:", payload);
 
-      const response = await axios.post(
-        `${BASE_URL}/create`,
-        payload, {
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    const response = await axios.post(
+      `${BASE_URL}/create`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-      return response.data;
-    } catch (error) {
-      console.error("Create message error:", error);
-      throw error;
-    }
-  },
+    return response.data;
+  } catch (error) {
+    console.error("Create message error:", error);
+    throw error;
+  }
+},
 
   /**
    * Get all messages for a specific community
@@ -53,6 +55,7 @@ const CommunityMessageService = {
           Authorization: `Bearer ${getAuthToken()}`,
         },
       });
+      console.log("Messages retrieved:", response.data);
       return response.data;
     } catch (error) {
       throw error.response?.data || "Failed to retrieve messages";

@@ -474,7 +474,7 @@ const AdminProfile: React.FC<{ adminId?: string }> = ({ adminId }) => {
                 (AdminService as any).updateAdminById
                     ? (AdminService as any).updateAdminById
                     : async (uid: string, data: any) => {
-                        const res = await fetch(`http://13.61.185.238:4071/api/v1/admin_route/updateadmin/${uid}`, {
+                        const res = await fetch(`/api/v1/admin_route/updateadmin/${uid}`, {
                             method: "PUT",
                             headers: {
                                 "Content-Type": "application/json",

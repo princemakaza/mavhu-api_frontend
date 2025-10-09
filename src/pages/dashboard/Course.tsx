@@ -32,9 +32,9 @@ const Course = () => {
         const fetchData = async () => {
             try {
                 // Fetch course details
-                //http://13.61.185.238:4071/api/v1/topic_in_subject/gettopicbysubjectid/681374c7a32332081e3da353
+                ///api/v1/topic_in_subject/gettopicbysubjectid/681374c7a32332081e3da353
                 const courseResponse = await axios.get(
-                    `http://13.61.185.238:4071/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
+                    `/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
                     {
                         headers: {
                             'Authorization': `Bearer ${token}`
@@ -44,7 +44,7 @@ const Course = () => {
 
                 // Fetch topics for this course
                 const topicsResponse = await axios.get(
-                    `http://13.61.185.238:4071/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
+                    `/api/v1/topic_in_subject/gettopicbysubjectid/${id}`,
                     {
                         headers: {
                             'Authorization': `Bearer ${token}`

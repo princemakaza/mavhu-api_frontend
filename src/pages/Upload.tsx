@@ -4,7 +4,7 @@ import { Upload, Home } from "lucide-react";
 // SubjectService - moved inline since we can't import external files
 const SubjectService = {
   getAllSubjects: async () => {
-    const url = "http://13.61.185.238:4071/api/v1/subject/getall";
+    const url = "/api/v1/subject/getall";
     const token = localStorage.getItem("adminToken");
     const headers = {
       Authorization: `Bearer ${token}`,

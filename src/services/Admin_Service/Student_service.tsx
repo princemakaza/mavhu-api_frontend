@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://13.61.185.238:4071/api/v1/student_route";
+const BASE_URL = "/api/v1/student_route";
 
 /**
  * Service for handling student-related API requests

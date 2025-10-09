@@ -48,15 +48,16 @@ const Sidebar = () => {
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `block py-3 px-4 mb-3 rounded-md font-medium text-sm transition-colors ${
-                isActive
-                  ? "bg-blue-800 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              `block px-4 py-2 mb-2 rounded-[5px] font-medium text-sm transition-all duration-200 ${isActive
+                ? "bg-blue-800 text-white shadow-sm"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`
             }
           >
             {item.label}
           </NavLink>
+
+
         ))}
       </nav>
     </aside>

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Base URL for the TopicContent API
-const BASE_URL = "http://13.61.185.238:4071/api/v1/topic_content";
+const BASE_URL = "/api/v1/topic_content";
 
 /**
  * Service for handling topic content-related API requests
