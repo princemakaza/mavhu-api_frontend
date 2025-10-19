@@ -63,7 +63,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({
         upsert: false,
         contentType: file.type,
         // If your supabase-js version supports progress:
-        // @ts-expect-error - onProgress may not be in TS types depending on SDK version
         onProgress: (progressEvent: ProgressEvent) => {
           if (!progressEvent.total) return;
           const progress = Math.round(

@@ -3,17 +3,15 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Plus, X, Upload, ChevronLeft, Edit, Check, ChevronDown,
-  Music, Video, FileText, Image as ImageIcon, Eye, Trash2, GripVertical
+  Plus, X, Upload, ChevronLeft, Edit, ChevronDown,
+  Music, Video, FileText, Image as ImageIcon, Eye, Trash2, GripVertical, Play, Pause, CornerDownLeft, Crosshair
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
-import { MathfieldElement } from "mathlive";
 import Sidebar from "@/components/Sidebar";
-import logo from "@/assets/logo2.png";
 import {
   DndContext,
   DragEndEvent,
@@ -24,27 +22,19 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  useSortable,
   arrayMove,
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
-// 🚀 Import everything you need from your contentActions.ts
 import {
-  // types
   ContentFormData,
   LessonItem,
   SubHeadingItem,
-  Comment as LessonComment,
-  Reaction,
   MCQQuestion,
-  // helpers
   getAcceptedFileTypes,
   extractFilenameFromUrl,
   shortenFilename,
-  // uploads
   uploadSingleToSupabase,
   mergeNewUploads,
   fetchContentById,
@@ -56,182 +46,14 @@ import {
   getLessonReactions,
   addLessonReaction,
   deleteLessonReaction,
-} from "../Admin_Pages/functions_edit"; // <-- ensure this path is correct
+} from "../Admin_Pages/functions_edit";
 
-/* ================================
- * Math editor + UI bits (unchanged)
- * ================================ */
+import { MathInput, getDisplayLines } from "./editContentComponents/MathInput";
+import { QuestionModal } from "./editContentComponents/QuestionModal";
+import { Sortable } from "./editContentComponents/Sortable";
+import { LoadingShimmer } from "./editContentComponents/LoadingShimmer";
 
-const extractLatexFromText = (text: string): string => {
-  if (!text) return "";
-  if (text.startsWith("\\(") && text.endsWith("\\)")) {
-    return text.substring(2, text.length - 2);
-  }
-  return text;
-};
-
-interface MathInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSave?: () => void;
-  onCancel?: () => void;
-  editing: boolean;
-  placeholder?: string;
-  className?: string;
-}
-
-const MathInput: React.FC<MathInputProps> = ({
-  value, onChange, onSave, onCancel, editing, placeholder = "", className = "",
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mathfieldRef = useRef<MathfieldElement | null>(null);
-  const ignoreNextChange = useRef(false);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    if (!mathfieldRef.current) {
-      const mf = new MathfieldElement();
-      mathfieldRef.current = mf;
-
-      mf.setOptions({
-        defaultMode: "math",
-        smartMode: true,
-        virtualKeyboardMode: "onfocus",
-        virtualKeyboards: "all",
-        inlineShortcuts: { "++": "\\plus", "->": "\\rightarrow" },
-        readOnly: !editing,
-      });
-
-      mf.style.width = "100%";
-      mf.style.minHeight = !editing ? "auto" : "60px";
-      mf.style.padding = !editing ? "0" : "8px";
-      mf.style.border = !editing ? "none" : "1px solid #d1d5db";
-      mf.style.borderRadius = "6px";
-      mf.style.backgroundColor = !editing ? "transparent" : "#fff";
-
-      if (!editing) {
-        mf.style.pointerEvents = "none";
-        mf.style.cursor = "default";
-      }
-
-      mf.addEventListener("input", (evt) => {
-        if (!editing) return;
-        ignoreNextChange.current = true;
-        onChange(`\\(${(evt.target as MathfieldElement).value}\\)`);
-      });
-
-      containerRef.current.appendChild(mf);
-    }
-
-    // sync value + readonly
-    const unwrappedValue = extractLatexFromText(value || "");
-    if (mathfieldRef.current.value !== unwrappedValue) {
-      mathfieldRef.current.value = unwrappedValue;
-    }
-    mathfieldRef.current.setOptions({ readOnly: !editing });
-    mathfieldRef.current.style.pointerEvents = editing ? "auto" : "none";
-    mathfieldRef.current.style.backgroundColor = editing ? "#fff" : "transparent";
-    mathfieldRef.current.style.minHeight = editing ? "60px" : "auto";
-    mathfieldRef.current.style.padding = editing ? "8px" : "0";
-    mathfieldRef.current.style.border = editing ? "1px solid #d1d5db" : "none";
-
-    return () => {
-      if (mathfieldRef.current) {
-        mathfieldRef.current.remove();
-        mathfieldRef.current = null;
-      }
-    };
-  }, [editing]);
-
-  useEffect(() => {
-    if (!mathfieldRef.current || ignoreNextChange.current) {
-      ignoreNextChange.current = false;
-      return;
-    }
-    const unwrappedValue = extractLatexFromText(value || "");
-    if (mathfieldRef.current.value !== unwrappedValue) {
-      mathfieldRef.current.value = unwrappedValue;
-    }
-  }, [value]);
-
-  return (
-    <div className={`relative ${className}`}>
-      <div ref={containerRef} />
-      {editing && (
-        <div className="flex justify-end gap-2 mt-2">
-          <Button type="button" size="sm" variant="outline" onClick={onCancel} className="h-8 px-3">Cancel</Button>
-          <Button type="button" size="sm" onClick={onSave} className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white">
-            <Check size={14} className="mr-1" /> Save
-          </Button>
-        </div>
-      )}
-      {!value && !editing && <div className="text-gray-400 italic text-sm">{placeholder}</div>}
-    </div>
-  );
-};
-
-const LoadingShimmer = () => (
-  <div className="min-h-screen w-full bg-gray-100 flex">
-    <Sidebar />
-    <div className="flex-1 flex flex-col">
-      <div className="p-6 space-y-6">
-        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded animate-pulse md:col-span-2"></div>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {[1, 2, 3].map((i) => <div key={i} className="w-24 h-10 bg-gray-200 rounded animate-pulse"></div>)}
-        </div>
-        <div className="bg-white rounded-xl p-4 border-2 border-gray-100">
-          <div className="h-8 bg-gray-200 rounded animate-pulse mb-4 w-1/3"></div>
-          <div className="space-y-4">
-            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-            <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
-            <div className="h-10 bg-gray-200 rounded animate-pulse w-1/2"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const Sortable = ({
-  id,
-  children,
-  className = "",
-  disabled = false,
-}: {
-  id: string;
-  className?: string;
-  children: React.ReactNode;
-  disabled?: boolean;
-}) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id, disabled });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className={className}>
-      {/* Pass drag handlers down so you can attach them to the Grip icon */}
-      {typeof children === "function"
-        ? (children as any)({ attributes, listeners, isDragging })
-        : children}
-    </div>
-  );
-};
-
-
-
-/* ================================
- * Main
- * ================================ */
+type UploadKind = "audio" | "video" | "document" | "image";
 
 const EditContent: React.FC = () => {
   const { contentId, topicId } = useParams<{ contentId: string; topicId: string }>();
@@ -245,9 +67,15 @@ const EditContent: React.FC = () => {
     lesson: [{
       text: "",
       subHeading: [{
-        text: "", question: "", subheadingAudioPath: "",
-        expectedAnswer: "", comment: "", hint: "", mcqQuestions: []
-      }],
+        text: "",
+        question: "",
+        subheadingAudioPath: "",
+        expectedAnswer: "",
+        comment: "",
+        hint: "",
+        mcqQuestions: [],
+        timingArray: [],
+      } as SubHeadingItem],
       audio: "", video: "", image: ""
     }],
     file_path: [],
@@ -257,20 +85,15 @@ const EditContent: React.FC = () => {
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [initialExistingFileCount, setInitialExistingFileCount] = useState(0);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
-
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [currentQuestionData, setCurrentQuestionData] = useState({ lessonIndex: -1, subHeadingIndex: -1 });
-  const [selectedFileType, setSelectedFileType] = useState<"audio" | "video" | "document" | "image">("audio");
+  const [selectedFileType, setSelectedFileType] = useState<UploadKind>("audio");
   const [uploading, setUploading] = useState(false);
+  const [editingStates, setEditingStates] = useState<Record<string, boolean>>({});
 
-  // edit state for math fields
-  const [editingStates, setEditingStates] = useState<{ [key: string]: boolean }>({});
-
-  // per-lesson media states
   const [audioStatuses, setAudioStatuses] = useState<("idle" | "uploading" | "success")[]>([]);
   const [videoStatuses, setVideoStatuses] = useState<("idle" | "uploading" | "success")[]>([]);
   const [imageStatuses, setImageStatuses] = useState<("idle" | "uploading" | "success")[]>([]);
@@ -278,79 +101,86 @@ const EditContent: React.FC = () => {
   const [uploadedVideoNames, setUploadedVideoNames] = useState<(string | null)[]>([]);
   const [uploadedImageNames, setUploadedImageNames] = useState<(string | null)[]>([]);
 
-  // comments + reactions local entry state
   const [newCommentByLesson, setNewCommentByLesson] = useState<Record<number, string>>({});
-  const [newReplyByLessonAndIndex, setNewReplyByLessonAndIndex] = useState<Record<string, string>>({}); // key: `${lessonIndex}_${commentIndex}`
+  const [newReplyByLessonAndIndex, setNewReplyByLessonAndIndex] = useState<Record<string, string>>({});
 
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const getAudioKey = (l: number, s: number) => `${l}_${s}`;
 
-  // Reorder lessons
+  // ---------- timingArray helpers ----------
+  const ensureTimingArrayLength = (arr: number[] | undefined, linesCount: number): number[] => {
+    const existing = Array.isArray(arr) ? [...arr] : [];
+    if (linesCount <= 0) return [];
+    if (existing.length === 0) {
+      const a = Array(linesCount).fill(0);
+      a[0] = 0;
+      return a;
+    }
+    if (existing.length < linesCount) {
+      const last = existing.at(-1) ?? 0;
+      return [...existing, ...Array(linesCount - existing.length).fill(last)];
+    }
+    if (existing.length > linesCount) {
+      return existing.slice(0, linesCount);
+    }
+    return existing;
+  };
+
+  const syncTimingArray = (lessonIndex: number, subHeadingIndex: number, linesLen?: number) => {
+    setContent((prev) => {
+      const next = structuredClone(prev) as ContentFormData;
+      const sh = next.lesson[lessonIndex].subHeading[subHeadingIndex];
+      const count = linesLen ?? getDisplayLines(sh.text || "").length;
+      sh.timingArray = ensureTimingArrayLength(sh.timingArray, count);
+      return next;
+    });
+  };
+
+  // ---------- drag handlers ----------
   const onLessonDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const oldIndex = Number(String(active.id).split("-")[1]);
     const newIndex = Number(String(over.id).split("-")[1]);
 
-    setContent((prev) => {
-      const nextLessons = arrayMove(prev.lesson, oldIndex, newIndex);
-      return { ...prev, lesson: nextLessons };
-    });
+    setContent((prev) => ({ ...prev, lesson: arrayMove(prev.lesson, oldIndex, newIndex) }));
 
     setActiveLessonIndex((prevActive) => {
-      // keep the same lesson focused visually after reordering
       if (prevActive === oldIndex) return newIndex;
       if (oldIndex < prevActive && newIndex >= prevActive) return prevActive - 1;
       if (oldIndex > prevActive && newIndex <= prevActive) return prevActive + 1;
       return prevActive;
     });
 
-    toast({
-      title: "Lesson moved",
-      description: `Moved to position ${newIndex + 1}`,
-      duration: 2500,
-    });
+    toast({ title: "Lesson moved", description: `Moved to position ${newIndex + 1}`, duration: 2500 });
   };
 
-  // Reorder sections within the active lesson
   const onSectionDragEnd = (event: DragEndEvent, lessonIndex: number) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const oldIndex = Number(String(active.id).split("-")[1]);
     const newIndex = Number(String(over.id).split("-")[1]);
 
     setContent((prev) => {
-      const copy = { ...prev, lesson: [...prev.lesson] };
-      const L = { ...copy.lesson[lessonIndex] };
-      L.subHeading = arrayMove(L.subHeading, oldIndex, newIndex);
-      copy.lesson[lessonIndex] = L;
-      return copy;
+      const next = structuredClone(prev) as ContentFormData;
+      next.lesson[lessonIndex].subHeading = arrayMove(next.lesson[lessonIndex].subHeading, oldIndex, newIndex);
+      return next;
     });
 
-    toast({
-      title: "Section moved",
-      description: `Moved to position ${newIndex + 1}`,
-      duration: 2500,
-    });
+    toast({ title: "Section moved", description: `Moved to position ${newIndex + 1}`, duration: 2500 });
   };
 
-
-
-
-
-
+  // ---------- inline editing toggles ----------
   const getFieldPath = (lessonIndex: number, subHeadingIndex: number | null, fieldName: string) =>
     subHeadingIndex === null ? `lesson_${lessonIndex}_${fieldName}` : `lesson_${lessonIndex}_subheading_${subHeadingIndex}_${fieldName}`;
-
   const toggleEditing = (fieldPath: string) =>
     setEditingStates((prev) => ({ ...prev, [fieldPath]: !prev[fieldPath] }));
-
   const saveMathValue = (fieldPath: string) =>
     setEditingStates((prev) => ({ ...prev, [fieldPath]: false }));
-
   const cancelEditing = (fieldPath: string) =>
     setEditingStates((prev) => ({ ...prev, [fieldPath]: false }));
 
+  // ---------- upload ribbons ----------
   const updateAudioState = (i: number, status: "idle" | "uploading" | "success", name?: string | null) => {
     setAudioStatuses((p) => { const a = [...p]; a[i] = status; return a; });
     if (name !== undefined) setUploadedAudioNames((p) => { const a = [...p]; a[i] = name; return a; });
@@ -364,43 +194,51 @@ const EditContent: React.FC = () => {
     if (name !== undefined) setUploadedImageNames((p) => { const a = [...p]; a[i] = name; return a; });
   };
 
-  /* ============== Load content (DRY via fetchContentById) ============== */
+  // ---------- initial fetch ----------
   useEffect(() => {
     (async () => {
       try {
         if (!contentId) return;
         const { normalized } = await fetchContentById(contentId);
-        setContent((prev) => ({
-          ...prev,
+
+        // Make sure timingArray is present and sized to the detected lines
+        const normalizedWithTimings: ContentFormData = {
+          ...content,
           ...normalized,
-          Topic: normalized.Topic || topicId || ""
-        }));
-        setInitialExistingFileCount(normalized.file_path?.length || 0);
+          Topic: normalized.Topic || topicId || "",
+          lesson: (normalized.lesson || []).map((L: LessonItem) => ({
+            ...L,
+            subHeading: (L.subHeading || []).map((SH: SubHeadingItem) => {
+              const lines = getDisplayLines(SH.text || "");
+              return { ...SH, timingArray: ensureTimingArrayLength(SH.timingArray, lines.length) };
+            }),
+          })),
+        };
 
-        // init media indicators
-        setAudioStatuses(normalized.lesson.map(l => l.audio ? "success" : "idle"));
-        setVideoStatuses(normalized.lesson.map(l => l.video ? "success" : "idle"));
-        setImageStatuses(normalized.lesson.map(l => l.image ? "success" : "idle"));
-        setUploadedAudioNames(normalized.lesson.map(l => l.audio ? shortenFilename(extractFilenameFromUrl(l.audio)) : null));
-        setUploadedVideoNames(normalized.lesson.map(l => l.video ? shortenFilename(extractFilenameFromUrl(l.video)) : null));
-        setUploadedImageNames(normalized.lesson.map(l => l.image ? shortenFilename(extractFilenameFromUrl(l.image)) : null));
+        setContent((prev) => ({ ...prev, ...normalizedWithTimings }));
+        setInitialExistingFileCount(normalizedWithTimings.file_path?.length || 0);
 
-        // preload comments & reactions per lesson (optional)
-        for (let i = 0; i < normalized.lesson.length; i++) {
+        setAudioStatuses(normalizedWithTimings.lesson.map((l) => l.audio ? "success" : "idle"));
+        setVideoStatuses(normalizedWithTimings.lesson.map((l) => l.video ? "success" : "idle"));
+        setImageStatuses(normalizedWithTimings.lesson.map((l) => l.image ? "success" : "idle"));
+        setUploadedAudioNames(normalizedWithTimings.lesson.map((l) => l.audio ? shortenFilename(extractFilenameFromUrl(l.audio)) : null));
+        setUploadedVideoNames(normalizedWithTimings.lesson.map((l) => l.video ? shortenFilename(extractFilenameFromUrl(l.video)) : null));
+        setUploadedImageNames(normalizedWithTimings.lesson.map((l) => l.image ? shortenFilename(extractFilenameFromUrl(l.image)) : null));
+
+        // hydrate comments & reactions without clobbering timingArray
+        for (let i = 0; i < normalizedWithTimings.lesson.length; i++) {
           try {
-            const commentsRes = await getLessonComments(contentId, i);
-            const reactionsRes = await getLessonReactions(contentId, i);
+            const [commentsRes, reactionsRes] = await Promise.all([
+              getLessonComments(contentId, i),
+              getLessonReactions(contentId, i),
+            ]);
             setContent((prev) => {
-              const clone = { ...prev };
-              clone.lesson = [...prev.lesson];
-              clone.lesson[i] = {
-                ...clone.lesson[i],
-                comments: commentsRes?.data || [],
-                reactions: reactionsRes?.data || []
-              };
-              return clone;
+              const next = structuredClone(prev) as ContentFormData;
+              (next.lesson[i] as any).comments = commentsRes?.data || [];
+              (next.lesson[i] as any).reactions = reactionsRes?.data || [];
+              return next;
             });
-          } catch { /* ignore per-lesson errors */ }
+          } catch { /* ignore individual failures */ }
         }
       } catch (err) {
         console.error("Failed to fetch content:", err);
@@ -420,18 +258,29 @@ const EditContent: React.FC = () => {
         setIsLoading(false);
       }
     })();
-  }, [contentId, topicId, toast, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentId, topicId]);
 
-  /* ============== Mutators (pure setState) ============== */
-
+  // ---------- lesson/subheading CRUD ----------
   const addLessonItem = () => {
-    setContent((prev) => ({
-      ...prev,
-      lesson: [
-        ...prev.lesson,
-        { text: "", subHeading: [{ text: "", question: "", subheadingAudioPath: "", expectedAnswer: "", comment: "", hint: "", mcqQuestions: [] }], audio: "", video: "", image: "" },
-      ],
-    }));
+    setContent((prev) => {
+      const next = structuredClone(prev) as ContentFormData;
+      next.lesson.push({
+        text: "",
+        subHeading: [{
+          text: "",
+          question: "",
+          subheadingAudioPath: "",
+          expectedAnswer: "",
+          comment: "",
+          hint: "",
+          mcqQuestions: [],
+          timingArray: [],
+        }],
+        audio: "", video: "", image: ""
+      });
+      return next;
+    });
     setAudioStatuses((p) => [...p, "idle"]);
     setVideoStatuses((p) => [...p, "idle"]);
     setImageStatuses((p) => [...p, "idle"]);
@@ -443,7 +292,11 @@ const EditContent: React.FC = () => {
 
   const removeLessonItem = (index: number) => {
     if (content.lesson.length <= 1) return;
-    setContent((prev) => ({ ...prev, lesson: prev.lesson.filter((_, i) => i !== index) }));
+    setContent((prev) => {
+      const next = structuredClone(prev) as ContentFormData;
+      next.lesson.splice(index, 1);
+      return next;
+    });
     setAudioStatuses((p) => p.filter((_, i) => i !== index));
     setVideoStatuses((p) => p.filter((_, i) => i !== index));
     setImageStatuses((p) => p.filter((_, i) => i !== index));
@@ -455,53 +308,62 @@ const EditContent: React.FC = () => {
 
   const addSubHeading = (lessonIndex: number) => {
     setContent((prev) => {
-      const copy = { ...prev, lesson: [...prev.lesson] };
-      const L = { ...copy.lesson[lessonIndex] };
-      L.subHeading = [...L.subHeading, { text: "", question: "", subheadingAudioPath: "", expectedAnswer: "", comment: "", hint: "", mcqQuestions: [] }];
-      copy.lesson[lessonIndex] = L;
-      return copy;
+      const next = structuredClone(prev) as ContentFormData;
+      next.lesson[lessonIndex].subHeading.push({
+        text: "",
+        question: "",
+        subheadingAudioPath: "",
+        expectedAnswer: "",
+        comment: "",
+        hint: "",
+        mcqQuestions: [],
+        timingArray: [],
+      });
+      return next;
     });
   };
 
   const removeSubHeading = (lessonIndex: number, subHeadingIndex: number) => {
     if (content.lesson[lessonIndex].subHeading.length <= 1) return;
     setContent((prev) => {
-      const copy = { ...prev, lesson: [...prev.lesson] };
-      const L = { ...copy.lesson[lessonIndex] };
-      L.subHeading = L.subHeading.filter((_, i) => i !== subHeadingIndex);
-      copy.lesson[lessonIndex] = L;
-      return copy;
+      const next = structuredClone(prev) as ContentFormData;
+      next.lesson[lessonIndex].subHeading.splice(subHeadingIndex, 1);
+      return next;
     });
   };
 
   const updateLessonItem = (lessonIndex: number, field: keyof LessonItem, value: string) => {
     setContent((prev) => {
-      const copy = { ...prev, lesson: [...prev.lesson] };
-      copy.lesson[lessonIndex] = { ...copy.lesson[lessonIndex], [field]: value };
-      return copy;
+      const next = structuredClone(prev) as ContentFormData;
+      (next.lesson[lessonIndex] as any)[field] = value;
+      return next;
     });
   };
 
-  const updateSubHeadingItem = (lessonIndex: number, subHeadingIndex: number, field: keyof SubHeadingItem, value: any) => {
+  const updateSubHeadingItem = <K extends keyof SubHeadingItem>(
+    lessonIndex: number,
+    subHeadingIndex: number,
+    field: K,
+    value: SubHeadingItem[K]
+  ) => {
     setContent((prev) => {
-      const copy = { ...prev, lesson: [...prev.lesson] };
-      const L = { ...copy.lesson[lessonIndex] };
-      const SH = [...L.subHeading];
-      SH[subHeadingIndex] = { ...SH[subHeadingIndex], [field]: value };
-      L.subHeading = SH;
-      copy.lesson[lessonIndex] = L;
-      return copy;
+      const next = structuredClone(prev) as ContentFormData;
+      const sh = next.lesson[lessonIndex].subHeading[subHeadingIndex];
+      (sh as any)[field] = value;
+      if (field === "text") {
+        const count = getDisplayLines(String(value) || "").length;
+        sh.timingArray = ensureTimingArrayLength(sh.timingArray, count);
+      }
+      return next;
     });
   };
 
-  /* ============== Files (DRY: only track new uploads, merge at save) ============== */
-
+  // ---------- topic-level files ----------
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const files = Array.from(e.target.files);
     setUploadedFiles((prev) => [...prev, ...files]);
 
-    // show as "pending" in UI with blob URLs (optional)
     const tempPaths = files.map((f) => URL.createObjectURL(f));
     setContent((prev) => ({ ...prev, file_path: [...prev.file_path, ...tempPaths] }));
   };
@@ -514,8 +376,7 @@ const EditContent: React.FC = () => {
     }
   };
 
-  /* ============== Save (uses updateContent + mergeNewUploads) ============== */
-
+  // ---------- submit (preserves timingArray) ----------
   const handleUpdateContent = async () => {
     try {
       setIsSubmitting(true);
@@ -567,23 +428,17 @@ const EditContent: React.FC = () => {
         return;
       }
 
-      // Only upload newly added files and merge
       const mergedPaths = await mergeNewUploads(
-        content.file_path.slice(0, initialExistingFileCount), // keep original persisted URLs only
-        uploadedFiles,                                      // upload newly added
+        content.file_path.slice(0, initialExistingFileCount),
+        uploadedFiles,
         "topics"
       );
 
       const payload: ContentFormData = { ...content, file_path: mergedPaths };
-      await updateContentApi(content._id || contentId!, payload);
+      await updateContentApi((content as any)._id || contentId!, payload);
 
-      toast({
-        title: "✅ Content Updated Successfully",
-        description: "Your content has been updated and is ready to use.",
-        duration: 6000,
-      });
+      toast({ title: "✅ Content Updated Successfully", description: "Your content has been updated and is ready to use.", duration: 6000 });
 
-      // refresh counts/UI
       setInitialExistingFileCount(mergedPaths.length);
       setUploadedFiles([]);
       setContent((prev) => ({ ...prev, file_path: mergedPaths }));
@@ -595,63 +450,49 @@ const EditContent: React.FC = () => {
     }
   };
 
-
-
-  const getUserInfo = (user: any) => {
-    if (typeof user === "string") {
-      return { name: user, picture: null };
+  // ---------- admin guard ----------
+  const storedAdmin = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("adminData") as any);
+    } catch {
+      return null;
     }
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
-    const picture = user.profilePicture || user.profile_picture || null;
-    return { name: fullName || "User", picture };
-  };
+  })();
+  const adminId = storedAdmin?._id || localStorage.getItem("adminId") || null;
 
-  /* ============== Comments (uses comments API fns) ============== */
+  useEffect(() => {
+    if (!adminId) {
+      console.warn("No adminId found in localStorage. Redirecting to login...");
+      navigate("/login");
+    }
+  }, [adminId, navigate]);
 
+  // ---------- comments & reactions ----------
   const refreshLessonComments = async (lessonIndex: number) => {
     if (!contentId) return;
     try {
       const res = await getLessonComments(contentId, lessonIndex);
       setContent((prev) => {
-        const copy = { ...prev, lesson: [...prev.lesson] };
-        copy.lesson[lessonIndex] = { ...copy.lesson[lessonIndex], comments: res?.data || [] };
-        return copy;
+        const next = structuredClone(prev) as ContentFormData;
+        (next.lesson[lessonIndex] as any).comments = res?.data || [];
+        return next;
       });
-    } catch (e) { /* noop */ }
+    } catch { /* noop */ }
   };
 
-
-
-  const storedAdmin = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("adminData"));
-    } catch {
-      return null;
-    }
-  })();
-
-  const adminId =
-    storedAdmin?._id || localStorage.getItem("adminId") || null;
-
-  useEffect(() => {
-    if (!adminId) {
-      console.warn("No adminId found in localStorage. Redirecting to login...");
-      navigate("/login"); // 👈 redirect to login
-    }
-  }, [adminId, navigate]);
   const handleAddComment = async (lessonIndex: number) => {
     if (!contentId) return;
     const text = (newCommentByLesson[lessonIndex] || "").trim();
     if (!text) return;
     try {
       await addLessonComment(contentId, lessonIndex, {
-        userId: adminId, // TODO: plug in your auth user id
+        userId: adminId,
         userType: "Admin",
         text,
       });
       setNewCommentByLesson((p) => ({ ...p, [lessonIndex]: "" }));
       await refreshLessonComments(lessonIndex);
-    } catch (e) {
+    } catch {
       toast({ variant: "destructive", title: "Error", description: "Failed to add comment." });
     }
   };
@@ -663,7 +504,7 @@ const EditContent: React.FC = () => {
     if (!text) return;
     try {
       await replyToComment(contentId, lessonIndex, commentIndex, {
-        userId: adminId, // TODO
+        userId: adminId,
         userType: "Admin",
         text,
       });
@@ -684,16 +525,14 @@ const EditContent: React.FC = () => {
     }
   };
 
-  /* ============== Reactions (uses reactions API fns) ============== */
-
   const refreshLessonReactions = async (lessonIndex: number) => {
     if (!contentId) return;
     try {
       const res = await getLessonReactions(contentId, lessonIndex);
       setContent((prev) => {
-        const copy = { ...prev, lesson: [...prev.lesson] };
-        copy.lesson[lessonIndex] = { ...copy.lesson[lessonIndex], reactions: res?.data || [] };
-        return copy;
+        const next = structuredClone(prev) as ContentFormData;
+        (next.lesson[lessonIndex] as any).reactions = res?.data || [];
+        return next;
       });
     } catch { /* noop */ }
   };
@@ -702,7 +541,7 @@ const EditContent: React.FC = () => {
     if (!contentId) return;
     try {
       await addLessonReaction(contentId, lessonIndex, {
-        userId: adminId, // TODO
+        userId: adminId,
         userType: "Admin",
         emoji,
       });
@@ -722,8 +561,6 @@ const EditContent: React.FC = () => {
     }
   };
 
-  /* ============== MCQ Helpers (local state via content) ============== */
-
   const currentSubHeadingItem =
     currentQuestionData.lessonIndex !== -1 && currentQuestionData.subHeadingIndex !== -1
       ? content.lesson[currentQuestionData.lessonIndex].subHeading[currentQuestionData.subHeadingIndex]
@@ -739,8 +576,8 @@ const EditContent: React.FC = () => {
   const addMcq = () => {
     if (!currentSubHeadingItem) return;
     ensureMcqArray();
-    const next: MCQQuestion = { question: "", options: [""], correctAnswer: "", explanation: "" };
-    const arr = [...(currentSubHeadingItem.mcqQuestions || []), next];
+    const nextQ: MCQQuestion = { question: "", options: [""], correctAnswer: "", explanation: "" };
+    const arr = [...(currentSubHeadingItem.mcqQuestions || []), nextQ];
     updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
   };
 
@@ -753,45 +590,41 @@ const EditContent: React.FC = () => {
   const updateMcqField = (mcqIndex: number, key: keyof MCQQuestion, value: any) => {
     if (!currentSubHeadingItem) return;
     const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
-    arr[mcqIndex] = { ...arr[mcqIndex], [key]: value };
+    (arr as any)[mcqIndex] = { ...(arr as any)[mcqIndex], [key]: value };
     updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
   };
 
   const addMcqOption = (mcqIndex: number) => {
     if (!currentSubHeadingItem) return;
     const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
-    const opts = [...arr[mcqIndex].options, ""];
-    arr[mcqIndex] = { ...arr[mcqIndex], options: opts };
+    const opts = [...(arr as any)[mcqIndex].options, ""];
+    (arr as any)[mcqIndex] = { ...(arr as any)[mcqIndex], options: opts };
     updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
   };
 
   const updateMcqOption = (mcqIndex: number, optionIndex: number, value: string) => {
     if (!currentSubHeadingItem) return;
     const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
-    const opts = [...arr[mcqIndex].options];
+    const opts = [...(arr as any)[mcqIndex].options];
+    const prevVal = opts[optionIndex];
     opts[optionIndex] = value;
-    arr[mcqIndex] = { ...arr[mcqIndex], options: opts };
-    // If correct answer was this option and it’s now blank, clear it
-    if (arr[mcqIndex].correctAnswer === arr[mcqIndex].options[optionIndex] && !value) {
-      arr[mcqIndex].correctAnswer = "";
-    }
+
+    const updated = { ...(arr as any)[mcqIndex], options: opts };
+    if (updated.correctAnswer === prevVal && !value) updated.correctAnswer = "";
+    (arr as any)[mcqIndex] = updated;
     updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
   };
 
   const removeMcqOption = (mcqIndex: number, optionIndex: number) => {
     if (!currentSubHeadingItem) return;
     const arr = [...(currentSubHeadingItem.mcqQuestions || [])];
-    const target = { ...arr[mcqIndex] };
+    const target = { ...(arr as any)[mcqIndex] };
     const removed = target.options[optionIndex];
-    target.options = target.options.filter((_, i) => i !== optionIndex);
-    if (target.correctAnswer === removed) {
-      target.correctAnswer = "";
-    }
-    arr[mcqIndex] = target;
+    target.options = target.options.filter((_: any, i: number) => i !== optionIndex);
+    if (target.correctAnswer === removed) target.correctAnswer = "";
+    (arr as any)[mcqIndex] = target;
     updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "mcqQuestions", arr);
   };
-
-  /* ============== UI ============== */
 
   if (isLoading) return <LoadingShimmer />;
 
@@ -813,7 +646,6 @@ const EditContent: React.FC = () => {
             </Button>
             <h1 className="text-2xl font-bold text-gray-800">Edit Content</h1>
           </div>
-
         </div>
 
         {/* Content */}
@@ -831,31 +663,22 @@ const EditContent: React.FC = () => {
               </div>
             </div>
 
-            {/* Lesson Tabs */}
             {/* Lesson Tabs (Draggable) */}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onLessonDragEnd}>
-              <SortableContext
-                // ids must match what's used by Sortable items
-                items={content.lesson.map((_, i) => `lesson-${i}`)}
-                strategy={rectSortingStrategy}
-              >
+              <SortableContext items={content.lesson.map((_, i) => `lesson-${i}`)} strategy={rectSortingStrategy}>
                 <div className="flex flex-wrap gap-2 mb-6">
                   {content.lesson.map((_, index) => (
                     <Sortable key={`lesson-${index}`} id={`lesson-${index}`}>
                       {({ attributes, listeners }) => (
                         <button
                           onClick={() => setActiveLessonIndex(index)}
-                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeLessonIndex === index
-                              ? "bg-blue-600 text-white"
-                              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                            }`}
+                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeLessonIndex === index ? "bg-blue-600 text-white" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"}`}
                         >
                           <GripVertical
                             size={16}
                             className="text-gray-400 cursor-grab active:cursor-grabbing"
                             {...attributes}
                             {...listeners}
-                            // Keeps click-to-select working while allowing drag
                             onClick={(e) => e.stopPropagation()}
                           />
                           Lesson {index + 1}
@@ -874,10 +697,9 @@ const EditContent: React.FC = () => {
               </SortableContext>
             </DndContext>
 
-
             {/* Active Lesson */}
             <div className="space-y-6">
-              {content.lesson.map((lessonItem, lessonIndex) =>
+              {content.lesson.map((lessonItem: any, lessonIndex: number) =>
                 lessonIndex === activeLessonIndex && (
                   <div key={lessonIndex} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-center mb-4">
@@ -900,25 +722,19 @@ const EditContent: React.FC = () => {
                         <Input value={lessonItem.text} onChange={(e) => updateLessonItem(lessonIndex, "text", e.target.value)} placeholder="Enter lesson title" />
                       </div>
 
-                      {/* Sections */}
-                      {/* =========================
-    Sections (DRAGGABLE)
-   ========================= */}
+                      {/* Sections (DRAGGABLE) */}
                       <div className="space-y-4">
                         <label className="text-sm font-medium text-gray-700">Sections</label>
 
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(e) => onSectionDragEnd(e, lessonIndex)}
-                        >
-                          <SortableContext
-                            items={lessonItem.subHeading.map((_, i) => `section-${i}`)}
-                            strategy={verticalListSortingStrategy}
-                          >
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => onSectionDragEnd(e, lessonIndex)}>
+                          <SortableContext items={lessonItem.subHeading.map((_: any, i: number) => `section-${i}`)} strategy={verticalListSortingStrategy}>
                             <div className="space-y-4">
-                              {lessonItem.subHeading.map((subHeadingItem, subHeadingIndex) => {
+                              {lessonItem.subHeading.map((subHeadingItem: SubHeadingItem, subHeadingIndex: number) => {
                                 const field = (f: string) => getFieldPath(lessonIndex, subHeadingIndex, f);
+                                const lines = getDisplayLines(subHeadingItem.text || "");
+                                const audioKey = getAudioKey(lessonIndex, subHeadingIndex);
+                                const player = audioRefs.current[audioKey];
+
                                 return (
                                   <Sortable key={`section-${subHeadingIndex}`} id={`section-${subHeadingIndex}`}>
                                     {({ attributes, listeners }) => (
@@ -937,9 +753,7 @@ const EditContent: React.FC = () => {
                                             <div className="w-6 h-6 bg-blue-400 rounded-full text-white text-xs flex items-center justify-center">
                                               {subHeadingIndex + 1}
                                             </div>
-                                            <span className="text-xs font-medium text-gray-700">
-                                              Section {subHeadingIndex + 1}
-                                            </span>
+                                            <span className="text-xs font-medium text-gray-700">Section {subHeadingIndex + 1}</span>
                                           </div>
 
                                           {lessonItem.subHeading.length > 1 && (
@@ -956,7 +770,7 @@ const EditContent: React.FC = () => {
                                           )}
                                         </div>
 
-                                        {/* Section Content + Comment (your existing math fields) */}
+                                        {/* Section Content + Comment */}
                                         <div className="space-y-3">
                                           {(["text", "comment"] as const).map((key) => (
                                             <div className="space-y-2" key={key}>
@@ -966,10 +780,8 @@ const EditContent: React.FC = () => {
                                               <div className="border border-gray-200 rounded-lg p-2 bg-white">
                                                 {editingStates[field(key)] ? (
                                                   <MathInput
-                                                    value={subHeadingItem[key]}
-                                                    onChange={(v) =>
-                                                      updateSubHeadingItem(lessonIndex, subHeadingIndex, key, v)
-                                                    }
+                                                    value={(subHeadingItem as any)[key] as string}
+                                                    onChange={(v) => updateSubHeadingItem(lessonIndex, subHeadingIndex, key as any, v)}
                                                     editing={true}
                                                     onSave={() => saveMathValue(field(key))}
                                                     onCancel={() => cancelEditing(field(key))}
@@ -978,7 +790,7 @@ const EditContent: React.FC = () => {
                                                   <div className="flex items-start justify-between">
                                                     <div className="flex-1">
                                                       <MathInput
-                                                        value={subHeadingItem[key]}
+                                                        value={(subHeadingItem as any)[key] as string}
                                                         editing={false}
                                                         placeholder={`Click edit to add ${key}`}
                                                       />
@@ -998,8 +810,8 @@ const EditContent: React.FC = () => {
                                             </div>
                                           ))}
 
-                                          {/* Upload (audio/video/document/image) for subheading; stores URL in subheadingAudioPath */}
-                                          <div className="flex items-center justify-between w-full">
+                                          {/* Q&A / MCQs + Upload */}
+                                          <div className="flex flex-wrap items-center justify-between w-full gap-3">
                                             <div className="flex gap-2">
                                               <Button
                                                 type="button"
@@ -1011,6 +823,18 @@ const EditContent: React.FC = () => {
                                                 <Plus size={14} className="mr-1" />
                                                 {subHeadingItem.question ? "Edit Q&A / MCQs" : "Add Q&A / MCQs"}
                                               </Button>
+
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => syncTimingArray(lessonIndex, subHeadingIndex)}
+                                                className="border-blue-600 text-blue-700 hover:bg-blue-50"
+                                                title="Re-detect lines and align timing inputs"
+                                              >
+                                                <Crosshair size={14} className="mr-1" />
+                                                Detect lines
+                                              </Button>
                                             </div>
 
                                             <div className="flex flex-col items-end">
@@ -1020,10 +844,7 @@ const EditContent: React.FC = () => {
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
-                                                    className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${subHeadingItem.subheadingAudioPath
-                                                        ? "bg-green-600"
-                                                        : "bg-green-500 hover:bg-green-600"
-                                                      }`}
+                                                    className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${subHeadingItem.subheadingAudioPath ? "bg-green-600" : "bg-green-500 hover:bg-green-600"}`}
                                                   >
                                                     {selectedFileType === "audio" && <Music size={16} />}
                                                     {selectedFileType === "video" && <Video size={16} />}
@@ -1031,36 +852,22 @@ const EditContent: React.FC = () => {
                                                     {selectedFileType === "image" && <ImageIcon size={16} />}
 
                                                     {subHeadingItem.subheadingAudioPath
-                                                      ? shortenFilename(
-                                                        extractFilenameFromUrl(subHeadingItem.subheadingAudioPath)
-                                                      )
+                                                      ? shortenFilename(extractFilenameFromUrl(subHeadingItem.subheadingAudioPath))
                                                       : `Upload ${selectedFileType}`}
                                                     <ChevronDown size={14} className="ml-1" />
                                                   </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent className="w-48">
-                                                  <DropdownMenuItem
-                                                    onClick={() => setSelectedFileType("audio")}
-                                                    className="flex items-center gap-2"
-                                                  >
+                                                  <DropdownMenuItem onClick={() => setSelectedFileType("audio")} className="flex items-center gap-2">
                                                     <Music size={14} /> Audio
                                                   </DropdownMenuItem>
-                                                  <DropdownMenuItem
-                                                    onClick={() => setSelectedFileType("video")}
-                                                    className="flex items-center gap-2"
-                                                  >
+                                                  <DropdownMenuItem onClick={() => setSelectedFileType("video")} className="flex items-center gap-2">
                                                     <Video size={14} /> Video
                                                   </DropdownMenuItem>
-                                                  <DropdownMenuItem
-                                                    onClick={() => setSelectedFileType("document")}
-                                                    className="flex items-center gap-2"
-                                                  >
+                                                  <DropdownMenuItem onClick={() => setSelectedFileType("document")} className="flex items-center gap-2">
                                                     <FileText size={14} /> Document
                                                   </DropdownMenuItem>
-                                                  <DropdownMenuItem
-                                                    onClick={() => setSelectedFileType("image")}
-                                                    className="flex items-center gap-2"
-                                                  >
+                                                  <DropdownMenuItem onClick={() => setSelectedFileType("image")} className="flex items-center gap-2">
                                                     <ImageIcon size={14} /> Image
                                                   </DropdownMenuItem>
                                                 </DropdownMenuContent>
@@ -1081,24 +888,11 @@ const EditContent: React.FC = () => {
                                                     if (!file) return;
                                                     try {
                                                       const url = await uploadSingleToSupabase(file, "topics");
-                                                      updateSubHeadingItem(
-                                                        lessonIndex,
-                                                        subHeadingIndex,
-                                                        "subheadingAudioPath",
-                                                        url
-                                                      );
-                                                      toast({
-                                                        title: "Success",
-                                                        description: `${selectedFileType} uploaded`,
-                                                        duration: 4000,
-                                                      });
+                                                      updateSubHeadingItem(lessonIndex, subHeadingIndex, "subheadingAudioPath", url);
+                                                      toast({ title: "Success", description: `${selectedFileType} uploaded`, duration: 4000 });
                                                     } catch (err) {
                                                       console.error(err);
-                                                      toast({
-                                                        variant: "destructive",
-                                                        title: "Error",
-                                                        description: `Failed to upload ${selectedFileType}`,
-                                                      });
+                                                      toast({ variant: "destructive", title: "Error", description: `Failed to upload ${selectedFileType}` });
                                                     }
                                                   };
                                                   input.click();
@@ -1113,9 +907,7 @@ const EditContent: React.FC = () => {
                                                   variant="outline"
                                                   size="sm"
                                                   className="mt-2 bg-gray-500 text-white hover:bg-gray-600 w-full"
-                                                  onClick={() =>
-                                                    window.open(subHeadingItem.subheadingAudioPath, "_blank")
-                                                  }
+                                                  onClick={() => window.open(subHeadingItem.subheadingAudioPath, "_blank")}
                                                 >
                                                   <Eye size={14} className="mr-1" /> View File
                                                 </Button>
@@ -1123,44 +915,132 @@ const EditContent: React.FC = () => {
                                             </div>
                                           </div>
 
-                                          {/* Quick Question preview */}
-                                          {(subHeadingItem.question ||
-                                            (subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0)) && (
-                                              <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
-                                                <div className="flex justify-between items-start gap-3">
-                                                  <div className="space-y-2 w-full">
-                                                    {subHeadingItem.question && (
-                                                      <>
-                                                        <h4 className="text-xs font-medium text-blue-800">Question:</h4>
-                                                        <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                                                          <MathInput
-                                                            value={subHeadingItem.question}
-                                                            editing={false}
-                                                            placeholder="No question added"
-                                                          />
-                                                        </div>
-                                                      </>
-                                                    )}
-                                                    {subHeadingItem.mcqQuestions &&
-                                                      subHeadingItem.mcqQuestions.length > 0 && (
-                                                        <div className="text-xs text-blue-900">
-                                                          {subHeadingItem.mcqQuestions.length} MCQ
-                                                          {subHeadingItem.mcqQuestions.length > 1 ? "s" : ""} attached
-                                                        </div>
-                                                      )}
-                                                  </div>
-                                                  <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                                                    onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}
-                                                  >
-                                                    <Edit size={14} />
-                                                  </Button>
-                                                </div>
+                                          {/* Audio Player + Timing Editor */}
+                                          <div className="mt-4 border rounded-lg bg-white p-3">
+                                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                              <div className="text-sm font-medium text-gray-700">
+                                                Detected lines: <span className="font-semibold">{lines.length}</span>
                                               </div>
-                                            )}
+
+                                              <div className="flex items-center gap-2">
+                                                <audio
+                                                  ref={(el) => { audioRefs.current[audioKey] = el; }}
+                                                  controls
+                                                  src={subHeadingItem.subheadingAudioPath || undefined}
+                                                  className="max-w-full"
+                                                />
+                                                <Button type="button" size="icon" variant="outline" className="h-9 w-9" onClick={() => audioRefs.current[audioKey]?.play()} disabled={!audioRefs.current[audioKey]} title="Play">
+                                                  <Play size={16} />
+                                                </Button>
+                                                <Button type="button" size="icon" variant="outline" className="h-9 w-9" onClick={() => audioRefs.current[audioKey]?.pause()} disabled={!audioRefs.current[audioKey]} title="Pause">
+                                                  <Pause size={16} />
+                                                </Button>
+                                              </div>
+                                            </div>
+
+                                            {/* Timing rows */}
+                                            <div className="mt-3 space-y-2">
+                                              {lines.map((ln, li) => {
+                                                const seconds = Number.isFinite(subHeadingItem.timingArray?.[li] as number)
+                                                  ? (subHeadingItem.timingArray?.[li] as number)
+                                                  : 0;
+
+                                                const setTiming = (val: number) => {
+                                                  setContent((prev) => {
+                                                    const next = structuredClone(prev) as ContentFormData;
+                                                    const sh = next.lesson[lessonIndex].subHeading[subHeadingIndex];
+                                                    const len = lines.length;
+                                                    sh.timingArray = ensureTimingArrayLength(sh.timingArray, len);
+                                                    sh.timingArray![li] = (Number.isFinite(val) && val >= 0) ? Number(val) : 0;
+                                                    return next;
+                                                  });
+                                                };
+
+                                                const player = audioRefs.current[audioKey];
+
+                                                return (
+                                                  <div key={li} className="grid grid-cols-1 md:grid-cols-12 items-center gap-2 border rounded p-2">
+                                                    <div className="md:col-span-6 text-xs md:text-sm text-gray-800">
+                                                      <span className="inline-block px-2 py-0.5 text-[10px] md:text-xs rounded bg-blue-50 border border-blue-100 mr-2">Line {li + 1}</span>
+                                                      <span className="break-all">{ln}</span>
+                                                    </div>
+
+                                                    <div className="md:col-span-3 flex items-center gap-2">
+                                                      <label className="text-xs text-gray-500">Start (s)</label>
+                                                      <Input
+                                                        type="number"
+                                                        min={0}
+                                                        step="0.1"
+                                                        value={seconds}
+                                                        onChange={(e) => setTiming(parseFloat(e.target.value))}
+                                                      />
+                                                    </div>
+
+                                                    <div className="md:col-span-3 flex items-center gap-2 justify-end">
+                                                      <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => player && setTiming(Number(player.currentTime.toFixed(1)))}
+                                                        disabled={!player}
+                                                        title="Use current audio time"
+                                                      >
+                                                        <CornerDownLeft size={14} className="mr-1" />
+                                                        Set from current
+                                                      </Button>
+                                                      <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => { if (player) { player.currentTime = seconds || 0; player.play(); } }}
+                                                        disabled={!player}
+                                                        title="Jump to this timing"
+                                                      >
+                                                        Jump
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })}
+                                              {lines.length === 0 && (
+                                                <div className="text-sm text-gray-500">
+                                                  No lines detected. Add content with <code className="px-1 bg-gray-100 rounded">\displaylines&#123;...&#125;</code> or use <code className="px-1 bg-gray-100 rounded">\\\\</code> / newlines to separate lines, then click <em>Detect lines</em>.
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Quick Question preview */}
+                                          {(subHeadingItem.question || (subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0)) && (
+                                            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3">
+                                              <div className="flex justify-between items-start gap-3">
+                                                <div className="space-y-2 w-full">
+                                                  {subHeadingItem.question && (
+                                                    <>
+                                                      <h4 className="text-xs font-medium text-blue-800">Question:</h4>
+                                                      <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                                                        <MathInput value={subHeadingItem.question} editing={false} placeholder="No question added" />
+                                                      </div>
+                                                    </>
+                                                  )}
+                                                  {subHeadingItem.mcqQuestions && subHeadingItem.mcqQuestions.length > 0 && (
+                                                    <div className="text-xs text-blue-900">
+                                                      {subHeadingItem.mcqQuestions.length} MCQ{subHeadingItem.mcqQuestions.length > 1 ? "s" : ""} attached
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                                                  onClick={() => openQuestionModal(lessonIndex, subHeadingIndex)}
+                                                >
+                                                  <Edit size={14} />
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     )}
@@ -1184,11 +1064,13 @@ const EditContent: React.FC = () => {
                         </div>
                       </div>
 
-
                       {/* Media upload per-lesson (audio/video/image) */}
                       <div className="flex flex-wrap justify-end gap-2 pt-4">
                         {/* AUDIO */}
-                        <Button type="button" variant="outline" size="sm"
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           disabled={audioStatuses[lessonIndex] === "uploading"}
                           className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${audioStatuses[lessonIndex] === "success" ? "bg-green-600" : "bg-green-500 hover:bg-green-600"}`}
                           onClick={() => {
@@ -1210,7 +1092,8 @@ const EditContent: React.FC = () => {
                               }
                             };
                             input.click();
-                          }}>
+                          }}
+                        >
                           <Music size={16} />
                           {audioStatuses[lessonIndex] === "uploading" ? `Uploading ${uploadedAudioNames[lessonIndex]}...`
                             : audioStatuses[lessonIndex] === "success" ? <span className="max-w-[100px] truncate">{uploadedAudioNames[lessonIndex] || "Uploaded"}</span>
@@ -1223,7 +1106,10 @@ const EditContent: React.FC = () => {
                         )}
 
                         {/* VIDEO */}
-                        <Button type="button" variant="outline" size="sm"
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           disabled={videoStatuses[lessonIndex] === "uploading"}
                           className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${videoStatuses[lessonIndex] === "success" ? "bg-indigo-600" : "bg-indigo-500 hover:bg-indigo-600"}`}
                           onClick={() => {
@@ -1245,7 +1131,8 @@ const EditContent: React.FC = () => {
                               }
                             };
                             input.click();
-                          }}>
+                          }}
+                        >
                           <Video size={16} />
                           {videoStatuses[lessonIndex] === "uploading" ? `Uploading ${uploadedVideoNames[lessonIndex]}...`
                             : videoStatuses[lessonIndex] === "success" ? <span className="max-w-[100px] truncate">{uploadedVideoNames[lessonIndex] || "Uploaded"}</span>
@@ -1258,7 +1145,10 @@ const EditContent: React.FC = () => {
                         )}
 
                         {/* IMAGE */}
-                        <Button type="button" variant="outline" size="sm"
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           disabled={imageStatuses[lessonIndex] === "uploading"}
                           className={`flex items-center gap-2 px-3 text-white h-9 border-0 ${imageStatuses[lessonIndex] === "success" ? "bg-yellow-600" : "bg-yellow-500 hover:bg-yellow-600"}`}
                           onClick={() => {
@@ -1280,7 +1170,8 @@ const EditContent: React.FC = () => {
                               }
                             };
                             input.click();
-                          }}>
+                          }}
+                        >
                           <ImageIcon size={16} />
                           {imageStatuses[lessonIndex] === "uploading" ? `Uploading ${uploadedImageNames[lessonIndex]}...`
                             : imageStatuses[lessonIndex] === "success" ? <span className="max-w-[100px] truncate">{uploadedImageNames[lessonIndex] || "Uploaded"}</span>
@@ -1300,12 +1191,9 @@ const EditContent: React.FC = () => {
                           <Button variant="ghost" size="sm" onClick={() => refreshLessonComments(lessonIndex)}>Refresh</Button>
                         </div>
                         <div className="mt-3 space-y-3">
-                          {(lessonItem.comments || []).map((c, ci) => {
-                            // Helper function to get user display info
-                            const getUserInfo = (user) => {
-                              if (typeof user === "string") {
-                                return { name: user, avatar: null };
-                              }
+                          {(lessonItem.comments || []).map((c: any, ci: number) => {
+                            const getUserInfo = (user: any) => {
+                              if (typeof user === "string") return { name: user, avatar: null };
                               const firstName = user?.firstName || "";
                               const lastName = user?.lastName || "";
                               const fullName = `${firstName} ${lastName}`.trim() || user?.email || "User";
@@ -1319,7 +1207,6 @@ const EditContent: React.FC = () => {
                               <div key={c._id ?? ci} className="border rounded p-3 bg-white">
                                 <div className="flex justify-between items-start">
                                   <div className="flex items-center gap-2">
-                                    {/* Profile Picture */}
                                     <div className="flex-shrink-0">
                                       {commentUserInfo.avatar ? (
                                         <img
@@ -1327,31 +1214,23 @@ const EditContent: React.FC = () => {
                                           alt={commentUserInfo.name}
                                           className="w-8 h-8 rounded-full object-cover"
                                           onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            e.target.nextSibling.style.display = 'flex';
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                            const fallback = (e.target as HTMLImageElement).nextSibling as HTMLElement;
+                                            if (fallback) fallback.style.display = 'flex';
                                           }}
                                         />
                                       ) : null}
-                                      <div
-                                        className={`w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600 ${commentUserInfo.avatar ? 'hidden' : 'flex'}`}
-                                      >
+                                      <div className={`w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-sm font-medium text-gray-600 ${commentUserInfo.avatar ? 'hidden' : 'flex'}`}>
                                         {commentUserInfo.name.charAt(0).toUpperCase()}
                                       </div>
                                     </div>
-
-                                    {/* User Info */}
                                     <div>
                                       <div className="text-sm font-medium">{commentUserInfo.name}</div>
                                       <span className="text-xs text-gray-500">{c.userType}</span>
                                     </div>
                                   </div>
 
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-red-500"
-                                    onClick={() => handleDeleteComment(lessonIndex, ci)}
-                                  >
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => handleDeleteComment(lessonIndex, ci)}>
                                     <Trash2 size={14} />
                                   </Button>
                                 </div>
@@ -1360,13 +1239,12 @@ const EditContent: React.FC = () => {
 
                                 {/* Replies */}
                                 <div className="mt-3 ml-10 space-y-2">
-                                  {(c.replies || []).map((r, ri) => {
+                                  {(c.replies || []).map((r: any, ri: number) => {
                                     const replyUserInfo = getUserInfo(r.userId);
 
                                     return (
                                       <div key={r._id ?? ri} className="text-xs p-2 rounded bg-gray-50 border">
                                         <div className="flex items-center gap-2 mb-1">
-                                          {/* Reply Profile Picture */}
                                           <div className="flex-shrink-0">
                                             {replyUserInfo.avatar ? (
                                               <img
@@ -1374,14 +1252,13 @@ const EditContent: React.FC = () => {
                                                 alt={replyUserInfo.name}
                                                 className="w-6 h-6 rounded-full object-cover"
                                                 onError={(e) => {
-                                                  e.target.style.display = 'none';
-                                                  e.target.nextSibling.style.display = 'flex';
+                                                  (e.target as HTMLImageElement).style.display = 'none';
+                                                  const fallback = (e.target as HTMLImageElement).nextSibling as HTMLElement;
+                                                  if (fallback) fallback.style.display = 'flex';
                                                 }}
                                               />
                                             ) : null}
-                                            <div
-                                              className={`w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600 ${replyUserInfo.avatar ? 'hidden' : 'flex'}`}
-                                            >
+                                            <div className={`w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600 ${replyUserInfo.avatar ? 'hidden' : 'flex'}`}>
                                               {replyUserInfo.name.charAt(0).toUpperCase()}
                                             </div>
                                           </div>
@@ -1397,17 +1274,11 @@ const EditContent: React.FC = () => {
                                   <div className="flex gap-2 mt-2">
                                     <Input
                                       value={newReplyByLessonAndIndex[`${lessonIndex}_${ci}`] || ""}
-                                      onChange={(e) => setNewReplyByLessonAndIndex((p) => ({
-                                        ...p,
-                                        [`${lessonIndex}_${ci}`]: e.target.value
-                                      }))}
+                                      onChange={(e) => setNewReplyByLessonAndIndex((p) => ({ ...p, [`${lessonIndex}_${ci}`]: e.target.value }))}
                                       placeholder="Write a reply..."
                                       className="text-sm"
                                     />
-                                    <Button
-                                      onClick={() => handleReply(lessonIndex, ci)}
-                                      size="sm"
-                                    >
+                                    <Button onClick={() => handleReply(lessonIndex, ci)} size="sm">
                                       Reply
                                     </Button>
                                   </div>
@@ -1439,7 +1310,7 @@ const EditContent: React.FC = () => {
                           ))}
                         </div>
                         <div className="mt-3 space-y-2">
-                          {(lessonItem.reactions || []).map((r, ri) => (
+                          {(lessonItem.reactions || []).map((r: any, ri: number) => (
                             <div key={r._id ?? ri} className="inline-flex items-center gap-2 border rounded px-2 py-1 bg-white">
                               <span>{r.emoji}</span>
                               <span className="text-xs text-gray-500">
@@ -1462,7 +1333,7 @@ const EditContent: React.FC = () => {
                 <h3 className="font-semibold">Attachments</h3>
                 <div>
                   <input id="filePicker" type="file" multiple hidden onChange={handleFileSelect} />
-                  <Button onClick={() => document.getElementById("filePicker")?.click()} variant="outline" size="sm">
+                  <Button onClick={() => (document.getElementById("filePicker") as HTMLInputElement)?.click()} variant="outline" size="sm">
                     <Upload size={14} className="mr-1" /> Add Files
                   </Button>
                 </div>
@@ -1499,216 +1370,24 @@ const EditContent: React.FC = () => {
         </div>
       </div>
 
-      {/* Question + MCQ Modal (WIDE, SCROLLABLE) */}
+      {/* Question Modal */}
       {showQuestionModal && currentSubHeadingItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-4xl mx-4 shadow-xl flex flex-col">
-            {/* Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-800">
-                {currentSubHeadingItem.question ? "Edit Q&A / MCQs" : "Add Q&A / MCQs"}
-              </h3>
-              <button onClick={() => setShowQuestionModal(false)} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body (scrollable) */}
-            <div className="px-6 py-4 overflow-y-auto" style={{ maxHeight: "75vh" }}>
-              {/* Question */}
-              <div className="space-y-2 mb-4">
-                <label className="text-xs font-medium text-gray-600">Main Question (optional)</label>
-                <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                  {editingStates[`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`] ? (
-                    <MathInput
-                      value={currentSubHeadingItem.question}
-                      onChange={(v) => updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "question", v)}
-                      editing={true}
-                      onSave={() => setEditingStates((p) => ({ ...p, [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
-                      onCancel={() => setEditingStates((p) => ({ ...p, [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
-                    />
-                  ) : (
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <MathInput value={currentSubHeadingItem.question} editing={false} placeholder="Click edit to add question" />
-                      </div>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                        onClick={() => setEditingStates((p) => ({ ...p, [`question_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true }))}>
-                        <Edit size={14} />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Expected Answer */}
-              <div className="space-y-2 mb-4">
-                <label className="text-xs font-medium text-gray-600">Expected Answer (optional)</label>
-                <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                  {editingStates[`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`] ? (
-                    <MathInput
-                      value={currentSubHeadingItem.expectedAnswer}
-                      onChange={(v) => updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "expectedAnswer", v)}
-                      editing={true}
-                      onSave={() => setEditingStates((p) => ({ ...p, [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
-                      onCancel={() => setEditingStates((p) => ({ ...p, [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
-                    />
-                  ) : (
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <MathInput value={currentSubHeadingItem.expectedAnswer} editing={false} placeholder="Click edit to add expected answer" />
-                      </div>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                        onClick={() => setEditingStates((p) => ({ ...p, [`expectedAnswer_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true }))}>
-                        <Edit size={14} />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Hint */}
-              <div className="space-y-2 mb-6">
-                <label className="text-xs font-medium text-gray-600">Hint (optional)</label>
-                <div className="border border-gray-200 rounded-lg p-2 bg-white">
-                  {editingStates[`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`] ? (
-                    <MathInput
-                      value={currentSubHeadingItem.hint}
-                      onChange={(v) => updateSubHeadingItem(currentQuestionData.lessonIndex, currentQuestionData.subHeadingIndex, "hint", v)}
-                      editing={true}
-                      onSave={() => setEditingStates((p) => ({ ...p, [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
-                      onCancel={() => setEditingStates((p) => ({ ...p, [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: false }))}
-                    />
-                  ) : (
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <MathInput value={currentSubHeadingItem.hint} editing={false} placeholder="Click edit to add hint" />
-                      </div>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-500"
-                        onClick={() => setEditingStates((p) => ({ ...p, [`hint_modal_${currentQuestionData.lessonIndex}_${currentQuestionData.subHeadingIndex}`]: true }))}>
-                        <Edit size={14} />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* MCQ Builder */}
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-gray-800">Multiple Choice Questions</h4>
-                <Button variant="outline" size="sm" onClick={addMcq} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
-                  <Plus size={14} className="mr-1" /> Add MCQ
-                </Button>
-              </div>
-
-              {(!currentSubHeadingItem.mcqQuestions || currentSubHeadingItem.mcqQuestions.length === 0) && (
-                <div className="text-sm text-gray-500 mb-4">No MCQs yet. Click “Add MCQ” to create one.</div>
-              )}
-
-              <div className="space-y-4">
-                {(currentSubHeadingItem.mcqQuestions || []).map((mcq, mcqIndex) => (
-                  <div key={mcq._id || mcqIndex} className="border rounded-lg bg-gray-50">
-                    <div className="flex items-center justify-between px-3 py-2 border-b">
-                      <div className="flex items-center gap-2">
-                        <GripVertical size={14} className="text-gray-400" />
-                        <span className="text-xs font-medium text-gray-600">MCQ {mcqIndex + 1}</span>
-                      </div>
-                      <Button variant="ghost" size="icon" onClick={() => removeMcq(mcqIndex)} className="text-red-500 h-7 w-7">
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-
-                    <div className="p-3 space-y-3">
-                      {/* MCQ Question */}
-                      <div>
-                        <label className="text-xs font-medium text-gray-600">Question</label>
-                        <div className="mt-1 border rounded bg-white p-2">
-                          <MathInput
-                            value={mcq.question}
-                            editing={true}
-                            onChange={(v) => updateMcqField(mcqIndex, "question", v)}
-                            onSave={() => { }}
-                            onCancel={() => { }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Options */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-medium text-gray-600">Options</label>
-                          <Button variant="outline" size="sm" onClick={() => addMcqOption(mcqIndex)} className="h-7 px-2">
-                            <Plus size={14} className="mr-1" /> Add Option
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                          {mcq.options.map((opt, oi) => {
-                            const isCorrect = mcq.correctAnswer === opt && opt !== "";
-                            return (
-                              <div key={oi} className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name={`mcq-${mcqIndex}-correct`}
-                                  className="h-4 w-4 cursor-pointer"
-                                  checked={isCorrect}
-                                  onChange={() => updateMcqField(mcqIndex, "correctAnswer", opt)}
-                                  title="Mark as correct answer"
-                                />
-                                <Input
-                                  value={opt}
-                                  onChange={(e) => updateMcqOption(mcqIndex, oi, e.target.value)}
-                                  placeholder={`Option ${oi + 1}`}
-                                  className="flex-1"
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-500"
-                                  onClick={() => removeMcqOption(mcqIndex, oi)}
-                                  disabled={mcq.options.length <= 1}
-                                  title="Remove option"
-                                >
-                                  <Trash2 size={16} />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Correct answer helper */}
-                        <div className="text-xs text-gray-500 mt-1">
-                          Select the radio next to the correct option. Changing an option text will keep the selection if it still matches.
-                        </div>
-                      </div>
-
-                      {/* Explanation */}
-                      <div>
-                        <label className="text-xs font-medium text-gray-600">Explanation (optional)</label>
-                        <Input
-                          value={mcq.explanation || ""}
-                          onChange={(e) => updateMcqField(mcqIndex, "explanation", e.target.value)}
-                          placeholder="Brief explanation to show after answering"
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer (sticky) */}
-            <div className="px-6 py-4 border-t bg-white sticky bottom-0 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowQuestionModal(false)} className="border-2 border-gray-300 hover:border-gray-400">
-                Cancel
-              </Button>
-              <Button onClick={saveQuestion} className="bg-blue-600 text-white border-0 hover:bg-blue-700">
-                Save
-              </Button>
-            </div>
-          </div>
-        </div>
+        <QuestionModal
+          showQuestionModal={showQuestionModal}
+          setShowQuestionModal={setShowQuestionModal}
+          currentSubHeadingItem={currentSubHeadingItem}
+          currentQuestionData={currentQuestionData}
+          editingStates={editingStates}
+          setEditingStates={setEditingStates}
+          updateSubHeadingItem={updateSubHeadingItem}
+          addMcq={addMcq}
+          removeMcq={removeMcq}
+          updateMcqField={updateMcqField}
+          addMcqOption={addMcqOption}
+          updateMcqOption={updateMcqOption}
+          removeMcqOption={removeMcqOption}
+          saveQuestion={saveQuestion}
+        />
       )}
     </div>
   );

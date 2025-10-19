@@ -116,27 +116,38 @@ const TopicContentService = {
    * @param {string} topicId - The ID of the topic
    * @returns {Promise} Promise containing filtered topic content data
    */
-  getTopicContentByTopicId: async (topicId: string) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/by-topic/${topicId}`, {
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-      });
+getTopicContentByTopicId: async (topicId: string) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/by-topic/${topicId}`, {
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    });
 
-      // Get contents from response
-      const contents = response.data.data || [];
-      console.log(`Contents fetched for topic ${topicId}: ${contents.length}`);
+    // Extract contents safely
+    const contents = response.data.data || [];
+    console.log(`Contents fetched for topic ${topicId}: ${contents.length}`);
 
+    return {
+      message: "Topic contents retrieved successfully",
+      data: contents,
+    };
+  } catch (error) {
+    console.error(`Error fetching contents for topic ${topicId}:`, error);
+
+    // ✅ Handle 404 specifically — return an empty array instead of throwing
+    if (error.response?.status === 404) {
+      console.warn(`No contents found for topic ${topicId} (404). Returning [].`);
       return {
-        message: "Topic contents retrieved successfully",
-        data: contents,
+        message: "No topic contents found",
+        data: [],
       };
-    } catch (error) {
-      console.error(`Error fetching contents for topic ${topicId}:`, error);
-      throw error.response?.data || "Failed to retrieve topic contents";
     }
-  },
+
+    // ❌ Other errors should still throw
+    throw error.response?.data || "Failed to retrieve topic contents";
+  }
+},
 
   /**
    * Add a comment to a lesson

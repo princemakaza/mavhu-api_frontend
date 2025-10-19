@@ -71,28 +71,7 @@ const GroupInfoSidebar = ({
       )}
 
       {/* Group Info Sections */}
-      <div className="p-2 flex-1 overflow-y-auto">
-        {['files', 'photos', 'videos', 'audio', 'documents', 'links'].map((section) => (
-          <div key={section} className="border-b">
-            <button
-              className="w-full p-2 flex justify-between items-center"
-              onClick={() => toggleSection(section)}
-            >
-              <span className="capitalize">{section}</span>
-              {expandedSections[section] ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
-            {expandedSections[section] && (
-              <div className="p-2 bg-white">
-                <p className="text-sm text-gray-500">No {section} shared</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+
 
       {/* Members List */}
       <div className="p-4">
@@ -158,13 +137,13 @@ const GroupInfoSidebar = ({
             </>
           )}
         </button>
-        <button
+        {/* <button
           onClick={() => setShowExitConfirmModal(true)}
           className="w-full py-2 px-4 bg-red-500 text-white rounded font-medium hover:bg-red-600 transition-colors"
           disabled={!activeGroup}
         >
           Exit Group
-        </button>
+        </button> */}
         {activeGroup && (
           <button
             onClick={() => openDeleteConfirmModal(activeGroup)}

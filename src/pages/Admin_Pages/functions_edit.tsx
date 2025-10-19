@@ -47,6 +47,7 @@ export interface SubHeadingItem {
   comment: string;
   hint: string;
   mcqQuestions?: MCQQuestion[];
+  timingArray?: number[];        // matches { type: [Number], default: [] }
   _id?: string;
 }
 
@@ -179,6 +180,7 @@ export const mapApiToFormData = (apiData: any): ContentFormData => {
         comment: s.comment || "",
         hint: s.hint || "",
         mcqQuestions: s.mcqQuestions || [],
+        timingArray: Array.isArray(s.timingArray) ? s.timingArray : [], // ✅ add this
       })),
       comments: l.comments || [],
       reactions: l.reactions || [],
@@ -212,7 +214,9 @@ export const buildUpdatePayload = (form: ContentFormData) => ({
       comment: s.comment,
       hint: s.hint,
       mcqQuestions: s.mcqQuestions || [],
+      timingArray: s.timingArray || [], // ✅ add this
     })),
+
     comments: (l.comments || []).map((c) => ({
       userId: typeof c.userId === "string" ? c.userId : c.userId?._id,
       userType: c.userType,
@@ -250,6 +254,7 @@ export const fetchContentById = async (
 /** Update topic content by ID using ContentFormData */
 export const updateContent = async (contentId: string, form: ContentFormData) => {
   const payload = buildUpdatePayload(form);
+  console.log("update payload", payload);
   const resp = await axios.put(
     `${BASE_URL}/update/${contentId}`,
     payload,

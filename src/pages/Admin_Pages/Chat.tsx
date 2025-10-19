@@ -7,6 +7,8 @@ import Sidebar from "@/components/Sidebar";
 import ChatService from "@/services/Admin_Service/chat_service";
 import SubjectService from "@/services/Admin_Service/Subject_service";
 import CommunityMessageService from "@/services/Admin_Service/message_service";
+import StudentService from "@/services/Admin_Service/Student_service";
+import { supabase } from "@/helper/SupabaseClient";
 
 import {
   ChevronDown,
@@ -31,18 +33,66 @@ import DeleteGroupModal from "./chatComponents/DeleteGroupModal";
 import UpdateGroupModal from "./chatComponents/UpdateGroupModal";
 import NewGroupModal from "./chatComponents/NewGroupModal";
 
+// Types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ChatApp = (ChatServiceData: any) => {
+type AnyObj = any;
+
+interface StudentLite {
+  _id: string;
+  id?: string;
+  firstName: string;
+  lastName: string;
+  level?: string;
+}
+
+// Supabase upload utility function
+const uploadFileToSupabase = async (
+  file: File,
+  bucket: string,
+  setProgress: (progress: number) => void
+): Promise<string> => {
+  const sanitizeFilename = (filename: string) => {
+    return filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+  };
+
+  const sanitizedFileName = sanitizeFilename(file.name);
+  const fileName = `${Date.now()}_${sanitizedFileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (uploadError) {
+    console.error("Supabase upload error:", uploadError);
+    throw new Error(`File upload failed: ${uploadError.message}`);
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(fileName);
+
+  if (!publicUrlData?.publicUrl) {
+    throw new Error("Failed to get file URL after upload");
+  }
+
+  return publicUrlData.publicUrl;
+};
+
+const ChatApp = (ChatServiceData: AnyObj) => {
   const { user } = useAuth();
-  const [activeGroup, setActiveGroup] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [activeGroup, setActiveGroup] = useState<AnyObj | null>(null);
+  const [messages, setMessages] = useState<AnyObj[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
-  const [groupToDelete, setGroupToDelete] = useState(null);
+  const [groupToDelete, setGroupToDelete] = useState<AnyObj | null>(null);
   const [expandedSections, setExpandedSections] = useState({
     files: true,
     photos: true,
@@ -52,9 +102,11 @@ const ChatApp = (ChatServiceData: any) => {
     links: false,
   });
 
-  const [profilePic, setProfilePic] = useState(null);
+  const [profilePic, setProfilePic] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState("");
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -62,16 +114,16 @@ const ChatApp = (ChatServiceData: any) => {
   const [infoSidebarOpen, setInfoSidebarOpen] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isMediumScreen, setIsMediumScreen] = useState(false);
-  const [communities, setCommunities] = useState([]);
+  const [communities, setCommunities] = useState<AnyObj[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [groupSubject, setGroupSubject] = useState("General");
   const [groupLevel, setGroupLevel] = useState("Beginner");
   const [groupDescription, setGroupDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [groups, setGroups] = useState([]);
+  const [groups, setGroups] = useState<AnyObj[]>([]);
   const [isSending, setIsSending] = useState(false);
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -81,15 +133,19 @@ const ChatApp = (ChatServiceData: any) => {
 
   const messageInputRef = useRef<HTMLInputElement>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const messagesEndRef = useRef(null);
-  const [subjects, setSubjects] = useState([]);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [subjects, setSubjects] = useState<AnyObj[]>([]);
+
+  const [students, setStudents] = useState<StudentLite[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState<boolean>(false);
 
   const currentUserId = user?._id;
   const navigate = useNavigate();
 
   const storedAdmin = (() => {
     try {
-      return JSON.parse(localStorage.getItem("adminData"));
+      const v = localStorage.getItem("adminData");
+      return v ? JSON.parse(v) : null;
     } catch {
       return null;
     }
@@ -97,6 +153,7 @@ const ChatApp = (ChatServiceData: any) => {
 
   const ADMIN_ID = storedAdmin?._id || localStorage.getItem("adminId") || null;
 
+  // Fetch messages when activeGroup changes
   useEffect(() => {
     const fetchMessages = async () => {
       if (!activeGroup?._id) {
@@ -111,7 +168,7 @@ const ChatApp = (ChatServiceData: any) => {
         );
 
         const transformedMessages =
-          response.data?.map((msg) => ({
+          response.data?.map((msg: AnyObj) => ({
             id: msg._id,
             text: msg.message,
             time: new Date(msg.createdAt).toLocaleTimeString("en-US", {
@@ -131,7 +188,7 @@ const ChatApp = (ChatServiceData: any) => {
             createdAt: new Date(msg.createdAt),
           })) || [];
 
-        transformedMessages.sort((a, b) => a.createdAt - b.createdAt);
+        transformedMessages.sort((a: AnyObj, b: AnyObj) => (a.createdAt as Date).getTime() - (b.createdAt as Date).getTime());
         setMessages(transformedMessages);
       } catch (error) {
         console.error("Failed to fetch messages:", error);
@@ -144,13 +201,12 @@ const ChatApp = (ChatServiceData: any) => {
     fetchMessages();
   }, [activeGroup?._id]);
 
+  // Fetch subjects
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
         setLoading(true);
         const data = await SubjectService.getAllSubjects();
-        console.log("API Response:", data);
-
         if (Array.isArray(data)) {
           setSubjects(data);
         } else if (data && Array.isArray(data.subjects)) {
@@ -158,7 +214,7 @@ const ChatApp = (ChatServiceData: any) => {
         } else if (data && Array.isArray(data.data)) {
           setSubjects(data.data);
         } else {
-          console.error("Unexpected data structure:", data);
+          console.error("Unexpected subjects data structure:", data);
           setSubjects([]);
         }
       } catch (error) {
@@ -172,6 +228,38 @@ const ChatApp = (ChatServiceData: any) => {
     fetchSubjects();
   }, []);
 
+  // Fetch students
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoadingStudents(true);
+        const res = await StudentService.getAllStudents();
+        const arr: AnyObj[] = Array.isArray(res) ? res : res?.data || [];
+        const clean: StudentLite[] = arr.map((s: AnyObj) => ({
+          _id: s._id || s.id,
+          id: s.id,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          level: s.level,
+        })).filter((s: StudentLite) => !!s._id);
+        setStudents(clean);
+      } catch (e) {
+        console.error("Error fetching students:", e);
+        setStudents([]);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load students.",
+        });
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // Favorites local storage
   useEffect(() => {
     const savedFavorites = localStorage.getItem("chatFavorites");
     if (savedFavorites) {
@@ -197,7 +285,7 @@ const ChatApp = (ChatServiceData: any) => {
     return favorites.includes(groupId);
   };
 
-  const updateCommunities = (data: any) => {
+  const updateCommunities = (data: AnyObj[]) => {
     setCommunities(data);
   };
 
@@ -214,7 +302,8 @@ const ChatApp = (ChatServiceData: any) => {
       const t = toast({
         variant: "destructive",
         title: "Oops! Something went wrong",
-        description: "We couldn't load your chat groups right now. Please try again.",
+        description:
+          "We couldn't load your chat groups right now. Please try again.",
         duration: 8000,
         action: (
           <Button
@@ -262,45 +351,73 @@ const ChatApp = (ChatServiceData: any) => {
     setIsSubmitting(true);
 
     try {
-      let profilePictureUrl = "";
+      let profilePictureUrl = "default-group-avatar.png";
+
+      // Upload profile picture to Supabase if provided
       if (profilePic) {
-        profilePictureUrl = "";
+        setIsUploading(true);
+        setUploadProgress(0);
+        try {
+          profilePictureUrl = await uploadFileToSupabase(
+            profilePic,
+            "topics", // Your Supabase bucket name
+            setUploadProgress
+          );
+          toast({
+            title: "Success",
+            description: "Profile picture uploaded successfully",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload profile picture:", uploadError);
+          toast({
+            variant: "destructive",
+            title: "Upload Error",
+            description: "Failed to upload profile picture. Using default avatar.",
+          });
+          // Continue with default avatar if upload fails
+          profilePictureUrl = "default-group-avatar.png";
+        } finally {
+          setIsUploading(false);
+          setUploadProgress(0);
+        }
       }
 
+      // Submit students as array of ObjectIds
       const apiGroupData = {
         name: newGroupName.trim(),
-        profilePicture: profilePictureUrl || "default-group-avatar.png",
+        profilePicture: profilePictureUrl,
         Level: selectedLevel,
         subject: selectedSubject,
-        students: [],
+        students: selectedStudents,
       };
+      const response = await ChatService.createGroup(apiGroupData);
 
-      console.log("Sending group data to API:", apiGroupData);
-
-      const result = await ChatService.createGroup(apiGroupData);
-      console.log("API response:", result);
-
-      if (result.success) {
+      if (response?.status === 200 || response?.status === 201) {
         toast({
           title: "Success",
           description: "Group created successfully",
+          duration: 1000, // show for 1 second
         });
 
         setNewGroupName("");
         setSelectedSubject("");
         setSelectedLevel("");
         setProfilePic(null);
-        setSelectedStudent("");
+        setSelectedStudents([]);
 
         setShowNewGroupModal(false);
         fetchChatGroups();
+      } else {
+        const errMsg =
+          response?.message || "Failed to create group. Please try again.";
+        throw new Error(errMsg);
       }
-    } catch (error) {
+    } catch (error: AnyObj) {
       console.error("Failed to create group:", error);
       const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.message ||
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
         "Failed to create group. Please try again.";
 
       toast({
@@ -370,13 +487,14 @@ const ChatApp = (ChatServiceData: any) => {
       } else {
         throw new Error(result?.message || "Failed to update group.");
       }
-    } catch (err) {
+    } catch (err: AnyObj) {
       console.error("Failed to update group:", err);
       const t = toast({
         variant: "destructive",
         title: "Oops! Couldn't Update Group",
         description:
-          err?.message || "We couldn't update the group right now. Please try again.",
+          err?.message ||
+          "We couldn't update the group right now. Please try again.",
         duration: 8000,
         action: (
           <Button
@@ -393,88 +511,90 @@ const ChatApp = (ChatServiceData: any) => {
     }
   };
 
-const handleSendMessage = async (imagePaths: string[] = []) => {
-  if ((!newMessage.trim() && imagePaths.length === 0) || isSending || !activeGroup) {
-    return;
-  }
+  const handleSendMessage = async (imagePaths: string[] = []) => {
+    if ((!newMessage.trim() && imagePaths.length === 0) || isSending || !activeGroup) {
+      return;
+    }
 
-  try {
-    setIsSending(true);
+    try {
+      setIsSending(true);
 
-    const messageData = {
-      community: activeGroup._id,
-      sender: user?._id?.trim() ? user._id : ADMIN_ID,
-      message: newMessage.trim(),
-      imagePath: imagePaths, // Array of image URLs from Supabase
-    };
+      const messageData = {
+        community: activeGroup._id,
+        sender: user?._id?.trim() ? user._id : ADMIN_ID,
+        message: newMessage.trim(),
+        imagePath: imagePaths,
+      };
 
-    const response = await CommunityMessageService.createMessage(
-      activeGroup._id,
-      messageData
-    );
+      const response = await CommunityMessageService.createMessage(
+        activeGroup._id,
+        messageData
+      );
 
-    const newMessageObj = {
-      id: response._id || Date.now(),
-      text: newMessage.trim(),
-      time: new Date().toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-      sender: (user?._id?.trim() ? user._id : ADMIN_ID) === ADMIN_ID ? "user" : "other",
-      senderInfo: {
-        id: user?._id || ADMIN_ID,
-        name: user ? `${user.firstName} ${user.lastName}` : "Admin",
-        firstName: user?.firstName || "Admin",
-        lastName: user?.lastName || "",
-      },
-      images: imagePaths, // Include images in the message object
-      createdAt: new Date(),
-    };
+      const newMessageObj = {
+        id: response._id || Date.now(),
+        text: newMessage.trim(),
+        time: new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+        sender:
+          (user?._id?.trim() ? user._id : ADMIN_ID) === ADMIN_ID ? "user" : "other",
+        senderInfo: {
+          id: user?._id || ADMIN_ID,
+          name: user ? `${user.firstName} ${user.lastName}` : "Admin",
+          firstName: user?.firstName || "Admin",
+          lastName: user?.lastName || "",
+        },
+        images: imagePaths,
+        createdAt: new Date(),
+      };
 
-    setMessages((prev) => [...prev, newMessageObj]);
-    setNewMessage("");
+      setMessages((prev) => [...prev, newMessageObj]);
+      setNewMessage("");
 
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
 
-    toast({
-      title: "Success",
-      description: imagePaths.length > 0 
-        ? `Message with ${imagePaths.length} image(s) sent successfully`
-        : "Message sent successfully",
-    });
-  } catch (error) {
-    console.error("Failed to send message:", error);
-    const t = toast({
-      variant: "destructive",
-      title: "Oops! Message Not Sent",
-      description: "We couldn't send your message right now. Please try again.",
-      duration: 8000,
-      action: (
-        <Button
-          variant="secondary"
-          className="bg-white text-red-600 hover:bg-red-100"
-          onClick={() => t.dismiss()}
-        >
-          Dismiss
-        </Button>
-      ),
-    });
-  } finally {
-    setIsSending(false);
-  }
-};
+      toast({
+        title: "Success",
+        description:
+          imagePaths.length > 0
+            ? `Message with ${imagePaths.length} image(s) sent successfully`
+            : "Message sent successfully",
+      });
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      const t = toast({
+        variant: "destructive",
+        title: "Oops! Message Not Sent",
+        description: "We couldn't send your message right now. Please try again.",
+        duration: 8000,
+        action: (
+          <Button
+            variant="secondary"
+            className="bg-white text-red-600 hover:bg-red-100"
+            onClick={() => t.dismiss()}
+          >
+            Dismiss
+          </Button>
+        ),
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
 
-  const openUpdateModal = (group) => {
+  const openUpdateModal = (group: AnyObj) => {
     setUpdatedGroupName(group.name);
     setUpdatedGroupSubject(group.subject?.subjectName || "");
     setUpdatedGroupLevel(group.Level || "");
     setShowUpdateModal(true);
   };
 
-  const openDeleteConfirmModal = (group) => {
+  const openDeleteConfirmModal = (group: AnyObj) => {
     setGroupToDelete(group);
     setShowDeleteConfirmModal(true);
   };
@@ -505,7 +625,8 @@ const handleSendMessage = async (imagePaths: string[] = []) => {
         const t = toast({
           variant: "destructive",
           title: "Oops! Couldn't Delete Group",
-          description: "We couldn't delete the group right now. Please try again.",
+          description:
+            "We couldn't delete the group right now. Please try again.",
           duration: 8000,
           action: (
             <Button
@@ -523,7 +644,8 @@ const handleSendMessage = async (imagePaths: string[] = []) => {
       const t = toast({
         variant: "destructive",
         title: "Oops! Couldn't Delete Group",
-        description: "We couldn't delete the group right now. Please try again.",
+        description:
+          "We couldn't delete the group right now. Please try again.",
         duration: 8000,
         action: (
           <Button
@@ -564,7 +686,8 @@ const handleSendMessage = async (imagePaths: string[] = []) => {
       if (result?.success) {
         const t = toast({
           title: "✅ Left Group Successfully",
-          description: "You have left the group. You can join another group anytime.",
+          description:
+            "You have left the group. You can join another group anytime.",
           variant: "default",
           duration: 8000,
           action: (
@@ -585,12 +708,14 @@ const handleSendMessage = async (imagePaths: string[] = []) => {
       } else {
         throw new Error(result?.message || "Failed to leave group.");
       }
-    } catch (err) {
+    } catch (err: AnyObj) {
       console.error("Failed to exit group:", err);
       const t = toast({
         variant: "destructive",
         title: "Oops! Something went wrong",
-        description: err?.message || "We couldn't leave the group right now. Please try again.",
+        description:
+          err?.message ||
+          "We couldn't leave the group right now. Please try again.",
         duration: 8000,
         action: (
           <Button
@@ -609,11 +734,8 @@ const handleSendMessage = async (imagePaths: string[] = []) => {
     fetchChatGroups();
   }, []);
 
-  const toggleSection = (section) => {
-    setExpandedSections({
-      ...expandedSections,
-      [section]: !expandedSections[section],
-    });
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
   useEffect(() => {
@@ -770,14 +892,18 @@ const handleSendMessage = async (imagePaths: string[] = []) => {
         setProfilePic={setProfilePic}
         selectedLevel={selectedLevel}
         setSelectedLevel={setSelectedLevel}
-        selectedStudent={selectedStudent}
-        setSelectedStudent={setSelectedStudent}
+        selectedStudents={selectedStudents}
+        setSelectedStudents={setSelectedStudents}
         selectedSubject={selectedSubject}
         setSelectedSubject={setSelectedSubject}
         loading={loading}
         subjects={subjects}
         isSubmitting={isSubmitting}
         handleCreateGroup={handleCreateGroup}
+        students={students}
+        loadingStudents={loadingStudents}
+        isUploading={isUploading}
+        uploadProgress={uploadProgress}
       />
 
       <UpdateGroupModal

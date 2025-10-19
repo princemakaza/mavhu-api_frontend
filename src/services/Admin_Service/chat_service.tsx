@@ -30,7 +30,6 @@ const ChatService = {
    * @returns {Promise} Promise with created group data
    */
   createGroup: async (GroupData) => {
-    console.log(GroupData);
     try {
       const response = await axios.post(
         `${BASE_URL}/create`,
@@ -42,7 +41,8 @@ const ChatService = {
           },
         }
       );
-      return response.data;
+      // Return both data and status
+      return { data: response.data, status: response.status };
     } catch (error) {
       throw error.response?.data || "Failed to create group";
     }
