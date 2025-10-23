@@ -55,6 +55,9 @@ import ViewStudentActivities from "./pages/Admin_Pages/student_dashboard_admin";
 import AdminManagement from "./pages/Admin_Pages/all_admins";
 import ContentTrashManagement from "./pages/Admin_Pages/content_trash_page";
 import AdminProfile from "./pages/Admin_Pages/admin_profile";
+import TopicsScreen from "./pages/Admin_Pages/topics_screen";
+import AddLessonToContent from "./pages/Admin_Pages/AddLessonToContent";
+import EditLesson from "./pages/Admin_Pages/edit_lesson";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -91,15 +94,25 @@ const App = () => (
             <Route path="/student_activities/:studentId" element={<ViewStudentActivities />} />
             <Route path="/createExam" element={<CreateExam />} />
             <Route path="/exam/:examId/" element={<EditExam />} />
+
+            {/* topics for a specific subject */}
+            <Route path="/admin/subjects/:subjectId" element={<TopicsScreen />} />
             <Route path="/exam/view/:examId/" element={<ViewStudentMarks />} />
             <Route path="/reserourceupload" element={<ReserourceUpload />} />
             <Route path="/settingspage" element={<SettingsPage />} />
             <Route path="/admin/courses/:id" element={<CourseDetailPage />} />
             <Route path="courses/topics/:topicId/content/new" element={<CreateNewContent />} />
             <Route
+              path="/admin/topic-contents/:contentId/add-lesson"
+              element={<AddLessonToContent />}
+            />
+
+            <Route
               path="/admin_dashboard/courses/topics/:topicId/content/edit/:contentId"
               element={<EditContent />}
             />
+              <Route path="/content/:contentId/lessons/:lessonId/edit" element={<EditLesson />} />
+
             {/* <Route path="/dashboard" element={<Dashboard />} /> */}
             <Route path="/courses" element={<AdminSubjects />} />
             <Route path="/homepage" element={<Homepage />} />

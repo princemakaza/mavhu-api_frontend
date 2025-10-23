@@ -30,7 +30,7 @@ const SubjectService = {
    */
   getSubjectById: async (id) => {
     try {
-      const response = await axios.get(`${BASE_URL}/getcourse/${id}`, {
+      const response = await axios.get(`${BASE_URL}/get/${id}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
         },

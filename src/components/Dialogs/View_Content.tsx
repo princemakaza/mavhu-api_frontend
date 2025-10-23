@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Download, Eye, Plus, X, FileText } from "lucide-react";
+import { BookOpen, Download, Eye, Plus, X, FileText, Edit, Trash2 } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -28,6 +28,36 @@ interface ContentViewerProps {
 
 // Content viewer component to display different content types
 const ContentViewer: React.FC<ContentViewerProps> = ({ content, onClose }) => {
+  const { toast } = useToast();
+
+  const handleDownload = (filePath: string, fileName: string) => {
+    try {
+      const link = document.createElement("a");
+      link.href = filePath;
+
+      if (!fileName) {
+        fileName = filePath.split("/").pop() || "download";
+      }
+
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Download Started",
+        description: `${fileName} is being downloaded.`,
+      });
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: "Unable to download the file. Please try again.",
+      });
+    }
+  };
+
   if (!content) return null;
 
   const renderContentByType = () => {
@@ -86,7 +116,6 @@ const ContentViewer: React.FC<ContentViewerProps> = ({ content, onClose }) => {
                   <h3 className="text-2xl font-semibold">{content.title}</h3>
                 </div>
                 <div className="prose max-w-none">
-                  {/* Document content would be rendered here */}
                   <p>{content.description}</p>
                   <p className="text-gray-500 italic">
                     This is a document preview. For the full document, please
@@ -163,6 +192,52 @@ const ContentViewer: React.FC<ContentViewerProps> = ({ content, onClose }) => {
   );
 };
 
+// Lesson Card Component
+interface LessonCardProps {
+  lesson: {
+    _id: string;
+    text: string;
+  };
+  onEdit: (lesson: { _id: string; text: string }) => void;
+  onDelete: (lessonId: string) => void;
+}
+
+const LessonCard: React.FC<LessonCardProps> = ({ lesson, onEdit, onDelete }) => {
+  return (
+    <Card className="overflow-hidden border border-gray-200 hover:shadow-md transition-all duration-200 bg-white">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-gray-800 text-base font-medium leading-relaxed">
+              {lesson.text}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+              onClick={() => onEdit(lesson)}
+              title="Edit lesson"
+            >
+              <Edit size={14} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => onDelete(lesson._id)}
+              title="Delete lesson"
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
   open,
   onOpenChange,
@@ -172,6 +247,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [viewingContent, setViewingContent] = useState<any | null>(null);
+  const [selectedContent, setSelectedContent] = useState<any | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -185,10 +261,15 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         setLoading(true);
         setError(null);
 
-        const result = await TopicContentService.getTopicContentByTopicId(
+        const result = await TopicContentService.getTopicContentByTopicIdLean(
           topicId
         );
+        console.log(result);
         setContents(result.data || []);
+        // Set the first content as selected by default
+        if (result.data && result.data.length > 0) {
+          setSelectedContent(result.data[0]);
+        }
       } catch (error) {
         console.error("Failed to fetch topic contents:", error);
         setError("Failed to load topic contents. Please try again.");
@@ -218,19 +299,14 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
   // Function to handle file downloads
   const handleDownload = (filePath: string, fileName: string) => {
     try {
-      // Create an anchor element
       const link = document.createElement("a");
       link.href = filePath;
 
-      // Extract file name from path if not provided
       if (!fileName) {
         fileName = filePath.split("/").pop() || "download";
       }
 
-      // Set download attribute to suggest filename
       link.setAttribute("download", fileName);
-
-      // Append to body, click and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -247,6 +323,46 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         description: "Unable to download the file. Please try again.",
       });
     }
+  };
+
+  // Lesson management functions
+  const handleEditLesson = (lesson: { _id: string; text: string }) => {
+    toast({
+      title: "Edit Lesson",
+      description: `Editing lesson: ${lesson.text}`,
+    });
+    // Implement edit functionality here
+  };
+
+  const handleDeleteLesson = (lessonId: string) => {
+    toast({
+      title: "Delete Lesson",
+      description: "Are you sure you want to delete this lesson?",
+      variant: "destructive",
+      action: (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            toast({
+              title: "Lesson Deleted",
+              description: "The lesson has been deleted successfully.",
+            });
+          }}
+        >
+          Confirm
+        </Button>
+      ),
+    });
+    // Implement delete functionality here
+  };
+
+  const handleAddLesson = () => {
+    toast({
+      title: "Add New Lesson",
+      description: "Opening lesson creation form...",
+    });
+    // Implement add lesson functionality here
   };
 
   if (!topic) return null;
@@ -279,7 +395,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                     variant="outline"
                     className="border-white text-white hover:bg-white hover:text-green-900"
                   >
-                    <Plus size={16} className="mr-2" /> 
+                    <Plus size={16} className="mr-2" />
                   </Button>
                 </div>
               </div>
@@ -328,179 +444,225 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                 )}
 
                 {!loading && !error && contents.length > 0 && (
-                  <div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {contents.map((content, index) => {
-                        const fileType = content.file_type || "Unknown";
-                        return (
-                          <Card
-                            key={content._id || index}
-                            className="overflow-hidden border border-gray-100 hover:shadow-lg transition duration-300"
-                          >
-                            <CardHeader className="pb-3 bg-gradient-to-r from-gray-50 to-white flex justify-between">
-                              <div>
-                                <CardTitle className="text-xl font-semibold">
-                                  {content.title}
-                                </CardTitle>
-                                {fileType && (
-                                  <CardDescription className="text-gray-500 text-sm mt-1 flex items-center">
-                                    <span
-                                      className={`inline-block w-3 h-3 rounded-full mr-1 ${
-                                        fileType === "pdf"
-                                          ? "bg-red-400"
-                                          : fileType === "video"
-                                          ? "bg-blue-400"
-                                          : fileType === "document"
-                                          ? "bg-green-400"
-                                          : "bg-gray-400"
-                                      }`}
-                                    />
-                                    {fileType.charAt(0).toUpperCase() +
-                                      fileType.slice(1)}
-                                  </CardDescription>
-                                )}
-                              </div>
-                              <Badge
-                                variant="outline"
-                                className={`capitalize text-sm px-3 py-1 ${
-                                  fileType === "pdf"
-                                    ? "border-red-200 bg-red-50 text-red-700"
-                                    : fileType === "video"
-                                    ? "border-blue-200 bg-blue-50 text-blue-700"
-                                    : fileType === "document"
-                                    ? "border-green-200 bg-green-50 text-green-700"
-                                    : "border-gray-200 bg-gray-50 text-gray-700"
-                                }`}
-                              >
-                                {fileType}
-                              </Badge>
-                            </CardHeader>
-                            <CardContent>
-                              <p className="text-base text-gray-700 mb-4">
-                                {content.description}
-                              </p>
-
-                              {content.file_path && (
-                                <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                                  <h4 className="text-xs uppercase text-gray-500 font-medium mb-3">
-                                    Attached Files
-                                  </h4>
-                                  <ul className="space-y-2">
-                                    {Array.isArray(content.file_path) ? (
-                                      content.file_path.map(
-                                        (file: string, fileIndex: number) => {
-                                          const fileName = file
-                                            .split("/")
-                                            .pop();
-                                          const ext = fileName
-                                            ?.split(".")
-                                            .pop()
-                                            ?.toLowerCase();
-                                          const iconColor =
-                                            {
-                                              pdf: "text-red-500",
-                                              doc: "text-blue-500",
-                                              docx: "text-blue-500",
-                                              xls: "text-green-500",
-                                              xlsx: "text-green-500",
-                                              jpg: "text-purple-500",
-                                              png: "text-purple-500",
-                                              gif: "text-purple-500",
-                                            }[ext || ""] || "text-gray-400";
-
-                                          return (
-                                            <li
-                                              key={fileIndex}
-                                              className="text-sm text-blue-600 flex items-center py-2 px-3 hover:bg-gray-100 rounded-md"
-                                            >
-                                              <div
-                                                className={`mr-3 ${iconColor}`}
-                                              >
-                                                <BookOpen size={16} />
-                                              </div>
-                                              <span className="truncate flex-1">
-                                                {fileName}
-                                              </span>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 w-8 p-0 ml-2 text-gray-500 hover:text-gray-700"
-                                                onClick={() =>
-                                                  handleDownload(
-                                                    file,
-                                                    fileName || ""
-                                                  )
-                                                }
-                                              >
-                                                <Download size={16} />
-                                              </Button>
-                                            </li>
-                                          );
-                                        }
-                                      )
-                                    ) : (
-                                      <li className="text-sm text-blue-600 flex items-center py-2 px-3 hover:bg-gray-100 rounded-md">
-                                        <div className="mr-3 text-gray-400">
-                                          <BookOpen size={16} />
-                                        </div>
-                                        <span className="truncate flex-1">
-                                          {content.file_path.split("/").pop()}
-                                        </span>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 w-8 p-0 ml-2 text-gray-500 hover:text-gray-700"
-                                          onClick={() =>
-                                            handleDownload(
-                                              content.file_path,
-                                              content.file_path
-                                                .split("/")
-                                                .pop() || ""
-                                            )
-                                          }
-                                        >
-                                          <Download size={16} />
-                                        </Button>
-                                      </li>
-                                    )}
-                                  </ul>
+                  <div className="space-y-8">
+                    {/* Content Cards */}
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-800 mb-6">Content Materials</h2>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {contents.map((content, index) => {
+                          const fileType = content.file_type || "Unknown";
+                          return (
+                            <Card
+                              key={content._id || index}
+                              className="overflow-hidden border border-gray-100 hover:shadow-lg transition duration-300"
+                            >
+                              <CardHeader className="pb-3 bg-gradient-to-r from-gray-50 to-white flex justify-between">
+                                <div>
+                                  <CardTitle className="text-xl font-semibold">
+                                    {content.title}
+                                  </CardTitle>
+                                  {fileType && (
+                                    <CardDescription className="text-gray-500 text-sm mt-1 flex items-center">
+                                      <span
+                                        className={`inline-block w-3 h-3 rounded-full mr-1 ${fileType === "pdf"
+                                            ? "bg-red-400"
+                                            : fileType === "video"
+                                              ? "bg-blue-400"
+                                              : fileType === "document"
+                                                ? "bg-green-400"
+                                                : "bg-gray-400"
+                                          }`}
+                                      />
+                                      {fileType.charAt(0).toUpperCase() +
+                                        fileType.slice(1)}
+                                    </CardDescription>
+                                  )}
                                 </div>
-                              )}
+                                <Badge
+                                  variant="outline"
+                                  className={`capitalize text-sm px-3 py-1 ${fileType === "pdf"
+                                      ? "border-red-200 bg-red-50 text-red-700"
+                                      : fileType === "video"
+                                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                                        : fileType === "document"
+                                          ? "border-green-200 bg-green-50 text-green-700"
+                                          : "border-gray-200 bg-gray-50 text-gray-700"
+                                    }`}
+                                >
+                                  {fileType}
+                                </Badge>
+                              </CardHeader>
+                              <CardContent>
+                                <p className="text-base text-gray-700 mb-4">
+                                  {content.description}
+                                </p>
 
-                              <div className="mt-6 flex justify-end">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 mr-2"
-                                  onClick={() => handleViewContent(content)}
-                                >
-                                  <Eye size={14} className="mr-1" /> View
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-blue-600 hover:bg-blue-50"
-                                  onClick={() => {
-                                    const filePath = Array.isArray(
-                                      content.file_path
-                                    )
-                                      ? content.file_path[0]
-                                      : content.file_path;
-                                    const fileName = filePath
-                                      ? filePath.split("/").pop()
-                                      : content.title;
-                                    handleDownload(filePath, fileName || "");
-                                  }}
-                                >
-                                  <Download size={14} className="mr-1" />{" "}
-                                  Download
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                                {content.file_path && (
+                                  <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+                                    <h4 className="text-xs uppercase text-gray-500 font-medium mb-3">
+                                      Attached Files
+                                    </h4>
+                                    <ul className="space-y-2">
+                                      {Array.isArray(content.file_path) ? (
+                                        content.file_path.map(
+                                          (file: string, fileIndex: number) => {
+                                            const fileName = file
+                                              .split("/")
+                                              .pop();
+                                            const ext = fileName
+                                              ?.split(".")
+                                              .pop()
+                                              ?.toLowerCase();
+                                            const iconColor =
+                                              {
+                                                pdf: "text-red-500",
+                                                doc: "text-blue-500",
+                                                docx: "text-blue-500",
+                                                xls: "text-green-500",
+                                                xlsx: "text-green-500",
+                                                jpg: "text-purple-500",
+                                                png: "text-purple-500",
+                                                gif: "text-purple-500",
+                                              }[ext || ""] || "text-gray-400";
+
+                                            return (
+                                              <li
+                                                key={fileIndex}
+                                                className="text-sm text-blue-600 flex items-center py-2 px-3 hover:bg-gray-100 rounded-md"
+                                              >
+                                                <div
+                                                  className={`mr-3 ${iconColor}`}
+                                                >
+                                                  <BookOpen size={16} />
+                                                </div>
+                                                <span className="truncate flex-1">
+                                                  {fileName}
+                                                </span>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-8 w-8 p-0 ml-2 text-gray-500 hover:text-gray-700"
+                                                  onClick={() =>
+                                                    handleDownload(
+                                                      file,
+                                                      fileName || ""
+                                                    )
+                                                  }
+                                                >
+                                                  <Download size={16} />
+                                                </Button>
+                                              </li>
+                                            );
+                                          }
+                                        )
+                                      ) : (
+                                        <li className="text-sm text-blue-600 flex items-center py-2 px-3 hover:bg-gray-100 rounded-md">
+                                          <div className="mr-3 text-gray-400">
+                                            <BookOpen size={16} />
+                                          </div>
+                                          <span className="truncate flex-1">
+                                            {content.file_path.split("/").pop()}
+                                          </span>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 ml-2 text-gray-500 hover:text-gray-700"
+                                            onClick={() =>
+                                              handleDownload(
+                                                content.file_path,
+                                                content.file_path
+                                                  .split("/")
+                                                  .pop() || ""
+                                              )
+                                            }
+                                          >
+                                            <Download size={16} />
+                                          </Button>
+                                        </li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                <div className="mt-6 flex justify-end">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 mr-2"
+                                    onClick={() => handleViewContent(content)}
+                                  >
+                                    <Eye size={14} className="mr-1" /> View
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-blue-600 hover:bg-blue-50"
+                                    onClick={() => {
+                                      const filePath = Array.isArray(
+                                        content.file_path
+                                      )
+                                        ? content.file_path[0]
+                                        : content.file_path;
+                                      const fileName = filePath
+                                        ? filePath.split("/").pop()
+                                        : content.title;
+                                      handleDownload(filePath, fileName || "");
+                                    }}
+                                  >
+                                    <Download size={14} className="mr-1" />{" "}
+                                    Download
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
                     </div>
+
+                    {/* Lessons Section */}
+                    {selectedContent && selectedContent.lesson && selectedContent.lesson.length > 0 && (
+                      <div className="bg-white rounded-xl shadow-sm p-8">
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-800">
+                              Lessons for {selectedContent.title}
+                            </h2>
+                            <p className="text-gray-600 mt-2">
+                              Manage and organize your lesson content
+                            </p>
+                          </div>
+                          <Button
+                            onClick={handleAddLesson}
+                            className="bg-green-700 hover:bg-green-800 text-white"
+                          >
+                            <Plus size={18} className="mr-2" /> Add Lesson
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {selectedContent.lesson.map((lesson: any, index: number) => (
+                            <LessonCard
+                              key={lesson._id || index}
+                              lesson={lesson}
+                              onEdit={handleEditLesson}
+                              onDelete={handleDeleteLesson}
+                            />
+                          ))}
+                        </div>
+
+                        {selectedContent.lesson.length > 6 && (
+                          <div className="mt-6 flex justify-center">
+                            <Button
+                              variant="outline"
+                              className="text-green-700 border-green-200 hover:bg-green-50"
+                            >
+                              Load More Lessons
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {contents.length > 4 && (
                       <div className="mt-8 flex justify-center">
@@ -523,6 +685,12 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                 <div className="flex items-center space-x-2 text-gray-500">
                   <BookOpen size={16} />
                   <span>{contents.length} content items</span>
+                  {selectedContent && selectedContent.lesson && (
+                    <span className="ml-4 flex items-center">
+                      <FileText size={16} className="mr-1" />
+                      {selectedContent.lesson.length} lessons
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex space-x-4">
@@ -555,39 +723,6 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
       )}
     </>
   );
-};
-
-// Make the handleDownload function globally available
-const handleDownload = (filePath: string, fileName: string) => {
-  try {
-    // Create an anchor element
-    const link = document.createElement("a");
-    link.href = filePath;
-
-    // Extract file name from path if not provided
-    if (!fileName) {
-      fileName = filePath.split("/").pop() || "download";
-    }
-
-    // Set download attribute to suggest filename
-    link.setAttribute("download", fileName);
-
-    // Append to body, click and remove
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // If toast is available in this scope
-    if (typeof window !== "undefined" && window.document) {
-      // Optional: Show some feedback (could be implemented with a simple alert if toast is not available)
-      console.log(`Download started: ${fileName}`);
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Download failed:", error);
-    return false;
-  }
 };
 
 export default ViewTopicContentDialog;

@@ -32,6 +32,31 @@ const TopicContentService = {
     }
   },
 
+  addLesson: async (topicContentId: string, lessonData: any) => {
+    try {
+      console.log("Adding lesson with data:", lessonData);
+      const jsonData = JSON.stringify(lessonData);
+      console.log("JSON data to be sent:", jsonData);
+
+      // Construct endpoint URL dynamically using topicContentId
+      const response = await axios.post(
+        `${BASE_URL}/topic-contents/${topicContentId}/lessons`,
+        jsonData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Error adding lesson:", error);
+      throw error.response?.data || "Failed to add lesson";
+    }
+  },
+
+
   /**
    * Fetches all topic contents
    * @returns {Promise} Promise containing topic content data
@@ -70,6 +95,33 @@ const TopicContentService = {
   },
 
   /**
+ * Fetches lesson information by Topic Content ID and Lesson ID
+ * @param {string} topicContentId - The ID of the topic content
+ * @param {string} lessonId - The ID of the lesson
+ * @returns {Promise} Promise with lesson data
+ */
+  getLessonByTopicContentIdAndLessonId: async (topicContentId: string, lessonId: string) => {
+    console.warn("Fetching lesson info for:", { topicContentId, lessonId });
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/lessonInfo/${topicContentId}/${lessonId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+        }
+      );
+      console.warn("Fetched lesson info:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching lesson info:", error);
+      throw error.response?.data || "Failed to retrieve lesson info";
+    }
+  },
+
+
+
+  /**
    * Updates an existing topic content
    * @param {string} contentId - The ID of the topic content
    * @param {Object} contentData - Updated data for the topic content
@@ -94,6 +146,87 @@ const TopicContentService = {
   },
 
   /**
+ * Deletes a lesson from a topic content by IDs
+ * @param {string} topicContentId - The ID of the topic content
+ * @param {string} lessonId - The ID of the lesson to delete
+ * @returns {Promise} Promise with the API response
+ */
+deleteLesson: async (topicContentId: string, lessonId: string) => {
+  try {
+    const response = await axios.delete(
+      `${BASE_URL}/api/v1/topic_content/topic-contents/${topicContentId}/lessons/${lessonId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw error?.response?.data || "Failed to delete lesson";
+  }
+},
+
+  /**
+ * Reorders lessons within a topic content by topic content ID
+ * @param {string} topicContentId - The ID of the topic content
+ * @param {string[]} order - Array of lesson IDs in the desired order
+ * @returns {Promise} Promise with the API response
+ */
+  reorderLessons: async (topicContentId: string, order: string[]) => {
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/topic-contents/${topicContentId}/lessons/reorder`,
+        { order },
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw error?.response?.data || "Failed to reorder lessons";
+    }
+  },
+
+
+  /**
+ * Updates a specific lesson by Topic Content ID and Lesson ID
+ * @param {string} topicContentId - The ID of the topic content
+ * @param {string} lessonId - The ID of the lesson
+ * @param {object} lessonData - The lesson data to update
+ * @returns {Promise} Promise with updated lesson data
+ */
+  editLessonByTopicContentIdAndLessonId: async (
+    topicContentId: string,
+    lessonId: string,
+    lessonData: any
+  ) => {
+    console.warn("Updating lesson:", { topicContentId, lessonId, lessonData });
+    try {
+      const response = await axios.patch(
+        `${BASE_URL}/topic-contents/${topicContentId}/lessons/${lessonId}`,
+        lessonData,
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      console.warn("Lesson updated successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating lesson:", error);
+      throw error.response?.data || "Failed to update lesson";
+    }
+  },
+
+
+  /**
    * Deletes a topic content
    * @param {string} contentId - The ID of the topic content
    * @returns {Promise} Promise with deletion result
@@ -116,38 +249,38 @@ const TopicContentService = {
    * @param {string} topicId - The ID of the topic
    * @returns {Promise} Promise containing filtered topic content data
    */
-getTopicContentByTopicId: async (topicId: string) => {
-  try {
-    const response = await axios.get(`${BASE_URL}/by-topic/${topicId}`, {
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
-    });
+  getTopicContentByTopicId: async (topicId: string) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/by-topic/${topicId}`, {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
 
-    // Extract contents safely
-    const contents = response.data.data || [];
-    console.log(`Contents fetched for topic ${topicId}: ${contents.length}`);
+      // Extract contents safely
+      const contents = response.data.data || [];
+      console.log(`Contents fetched for topic ${topicId}: ${contents.length}`);
 
-    return {
-      message: "Topic contents retrieved successfully",
-      data: contents,
-    };
-  } catch (error) {
-    console.error(`Error fetching contents for topic ${topicId}:`, error);
-
-    // ✅ Handle 404 specifically — return an empty array instead of throwing
-    if (error.response?.status === 404) {
-      console.warn(`No contents found for topic ${topicId} (404). Returning [].`);
       return {
-        message: "No topic contents found",
-        data: [],
+        message: "Topic contents retrieved successfully",
+        data: contents,
       };
-    }
+    } catch (error) {
+      console.error(`Error fetching contents for topic ${topicId}:`, error);
 
-    // ❌ Other errors should still throw
-    throw error.response?.data || "Failed to retrieve topic contents";
-  }
-},
+      // ✅ Handle 404 specifically — return an empty array instead of throwing
+      if (error.response?.status === 404) {
+        console.warn(`No contents found for topic ${topicId} (404). Returning [].`);
+        return {
+          message: "No topic contents found",
+          data: [],
+        };
+      }
+
+      // ❌ Other errors should still throw
+      throw error.response?.data || "Failed to retrieve topic contents";
+    }
+  },
 
   /**
    * Add a comment to a lesson
@@ -399,6 +532,61 @@ getTopicContentByTopicId: async (topicId: string) => {
       throw error.response?.data || "Failed to delete reaction";
     }
   },
+  /**
+   * Fetches lean topic contents for a specific topic
+   * @param {string} topicId - The ID of the topic
+   * @returns {Promise} Promise with lean topic content data
+   */
+  getTopicContentByTopicIdLean: async (topicId: string) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/topic-contents/topic/${topicId}/lean`,
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+        }
+      );
+      console.log("Lean topic contents response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      // Don't throw error for 404 - return empty array instead
+      if (error.response?.status === 404) {
+        console.log("No topic content found for topic:", topicId);
+        return []; // Return empty array for 404
+      }
+      // Only throw for other errors
+      throw error.response?.data || "Failed to retrieve lean topic contents";
+    }
+  },
+
+  /**
+   * Fetches a specific lesson’s content by Topic Content ID and Lesson ID
+   * @param {string} topicContentId - The ID of the topic content
+   * @param {string} lessonId - The ID of the lesson
+   * @returns {Promise} Promise with the lesson content data
+   */
+  getLessonContentByTopicContentAndLessonId: async (
+    topicContentId: string,
+    lessonId: string
+  ) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/lessonInfo/${topicContentId}/${lessonId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || "Failed to retrieve lesson content";
+    }
+  },
+
+
+
 };
 /**
  * Helper function to get authentication token from local storage

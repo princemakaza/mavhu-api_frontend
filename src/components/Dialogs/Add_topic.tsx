@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import TopicInSubjectService from "@/services/Admin_Service/Topic_InSubject_service";
+import { cn } from "@/lib/utils";
 
 type AddTopicDialogProps = {
   open: boolean;
@@ -28,11 +29,18 @@ type AddTopicDialogProps = {
 const defaultTopicData = {
   title: "",
   description: "",
-  price: 0,
-  regularPrice: 0,
-  subscriptionPeriod: "monthly",
+  price: "" as number | string,           // keep as string during edit for better UX
+  regularPrice: "" as number | string,    // keep as string during edit for better UX
+  subscriptionPeriod: "",                 // force user to choose (required)
   order: 0,
 };
+
+const subscriptionOptions = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" },
+  { value: "onetime", label: "One-time" },
+];
 
 const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
   open,
@@ -53,33 +61,92 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
-    setTopicData((prev) => ({
-      ...prev,
-      [id]: value === "" ? 0 : Number(value),
-    }));
+
+    // Prevent negative, allow empty while typing
+    if (value === "" || Number(value) >= 0) {
+      setTopicData((prev) => ({ ...prev, [id]: value }));
+    }
   };
 
   const handleSubscriptionPeriodChange = (value: string) => {
     setTopicData((prev) => ({ ...prev, subscriptionPeriod: value }));
   };
 
+  const parseMoney = (val: string | number) => {
+    if (val === "" || val === null || val === undefined) return NaN;
+    const n = typeof val === "number" ? val : Number(val);
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  const validate = () => {
+    const missing: string[] = [];
+
+    if (!topicData.title.trim()) missing.push("Title");
+    const priceNum = parseMoney(topicData.price);
+    const regularPriceNum = parseMoney(topicData.regularPrice);
+    if (Number.isNaN(priceNum)) missing.push("Price");
+    if (Number.isNaN(regularPriceNum)) missing.push("Regular Price");
+    if (!topicData.subscriptionPeriod) missing.push("Subscription Period");
+
+    // Additional semantic checks (not marked “missing”, but still block submit)
+    const semanticErrors: string[] = [];
+    if (!Number.isNaN(priceNum) && priceNum < 0) {
+      semanticErrors.push("Price cannot be negative.");
+    }
+    if (!Number.isNaN(regularPriceNum) && regularPriceNum < 0) {
+      semanticErrors.push("Regular Price cannot be negative.");
+    }
+    if (
+      !Number.isNaN(priceNum) &&
+      !Number.isNaN(regularPriceNum) &&
+      priceNum > regularPriceNum
+    ) {
+      semanticErrors.push("Price should not exceed Regular Price.");
+    }
+
+    if (missing.length > 0 || semanticErrors.length > 0) {
+      const lines = [
+        ...(missing.length
+          ? [`Please complete the required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`]
+          : []),
+        ...semanticErrors,
+      ];
+
+      toast({
+        variant: "destructive",
+        title: "Can’t save topic yet",
+        description: lines.join(" "),
+        duration: 2000, // 2s highlight
+      });
+      return { ok: false };
+    }
+
+    return { ok: true, priceNum, regularPriceNum };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    const result = validate();
+    if (!result.ok) return;
+
+    const { priceNum, regularPriceNum } = result as {
+      priceNum: number;
+      regularPriceNum: number;
+    };
+
     setIsSubmitting(true);
 
     try {
-      if (!topicData.title.trim()) {
-        throw new Error("Topic title is required");
-      }
-
       const apiTopicData = {
         title: topicData.title.trim(),
         description: topicData.description || "",
         subject: subjectId,
-        subjectName: subjectId, // to be overridden by backend
+        subjectName: subjectId, // backend overrides
         showTopic: true,
-        price: topicData.price,
-        regularPrice: topicData.regularPrice,
+        price: priceNum,
+        regularPrice: regularPriceNum,
         subscriptionPeriod: topicData.subscriptionPeriod,
         order: Number(topicData.order) || 0,
       };
@@ -89,6 +156,7 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
       toast({
         title: "Topic created",
         description: "The topic has been added to this subject.",
+        duration: 2000, // 2s success toast
       });
 
       setTopicData({ ...defaultTopicData });
@@ -106,6 +174,7 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
         variant: "destructive",
         title: "Error",
         description: errorMessage,
+        duration: 2000, // keep consistent
       });
     } finally {
       setIsSubmitting(false);
@@ -113,20 +182,20 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
   };
 
   return (
-    <DialogContent className="sm:max-w-[500px] mx-4 max-w-full">
+    <DialogContent className="sm:max-w-[520px] mx-4 max-w-full">
       <DialogHeader>
         <DialogTitle>Add New Topic</DialogTitle>
       </DialogHeader>
 
       <form onSubmit={handleSubmit} className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="title">Topic Title</Label>
+          <Label htmlFor="title">Topic Title<span className="text-destructive ml-1">*</span></Label>
           <Input
             id="title"
             value={topicData.title}
             onChange={handleChange}
             placeholder="Enter topic title"
-            required
+            aria-required
           />
         </div>
 
@@ -137,56 +206,60 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
             value={topicData.description}
             onChange={handleChange}
             placeholder="Topic description..."
-            required
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="price">Price</Label>
+            <Label htmlFor="price">Price<span className="text-destructive ml-1">*</span></Label>
             <Input
               id="price"
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.01"
               value={topicData.price}
               onChange={handleNumberChange}
               placeholder="0.00"
+              aria-required
             />
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="regularPrice">Regular Price</Label>
+            <Label htmlFor="regularPrice">Regular Price<span className="text-destructive ml-1">*</span></Label>
             <Input
               id="regularPrice"
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.01"
               value={topicData.regularPrice}
               onChange={handleNumberChange}
               placeholder="0.00"
+              aria-required
             />
           </div>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="subscriptionPeriod">Subscription Period</Label>
+          <Label htmlFor="subscriptionPeriod">Subscription Period<span className="text-destructive ml-1">*</span></Label>
           <Select
             onValueChange={handleSubscriptionPeriodChange}
             value={topicData.subscriptionPeriod}
           >
-            <SelectTrigger id="subscriptionPeriod">
+            <SelectTrigger id="subscriptionPeriod" aria-required>
               <SelectValue placeholder="Select period" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="quarterly">Quarterly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
-              <SelectItem value="onetime">One-time</SelectItem>
+              {subscriptionOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-
+{/* 
         <div className="grid gap-2">
           <Label htmlFor="order">Order</Label>
           <Input
@@ -200,21 +273,21 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
           <p className="text-xs text-muted-foreground">
             The order in which this topic appears in the subject
           </p>
-        </div>
+        </div> */}
 
-        <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
           <Button
             type="button"
             onClick={() => onOpenChange(false)}
             variant="outline"
-            className="w-full sm:w-auto"
+            className={cn("w-full sm:w-auto")}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            className="w-full sm:w-auto"
+            className={cn("w-full sm:w-auto")}
             disabled={isSubmitting}
           >
             {isSubmitting ? "Creating..." : "Add Topic"}
@@ -224,4 +297,5 @@ const AddTopicDialog: React.FC<AddTopicDialogProps> = ({
     </DialogContent>
   );
 };
+
 export default AddTopicDialog;
