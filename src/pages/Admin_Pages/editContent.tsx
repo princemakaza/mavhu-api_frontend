@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Plus, X, Upload, ChevronLeft, Edit, ChevronDown,
+  Plus, X, Upload, ChevronLeft, Edit, ChevronDown, ChevronUp,
   Music, Video, FileText, Image as ImageIcon, Eye, Trash2, GripVertical, Play, Pause, CornerDownLeft, Crosshair
 } from "lucide-react";
 import {
@@ -106,6 +106,11 @@ const EditContent: React.FC = () => {
 
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const getAudioKey = (l: number, s: number) => `${l}_${s}`;
+
+  // --- Collapsible timings state (per lesson-section), default collapsed
+  const [openTimings, setOpenTimings] = useState<Record<string, boolean>>({});
+  const timingsKey = (lessonIndex: number, subHeadingIndex: number) => `${lessonIndex}-${subHeadingIndex}`;
+  const toggleTimings = (k: string) => setOpenTimings((p) => ({ ...p, [k]: !p[k] }));
 
   // ---------- timingArray helpers ----------
   const ensureTimingArrayLength = (arr: number[] | undefined, linesCount: number): number[] => {
@@ -240,6 +245,15 @@ const EditContent: React.FC = () => {
             });
           } catch { /* ignore individual failures */ }
         }
+
+        // Initialize all timing panels as collapsed for existing sections
+        const collapsed: Record<string, boolean> = {};
+        normalizedWithTimings.lesson.forEach((L, li) => {
+          (L.subHeading || []).forEach((_, si) => {
+            collapsed[timingsKey(li, si)] = false;
+          });
+        });
+        setOpenTimings(collapsed);
       } catch (err) {
         console.error("Failed to fetch content:", err);
         const t = toast({
@@ -321,6 +335,7 @@ const EditContent: React.FC = () => {
       });
       return next;
     });
+    // new sections start collapsed by default; state entry will be created on first toggle if needed
   };
 
   const removeSubHeading = (lessonIndex: number, subHeadingIndex: number) => {
@@ -329,6 +344,12 @@ const EditContent: React.FC = () => {
       const next = structuredClone(prev) as ContentFormData;
       next.lesson[lessonIndex].subHeading.splice(subHeadingIndex, 1);
       return next;
+    });
+    // Clean any existing openTimings entry
+    setOpenTimings((p) => {
+      const cp = { ...p };
+      delete cp[timingsKey(lessonIndex, subHeadingIndex)];
+      return cp;
     });
   };
 
@@ -734,6 +755,8 @@ const EditContent: React.FC = () => {
                                 const lines = getDisplayLines(subHeadingItem.text || "");
                                 const audioKey = getAudioKey(lessonIndex, subHeadingIndex);
                                 const player = audioRefs.current[audioKey];
+                                const k = timingsKey(lessonIndex, subHeadingIndex);
+                                const isOpen = !!openTimings[k];
 
                                 return (
                                   <Sortable key={`section-${subHeadingIndex}`} id={`section-${subHeadingIndex}`}>
@@ -938,75 +961,95 @@ const EditContent: React.FC = () => {
                                               </div>
                                             </div>
 
-                                            {/* Timing rows */}
-                                            <div className="mt-3 space-y-2">
-                                              {lines.map((ln, li) => {
-                                                const seconds = Number.isFinite(subHeadingItem.timingArray?.[li] as number)
-                                                  ? (subHeadingItem.timingArray?.[li] as number)
-                                                  : 0;
+                                            {/* Toggle timings */}
+                                            <div className="mt-3">
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="w-full flex items-center justify-center gap-2"
+                                                onClick={() => toggleTimings(k)}
+                                                aria-expanded={isOpen}
+                                                aria-controls={`timings-${k}`}
+                                              >
+                                                {isOpen ? (<><ChevronUp size={16} /> Hide line timings</>) : (<><ChevronDown size={16} /> Show line timings</>)}
+                                              </Button>
+                                            </div>
 
-                                                const setTiming = (val: number) => {
-                                                  setContent((prev) => {
-                                                    const next = structuredClone(prev) as ContentFormData;
-                                                    const sh = next.lesson[lessonIndex].subHeading[subHeadingIndex];
-                                                    const len = lines.length;
-                                                    sh.timingArray = ensureTimingArrayLength(sh.timingArray, len);
-                                                    sh.timingArray![li] = (Number.isFinite(val) && val >= 0) ? Number(val) : 0;
-                                                    return next;
-                                                  });
-                                                };
+                                            {/* Collapsible Timing rows */}
+                                            <div
+                                              id={`timings-${k}`}
+                                              className={`transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? "max-h-[2000px] opacity-100 mt-3" : "max-h-0 opacity-0"}`}
+                                            >
+                                              <div className="space-y-2">
+                                                {lines.map((ln, li) => {
+                                                  const seconds = Number.isFinite(subHeadingItem.timingArray?.[li] as number)
+                                                    ? (subHeadingItem.timingArray?.[li] as number)
+                                                    : 0;
 
-                                                const player = audioRefs.current[audioKey];
+                                                  const setTiming = (val: number) => {
+                                                    setContent((prev) => {
+                                                      const next = structuredClone(prev) as ContentFormData;
+                                                      const sh = next.lesson[lessonIndex].subHeading[subHeadingIndex];
+                                                      const len = lines.length;
+                                                      sh.timingArray = ensureTimingArrayLength(sh.timingArray, len);
+                                                      sh.timingArray![li] = (Number.isFinite(val) && val >= 0) ? Number(val) : 0;
+                                                      return next;
+                                                    });
+                                                  };
 
-                                                return (
-                                                  <div key={li} className="grid grid-cols-1 md:grid-cols-12 items-center gap-2 border rounded p-2">
-                                                    <div className="md:col-span-6 text-xs md:text-sm text-gray-800">
-                                                      <span className="inline-block px-2 py-0.5 text-[10px] md:text-xs rounded bg-blue-50 border border-blue-100 mr-2">Line {li + 1}</span>
-                                                      <span className="break-all">{ln}</span>
+                                                  const player = audioRefs.current[audioKey];
+
+                                                  return (
+                                                    <div key={li} className="grid grid-cols-1 md:grid-cols-12 items-center gap-2 border rounded p-2">
+                                                      <div className="md:col-span-6 text-xs md:text-sm text-gray-800">
+                                                        <span className="inline-block px-2 py-0.5 text-[10px] md:text-xs rounded bg-blue-50 border border-blue-100 mr-2">Line {li + 1}</span>
+                                                        <span className="break-all">{ln}</span>
+                                                      </div>
+
+                                                      <div className="md:col-span-3 flex items-center gap-2">
+                                                        <label className="text-xs text-gray-500">Start (s)</label>
+                                                        <Input
+                                                          type="number"
+                                                          min={0}
+                                                          step="0.1"
+                                                          value={seconds}
+                                                          onChange={(e) => setTiming(parseFloat(e.target.value))}
+                                                        />
+                                                      </div>
+
+                                                      <div className="md:col-span-3 flex items-center gap-2 justify-end">
+                                                        <Button
+                                                          type="button"
+                                                          size="sm"
+                                                          variant="outline"
+                                                          onClick={() => player && setTiming(Number(player.currentTime.toFixed(1)))}
+                                                          disabled={!player}
+                                                          title="Use current audio time"
+                                                        >
+                                                          <CornerDownLeft size={14} className="mr-1" />
+                                                          Set from current
+                                                        </Button>
+                                                        <Button
+                                                          type="button"
+                                                          size="sm"
+                                                          variant="outline"
+                                                          onClick={() => { if (player) { player.currentTime = seconds || 0; player.play(); } }}
+                                                          disabled={!player}
+                                                          title="Jump to this timing"
+                                                        >
+                                                          Jump
+                                                        </Button>
+                                                      </div>
                                                     </div>
-
-                                                    <div className="md:col-span-3 flex items-center gap-2">
-                                                      <label className="text-xs text-gray-500">Start (s)</label>
-                                                      <Input
-                                                        type="number"
-                                                        min={0}
-                                                        step="0.1"
-                                                        value={seconds}
-                                                        onChange={(e) => setTiming(parseFloat(e.target.value))}
-                                                      />
-                                                    </div>
-
-                                                    <div className="md:col-span-3 flex items-center gap-2 justify-end">
-                                                      <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => player && setTiming(Number(player.currentTime.toFixed(1)))}
-                                                        disabled={!player}
-                                                        title="Use current audio time"
-                                                      >
-                                                        <CornerDownLeft size={14} className="mr-1" />
-                                                        Set from current
-                                                      </Button>
-                                                      <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => { if (player) { player.currentTime = seconds || 0; player.play(); } }}
-                                                        disabled={!player}
-                                                        title="Jump to this timing"
-                                                      >
-                                                        Jump
-                                                      </Button>
-                                                    </div>
+                                                  );
+                                                })}
+                                                {lines.length === 0 && (
+                                                  <div className="text-sm text-gray-500">
+                                                    No lines detected. Add content with <code className="px-1 bg-gray-100 rounded">\displaylines&#123;...&#125;</code> or use <code className="px-1 bg-gray-100 rounded">\\</code> / newlines to separate lines, then click <em>Detect lines</em>.
                                                   </div>
-                                                );
-                                              })}
-                                              {lines.length === 0 && (
-                                                <div className="text-sm text-gray-500">
-                                                  No lines detected. Add content with <code className="px-1 bg-gray-100 rounded">\displaylines&#123;...&#125;</code> or use <code className="px-1 bg-gray-100 rounded">\\\\</code> / newlines to separate lines, then click <em>Detect lines</em>.
-                                                </div>
-                                              )}
+                                                )}
+                                              </div>
                                             </div>
                                           </div>
 

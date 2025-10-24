@@ -16,6 +16,7 @@ import {
   Edit,
   Trash2,
   GripVertical,
+  RefreshCw,
 } from "lucide-react";
 import {
   Card,
@@ -34,8 +35,7 @@ import {
   EditContentDialog,
   ConfirmDialog,
   LessonEditDialog,
-  // NOTE: We keep the import in case you still use it elsewhere,
-  // but we'll use ConfirmDialog for the delete warning text.
+  // kept import alias in case it’s referenced elsewhere
   LessonDeleteDialog as _UnusedLessonDeleteDialog,
 } from "./ContentAndLessonDialogs";
 
@@ -56,6 +56,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Sortable } from "@/pages/Admin_Pages/editContentComponents/Sortable";
+import EndLessonQuestionService from "@/services/Admin_Service/end_lesson_question_service";
 
 // ---------- Local types ----------
 interface ViewTopicContentDialogProps {
@@ -138,18 +139,22 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
   const [lessonEditOpen, setLessonEditOpen] = useState(false);
   const [lessonBeingEdited, setLessonBeingEdited] = useState<{ lesson: Lesson; contentId: string } | null>(null);
 
-  // We'll use ConfirmDialog for a permanent delete warning
   const [lessonDeleteOpen, setLessonDeleteOpen] = useState(false);
   const [lessonBeingDeleted, setLessonBeingDeleted] = useState<{ lesson: Lesson; contentId: string } | null>(null);
 
   const exportLinkRef = useRef<HTMLAnchorElement>(null);
 
-  // DnD sensors (shared; we'll call onDragEnd per-content using closures)
+  // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Quiz presence per content
+  // 'loading' | 'exists' | 'none' | 'error'
+  const [quizStatus, setQuizStatus] = useState<Record<string, "loading" | "exists" | "none" | "error">>({});
+
+  // Fetch contents (and then quiz presence)
   useEffect(() => {
     const fetchTopicContents = async () => {
       if (!topic) return;
@@ -167,6 +172,9 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         else if (result && typeof result === "object") contentsData = [result];
 
         setContents(contentsData);
+
+        // After contents load, check quiz existence per content
+        await checkQuizzesForContents(contentsData);
       } catch (err) {
         console.error("Failed to fetch topic contents:", err);
         setError("Failed to load topic contents. Please try again.");
@@ -182,6 +190,35 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
 
     if (open && topic) fetchTopicContents();
   }, [open, topic, toast]);
+
+  const checkQuizzesForContents = async (items: ContentItem[]) => {
+    // set initial loading
+    const init: Record<string, "loading" | "exists" | "none" | "error"> = {};
+    items.forEach((c) => (init[c._id] = "loading"));
+    setQuizStatus(init);
+
+    // run checks in parallel
+    const results = await Promise.all(
+      items.map(async (c) => {
+        try {
+          const res = await EndLessonQuestionService.getQuizzesByContentId(c._id);
+          const count =
+            typeof res?.count === "number" ? res.count :
+            Array.isArray(res?.data) ? res.data.length : 0;
+          return { id: c._id, status: count > 0 ? "exists" as const : "none" as const };
+        } catch (e) {
+          console.error("Quiz check failed for content:", c._id, e);
+          return { id: c._id, status: "error" as const };
+        }
+      })
+    );
+
+    setQuizStatus((prev) => {
+      const next = { ...prev };
+      results.forEach(({ id, status }) => (next[id] = status));
+      return next;
+    });
+  };
 
   const handleAddContentClick = () => {
     const myId = (topic as any)._id;
@@ -203,6 +240,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     else if (result && typeof result === "object") contentsData = [result];
 
     setContents(contentsData);
+    await checkQuizzesForContents(contentsData);
   };
 
   const openUpdateDialog = (content: ContentItem) => {
@@ -221,6 +259,12 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
       await TopicContentService.moveToTrash(contentToDelete);
       setContents((prev) => prev.filter((c) => c._id !== contentToDelete));
       toast({ title: "Success", description: "Content deleted successfully" });
+      // also remove quiz status for the deleted content
+      setQuizStatus((prev) => {
+        const next = { ...prev };
+        delete next[contentToDelete];
+        return next;
+      });
     } catch (err) {
       console.error("Failed to delete content:", err);
       toast({
@@ -331,7 +375,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     if (!lessonBeingDeleted) return;
     try {
       const { contentId, lesson } = lessonBeingDeleted;
-      await TopicContentService.deleteLesson(contentId, lesson._id); // ✅ permanent delete API
+      await TopicContentService.deleteLesson(contentId, lesson._id); // permanent delete API
       await refreshContents();
       setLessonDeleteOpen(false);
       setLessonBeingDeleted(null);
@@ -383,15 +427,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     // Persist order to backend
     try {
       const content = contents.find((c) => c._id === contentId);
-      const newContent = content
-        ? {
-          ...content,
-          lesson: arrayMove(content.lesson || [], (content.lesson || []).findIndex(l => l._id === String(active.id)), (content.lesson || []).findIndex(l => l._id === String(over.id)))
-        }
-        : undefined;
-
-      const order = (newContent?.lesson || contents.find(c => c._id === contentId)?.lesson || []).map((l) => l._id);
-
+      const order = (content?.lesson || []).map((l) => l._id);
       await TopicContentService.reorderLessons(contentId, order);
       toast({ title: "Order saved", description: "Lesson order updated." });
     } catch (err) {
@@ -401,7 +437,6 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         title: "Reorder failed",
         description: "Could not save the new lesson order. Please try again.",
       });
-      // Fallback: refresh from server to restore correct order
       await refreshContents();
     }
   };
@@ -507,24 +542,22 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                   </div>
                 ) : !Array.isArray(contents) || contents.length === 0 ? (
                   <div className="text-center py-16 px-4">
-                    <div className="bg-white rounded-xl shadow-sm p-8 max-w-lg mx-auto">
-                      <div className="mx-auto h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                        <BookOpen size={24} className="text-gray-400" />
-                      </div>
-                      <h3 className="text-xl font-medium text-gray-800 mb-2">
-                        No content yet
-                      </h3>
-                      <p className="text-gray-500 text-sm mb-4">
-                        Add content to enhance the learning experience.
-                      </p>
-                      <Button
-                        className="bg-blue-500 hover:bg-blue-900 text-white"
-                        onClick={handleAddContentClick}
-                        size="sm"
-                      >
-                        <Plus size={16} className="mr-1" /> Add Your First Content
-                      </Button>
+                    <div className="mx-auto h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                      <BookOpen size={24} className="text-gray-400" />
                     </div>
+                    <h3 className="text-xl font-medium text-gray-800 mb-2">
+                      No content yet
+                    </h3>
+                    <p className="text-gray-500 text-sm mb-4">
+                      Add content to enhance the learning experience.
+                    </p>
+                    <Button
+                      className="bg-blue-500 hover:bg-blue-900 text-white"
+                      onClick={handleAddContentClick}
+                      size="sm"
+                    >
+                      <Plus size={16} className="mr-1" /> Add Your First Content
+                    </Button>
                   </div>
                 ) : (
                   <>
@@ -538,6 +571,8 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                     <div className="space-y-6">
                       {contents.map((content) => {
                         const lessons = content.lesson || [];
+                        const qStatus = quizStatus[content._id] || "loading";
+
                         return (
                           <div key={content._id} className="bg-white rounded-xl border">
                             <div className="flex items-center justify-between p-4 border-b">
@@ -553,19 +588,18 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                                 >
                                   <Plus size={14} className="mr-1" /> Add Lesson
                                 </Button>
+
                                 <Button
                                   onClick={() =>
                                     navigate(`/admin_dashboard/courses/topics/${content._id}/content/edit/${content._id}`)
                                   }
-
-                                  // onClick={() => openUpdateDialog(content)}
                                   variant="outline"
                                   size="sm"
                                 >
                                   Edit Content
                                 </Button>
-                                <Button
 
+                                <Button
                                   onClick={() => openDeleteDialog(content._id)}
                                   variant="outline"
                                   size="sm"
@@ -573,6 +607,41 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                                 >
                                   Delete Content
                                 </Button>
+
+                                {/* ==== QUIZ BUTTON (conditional) ==== */}
+                                {qStatus === "loading" ? (
+                                  <Button variant="outline" size="sm" disabled>
+                                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                    Checking quiz…
+                                  </Button>
+                                ) : qStatus === "exists" ? (
+                                  <Button
+                                    onClick={() => navigate(`/topics/${content._id}/quiz/edit`)}
+                                    variant="outline"
+                                    size="sm"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                    Edit end-lesson quiz
+                                  </Button>
+                                ) : qStatus === "error" ? (
+                                  <Button
+                                    onClick={() => checkQuizzesForContents([content])}
+                                    variant="outline"
+                                    size="sm"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                    Retry quiz check
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    onClick={() => navigate(`/topics/${content._id}/quiz/new`)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    Add End Lesson Questions
+                                  </Button>
+                                )}
                               </div>
                             </div>
 
@@ -783,7 +852,6 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         onSave={saveLessonEdit}
       />
 
-      {/* Use ConfirmDialog so we can show a permanent-delete warning */}
       <ConfirmDialog
         open={lessonDeleteOpen}
         onOpenChange={setLessonDeleteOpen}

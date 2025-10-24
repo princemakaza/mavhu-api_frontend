@@ -58,6 +58,8 @@ import AdminProfile from "./pages/Admin_Pages/admin_profile";
 import TopicsScreen from "./pages/Admin_Pages/topics_screen";
 import AddLessonToContent from "./pages/Admin_Pages/AddLessonToContent";
 import EditLesson from "./pages/Admin_Pages/edit_lesson";
+import CreateEndLessonQuiz from "./pages/Admin_Pages/CreateEndLessonQuiz";
+import ToEditEndLesson from "./pages/Admin_Pages/to_end_lesson_edit";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -107,11 +109,15 @@ const App = () => (
               element={<AddLessonToContent />}
             />
 
+            <Route path="/topics/:topicId/quiz/new" element={<CreateEndLessonQuiz />} />
+
+            <Route path="/topics/:topicId/quiz/edit" element={<ToEditEndLesson />} />
+
             <Route
               path="/admin_dashboard/courses/topics/:topicId/content/edit/:contentId"
               element={<EditContent />}
             />
-              <Route path="/content/:contentId/lessons/:lessonId/edit" element={<EditLesson />} />
+            <Route path="/content/:contentId/lessons/:lessonId/edit" element={<EditLesson />} />
 
             {/* <Route path="/dashboard" element={<Dashboard />} /> */}
             <Route path="/courses" element={<AdminSubjects />} />
