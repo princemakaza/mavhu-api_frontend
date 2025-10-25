@@ -307,7 +307,6 @@ const EditLesson: React.FC = () => {
       await TopicContentService.editLessonByTopicContentIdAndLessonId(contentId, lessonId, payload);
 
       toast({ title: "✅ Lesson updated", description: "Your changes have been saved." });
-      navigate(-1);
     } catch (err) {
       console.error("Update failed:", err);
       toast({ variant: "destructive", title: "Error", description: "Failed to update lesson." });
