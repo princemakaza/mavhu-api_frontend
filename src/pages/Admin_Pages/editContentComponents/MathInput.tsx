@@ -13,7 +13,7 @@ export const extractLatexFromText = (text: string): string => {
 };
 
 export const getDisplayLines = (raw: string): string[] => {
-  // Keep leading/trailing spaces (which are now represented by \hspace or \, etc.)
+  // Keep leading/trailing spacing commands such as \, \; \hspace{...}
   const unwrapped = extractLatexFromText(raw || "");
 
   const m = unwrapped.match(/\\displaylines\s*\{([\s\S]*?)\}$/);
@@ -68,6 +68,24 @@ export const MathInput: React.FC<MathInputProps> = ({
       const mf = new MathfieldElement();
       mathfieldRef.current = mf;
 
+      // Helper that inserts LaTeX robustly across MathLive versions
+      const insertLatex = (latex: string) => {
+        const anyMf = mf as any;
+        if (typeof anyMf.executeCommand === "function") {
+          anyMf.executeCommand(["insert", latex]);
+        } else if (typeof anyMf.insert === "function") {
+          anyMf.insert(latex);
+        } else {
+          // Last-resort fallback (should rarely be needed)
+          mf.value = (mf.value || "") + latex;
+        }
+      };
+
+      // Choose the spacing token you want for each "space":
+      // const SPACE_TOKEN = "\\hspace{0.5em}";
+      // const SPACE_TOKEN = "\\;";
+      const SPACE_TOKEN = "\\,"; // thin space is a nice default
+
       mf.setOptions({
         defaultMode: "math",
         smartMode: true,
@@ -75,65 +93,83 @@ export const MathInput: React.FC<MathInputProps> = ({
         virtualKeyboards: "all",
         inlineShortcuts: { "++": "\\plus", "->": "\\rightarrow" },
         readOnly: !editing,
-        // Map each press of Spacebar to a real LaTeX spacing command so it persists.
-        // Choose ONE of the following insert texts:
-        //   "\\hspace{0.5em}" (approx normal space)
-        //   "\\,"             (thin)
-        //   "\\;"             (thick)
-        //   "~"               (non-breaking space)
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore - keybindings may not be in older type defs
-        keybindings: [
-          {
-            key: "Spacebar",
-            ifMode: "math",
-            command: ["insert", "\\hspace{0.5em}"],
-          },
-        ],
-        // Ensure the spacebar isn’t ignored in math mode (some distro builds have this flag)
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        ignoreSpacebarInMathMode: false,
       });
 
+      // Style
       mf.style.width = "100%";
       mf.style.minHeight = !editing ? "auto" : "60px";
       mf.style.padding = !editing ? "0" : "8px";
       mf.style.border = !editing ? "none" : "1px solid #d1d5db";
       mf.style.borderRadius = "6px";
       mf.style.backgroundColor = !editing ? "transparent" : "#fff";
-
       if (!editing) {
         mf.style.pointerEvents = "none";
         mf.style.cursor = "default";
       }
 
-      // IMPORTANT: read the latex value MathLive maintains (which now includes \hspace or \,)
+      // --- CRITICAL: Intercept space insertion paths ---
+
+      // 1) Keydown (most common path, handles auto-repeat too)
+      mf.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (!editing) return;
+        // Some browsers use ' ' (space) and some 'Spacebar' (old); modern is ' '
+        const isSpace =
+          e.key === " " || e.code === "Space" || (e as any).key === "Spacebar";
+        if (isSpace) {
+          e.preventDefault();
+          insertLatex(SPACE_TOKEN);
+        }
+      });
+
+      // 2) beforeinput (IME / some engines send insertText with data = " ")
+      mf.addEventListener("beforeinput", (e: InputEvent) => {
+        if (!editing) return;
+        // Only handle direct text insertion; keep deletions/moves intact
+        if (e.inputType === "insertText" && typeof e.data === "string") {
+          if (e.data.includes(" ")) {
+            e.preventDefault();
+            // Replace every literal space with our LaTeX spacing token
+            const latex = e.data.replace(/ /g, SPACE_TOKEN);
+            insertLatex(latex);
+          }
+        }
+      });
+
+      // 3) Paste (insertFromPaste path)
+      mf.addEventListener("paste", (e: ClipboardEvent) => {
+        if (!editing) return;
+        const text = e.clipboardData?.getData("text") ?? "";
+        if (text && text.includes(" ")) {
+          e.preventDefault();
+          const latex = text.replace(/ /g, SPACE_TOKEN);
+          insertLatex(latex);
+        }
+      });
+
+      // Propagate changes upstream (note: MathLive value already contains our tokens)
       mf.addEventListener("input", (evt) => {
         if (!editing) return;
         ignoreNextChange.current = true;
-
         const rawLatex = (evt.target as MathfieldElement).value;
-
         onChange(`\\(${rawLatex}\\)`);
       });
 
       containerRef.current.appendChild(mf);
     }
 
-    // Push prop value into the mathfield as-is (it contains real LaTeX spacing commands)
+    // Push prop value into the mathfield as-is (preserves \, / \; / \hspace{...})
     const unwrappedValue = extractLatexFromText(value || "");
-    if (mathfieldRef.current.value !== unwrappedValue) {
-      mathfieldRef.current.value = unwrappedValue;
+    if (mathfieldRef.current!.value !== unwrappedValue) {
+      mathfieldRef.current!.value = unwrappedValue;
     }
 
-    // Keep the editor's interactivity styles in sync with `editing`
-    mathfieldRef.current.setOptions({ readOnly: !editing });
-    mathfieldRef.current.style.pointerEvents = editing ? "auto" : "none";
-    mathfieldRef.current.style.backgroundColor = editing ? "#fff" : "transparent";
-    mathfieldRef.current.style.minHeight = editing ? "60px" : "auto";
-    mathfieldRef.current.style.padding = editing ? "8px" : "0";
-    mathfieldRef.current.style.border = editing ? "1px solid #d1d5db" : "none";
+    // Sync interactivity styles with `editing`
+    mathfieldRef.current!.setOptions({ readOnly: !editing });
+    mathfieldRef.current!.style.pointerEvents = editing ? "auto" : "none";
+    mathfieldRef.current!.style.backgroundColor = editing ? "#fff" : "transparent";
+    mathfieldRef.current!.style.minHeight = editing ? "60px" : "auto";
+    mathfieldRef.current!.style.padding = editing ? "8px" : "0";
+    mathfieldRef.current!.style.border = editing ? "1px solid #d1d5db" : "none";
 
     return () => {
       if (mathfieldRef.current) {
@@ -148,7 +184,6 @@ export const MathInput: React.FC<MathInputProps> = ({
       ignoreNextChange.current = false;
       return;
     }
-    // When `value` changes externally, push it verbatim (with \hspace / \, preserved)
     const unwrappedValue = extractLatexFromText(value || "");
     if (mathfieldRef.current.value !== unwrappedValue) {
       mathfieldRef.current.value = unwrappedValue;
