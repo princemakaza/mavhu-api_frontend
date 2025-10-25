@@ -1,8 +1,20 @@
 // editContentComponents/MathInput.tsx
 import React, { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, Edit } from "lucide-react";
+import { Check } from "lucide-react";
 import { MathfieldElement } from "mathlive";
+
+/**
+ * Encode literal spaces so LaTeX preserves them.
+ * We convert every " " to "~" (non-breaking space). This keeps the exact count.
+ */
+const encodeSpacesForLatex = (s: string) => s.replace(/ /g, "~");
+
+/**
+ * Decode LaTeX non-breaking spaces back to literal spaces for editing/view.
+ * We preserve runs (~~~ -> "   ").
+ */
+const decodeSpacesFromLatex = (s: string) => s.replace(/~+/g, (m) => " ".repeat(m.length));
 
 export const extractLatexFromText = (text: string): string => {
   if (!text) return "";
@@ -13,10 +25,14 @@ export const extractLatexFromText = (text: string): string => {
 };
 
 export const getDisplayLines = (raw: string): string[] => {
-  const unwrapped = extractLatexFromText(raw || "").trim();
+  // Do NOT trim here — we want to keep leading/trailing spaces intact.
+  const unwrapped = extractLatexFromText(raw || "");
 
-  const m = unwrapped.match(/\\displaylines\s*\{([\s\S]*?)\}$/);
-  const body = m ? m[1] : unwrapped;
+  // Decode "~" back to spaces so downstream display logic sees the real spacing.
+  const decoded = decodeSpacesFromLatex(unwrapped);
+
+  const m = decoded.match(/\\displaylines\s*\{([\s\S]*?)\}$/);
+  const body = m ? m[1] : decoded;
 
   let lines = body.split(/\\\\/g);
 
@@ -25,12 +41,15 @@ export const getDisplayLines = (raw: string): string[] => {
   }
 
   const cleaned = lines
-    .map((s) => s.trim())
+    // no trim — preserve leading/trailing spaces on each line
     .map((s) => {
+      // If the whole line is \text{...}, show just the body, preserving spaces.
       const textMatch = s.match(/^\\text\{([\s\S]*?)\}$/);
       return textMatch ? textMatch[1] : s;
     })
-    .map((s) => s.replace(/^\{|\}$/g, "").trim())
+    // Remove a single leading { or trailing } if they wrap the line, but don't trim away spaces
+    .map((s) => s.replace(/^\{/, "").replace(/\}$/, ""))
+    // Keep non-empty lines; if you also want to keep blank lines, remove this filter.
     .filter((s) => s.length > 0);
 
   return cleaned;
@@ -47,7 +66,13 @@ interface MathInputProps {
 }
 
 export const MathInput: React.FC<MathInputProps> = ({
-  value, onChange, onSave, onCancel, editing, placeholder = "", className = "",
+  value,
+  onChange,
+  onSave,
+  onCancel,
+  editing,
+  placeholder = "",
+  className = "",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mathfieldRef = useRef<MathfieldElement | null>(null);
@@ -67,6 +92,9 @@ export const MathInput: React.FC<MathInputProps> = ({
         virtualKeyboards: "all",
         inlineShortcuts: { "++": "\\plus", "->": "\\rightarrow" },
         readOnly: !editing,
+        // If your MathLive version supports this option, it helps allow typing literal spaces:
+        // @ts-expect-error - tolerate unknown option in some type defs
+        ignoreSpacebarInMathMode: false,
       });
 
       mf.style.width = "100%";
@@ -84,16 +112,27 @@ export const MathInput: React.FC<MathInputProps> = ({
       mf.addEventListener("input", (evt) => {
         if (!editing) return;
         ignoreNextChange.current = true;
-        onChange(`\\(${(evt.target as MathfieldElement).value}\\)`);
+
+        const raw = (evt.target as MathfieldElement).value;
+
+        // Preserve exact number of spaces by encoding them to "~"
+        const preserved = encodeSpacesForLatex(raw);
+
+        onChange(`\\(${preserved}\\)`);
       });
 
       containerRef.current.appendChild(mf);
     }
 
+    // Push prop value into the mathfield (decode "~" -> spaces for the editor)
     const unwrappedValue = extractLatexFromText(value || "");
-    if (mathfieldRef.current.value !== unwrappedValue) {
-      mathfieldRef.current.value = unwrappedValue;
+    const forEditor = decodeSpacesFromLatex(unwrappedValue);
+
+    if (mathfieldRef.current.value !== forEditor) {
+      mathfieldRef.current.value = forEditor;
     }
+
+    // Keep the editor's interactivity styles in sync with `editing`
     mathfieldRef.current.setOptions({ readOnly: !editing });
     mathfieldRef.current.style.pointerEvents = editing ? "auto" : "none";
     mathfieldRef.current.style.backgroundColor = editing ? "#fff" : "transparent";
@@ -107,16 +146,19 @@ export const MathInput: React.FC<MathInputProps> = ({
         mathfieldRef.current = null;
       }
     };
-  }, [editing]);
+  }, [editing]); // re-run when editing toggles
 
   useEffect(() => {
     if (!mathfieldRef.current || ignoreNextChange.current) {
       ignoreNextChange.current = false;
       return;
     }
+    // When `value` changes from the outside, decode "~" before showing in the editor
     const unwrappedValue = extractLatexFromText(value || "");
-    if (mathfieldRef.current.value !== unwrappedValue) {
-      mathfieldRef.current.value = unwrappedValue;
+    const forEditor = decodeSpacesFromLatex(unwrappedValue);
+
+    if (mathfieldRef.current.value !== forEditor) {
+      mathfieldRef.current.value = forEditor;
     }
   }, [value]);
 
@@ -125,13 +167,28 @@ export const MathInput: React.FC<MathInputProps> = ({
       <div ref={containerRef} />
       {editing && (
         <div className="flex justify-end gap-2 mt-2">
-          <Button type="button" size="sm" variant="outline" onClick={onCancel} className="h-8 px-3">Cancel</Button>
-          <Button type="button" size="sm" onClick={onSave} className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            className="h-8 px-3"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSave}
+            className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white"
+          >
             <Check size={14} className="mr-1" /> Save
           </Button>
         </div>
       )}
-      {!value && !editing && <div className="text-gray-400 italic text-sm">{placeholder}</div>}
+      {!value && !editing && (
+        <div className="text-gray-400 italic text-sm">{placeholder}</div>
+      )}
     </div>
   );
 };
