@@ -43,79 +43,20 @@ const MathInput: React.FC<MathInputProps> = ({
     const mf = new MathfieldElement();
     mathfieldRef.current = mf;
 
-    // === Choose how "one space" should render ===
-    // const SPACE_TOKEN = "\\hspace{0.5em}"; // approx normal space
-    // const SPACE_TOKEN = "\\;";             // thick space
-    const SPACE_TOKEN = "\\,";                // thin space (default)
-
-    // Helper to insert LaTeX across MathLive versions
-    const insertLatex = (latex: string) => {
-      const anyMf = mf as any;
-      if (typeof anyMf.executeCommand === "function") {
-        anyMf.executeCommand(["insert", latex]);
-      } else if (typeof anyMf.insert === "function") {
-        anyMf.insert(latex);
-      } else {
-        // Last resort
-        mf.value = (mf.value || "") + latex;
-      }
-    };
-
-    // Base options
     mf.setOptions({
       defaultMode: "math",
       smartMode: true,
       virtualKeyboardMode: "onfocus",
       virtualKeyboards: "all",
-      inlineShortcuts: {
-        "++": "\\plus",
-        "->": "\\rightarrow",
-      },
+      inlineShortcuts: { "++": "\\plus", "->": "\\rightarrow" },
       readOnly: !editing,
     });
 
-    // Base styles
     mf.style.width = "100%";
+    mf.tabIndex = 0; // ensure it can take focus
     containerRef.current.appendChild(mf);
 
-    // --- Preserve spaces: intercept all paths that insert literal spaces ---
-
-    // 1) Keydown (covers most typing, including auto-repeat)
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!editing) return;
-      const isSpace =
-        e.key === " " || e.code === "Space" || (e as any).key === "Spacebar";
-      if (isSpace) {
-        e.preventDefault();
-        insertLatex(SPACE_TOKEN);
-      }
-    };
-    mf.addEventListener("keydown", onKeyDown);
-
-    // 2) beforeinput (some engines/IME send insertText with data = " ")
-    const onBeforeInput = (e: InputEvent) => {
-      if (!editing) return;
-      if (e.inputType === "insertText" && typeof e.data === "string") {
-        if (e.data.includes(" ")) {
-          e.preventDefault();
-          insertLatex(e.data.replace(/ /g, SPACE_TOKEN));
-        }
-      }
-    };
-    mf.addEventListener("beforeinput", onBeforeInput as any);
-
-    // 3) Paste: convert all spaces in pasted text to spacing tokens
-    const onPaste = (e: ClipboardEvent) => {
-      if (!editing) return;
-      const text = e.clipboardData?.getData("text") ?? "";
-      if (text && text.includes(" ")) {
-        e.preventDefault();
-        insertLatex(text.replace(/ /g, SPACE_TOKEN));
-      }
-    };
-    mf.addEventListener("paste", onPaste);
-
-    // Input listener: wrap with \( ... \)
+    // Upstream change propagation (wrap with \( ... \))
     const onInput = (evt: Event) => {
       if (!editing) return;
       ignoreNextChange.current = true;
@@ -124,14 +65,12 @@ const MathInput: React.FC<MathInputProps> = ({
     mf.addEventListener("input", onInput);
 
     return () => {
-      mf.removeEventListener("keydown", onKeyDown);
-      mf.removeEventListener("beforeinput", onBeforeInput as any);
-      mf.removeEventListener("paste", onPaste);
       mf.removeEventListener("input", onInput);
       mf.remove();
       mathfieldRef.current = null;
     };
-  }, [editing, onChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keep value in sync
   useEffect(() => {
@@ -145,10 +84,12 @@ const MathInput: React.FC<MathInputProps> = ({
     if (mf.value !== unwrappedValue) mf.value = unwrappedValue;
   }, [value]);
 
-  // Toggle readOnly and visuals when editing changes
+  // Attach/detach space & paste interceptors ONLY while editing
   useEffect(() => {
     const mf = mathfieldRef.current;
     if (!mf) return;
+
+    // Visual + readonly state
     mf.setOptions({ readOnly: !editing });
     mf.style.pointerEvents = editing ? "auto" : "none";
     mf.style.backgroundColor = editing ? "#fff" : "transparent";
@@ -157,6 +98,69 @@ const MathInput: React.FC<MathInputProps> = ({
     mf.style.border = editing ? "1px solid #d1d5db" : "none";
     mf.style.borderRadius = editing ? "6px" : "0";
     mf.style.cursor = editing ? "text" : "default";
+
+    if (!editing) {
+      // ensure no interceptors are active when not editing
+      return;
+    }
+
+    // Focus when entering edit mode
+    setTimeout(() => mf.focus(), 0);
+
+    // === Choose how "one space" should render ===
+    // const SPACE_TOKEN = "\\hspace{0.5em}"; // approx normal space
+    // const SPACE_TOKEN = "\\;";             // thick space
+    const SPACE_TOKEN = "\\,";                // thin space (default)
+
+    // Helper to insert LaTeX across MathLive versions
+    const insertLatex = (latex: string) => {
+      const anyMf = mf as any;
+      if (typeof anyMf.executeCommand === "function") {
+        anyMf.executeCommand(["insert", latex]);
+      } else if (typeof anyMf.insert === "function") {
+        anyMf.insert(latex);
+      } else {
+        mf.value = (mf.value || "") + latex;
+      }
+    };
+
+    // Keydown: turn EACH Space press into a LaTeX spacing atom
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isSpace =
+        e.key === " " || e.code === "Space" || (e as any).key === "Spacebar";
+      if (isSpace) {
+        e.preventDefault();
+        insertLatex(SPACE_TOKEN);
+      }
+    };
+
+    // beforeinput: convert space characters from IME/text insertion
+    const onBeforeInput = (e: InputEvent) => {
+      if (e.inputType === "insertText" && typeof e.data === "string" && e.data.includes(" ")) {
+        e.preventDefault();
+        insertLatex(e.data.replace(/ /g, SPACE_TOKEN));
+      }
+    };
+
+    // paste: convert all spaces in pasted text
+    const onPaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData("text") ?? "";
+      if (text && text.includes(" ")) {
+        e.preventDefault();
+        insertLatex(text.replace(/ /g, SPACE_TOKEN));
+      }
+    };
+
+    mf.addEventListener("keydown", onKeyDown);
+    mf.addEventListener("beforeinput", onBeforeInput as any);
+    mf.addEventListener("paste", onPaste);
+
+    // Cleanup when editing turns off (or on unmount)
+    return () => {
+      mf.removeEventListener("keydown", onKeyDown);
+      mf.removeEventListener("beforeinput", onBeforeInput as any);
+      mf.removeEventListener("paste", onPaste);
+    };
   }, [editing]);
 
   // Split text by lines for timing UI (your delimiter scheme)
@@ -171,7 +175,13 @@ const MathInput: React.FC<MathInputProps> = ({
 
   return (
     <div className={`relative ${className}`}>
-      <div ref={containerRef} />
+      <div
+        ref={containerRef}
+        onClick={() => {
+          // clicking the wrapper should focus the mathfield while editing
+          if (editing) mathfieldRef.current?.focus();
+        }}
+      />
 
       {/* Timing Input Section */}
       {enableTiming && editing && lines.length > 1 && (
