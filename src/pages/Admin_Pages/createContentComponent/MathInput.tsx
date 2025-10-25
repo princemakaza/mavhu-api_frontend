@@ -1,9 +1,42 @@
-import React, { useEffect, useRef, useState } from "react";
-import { MathfieldElement } from "mathlive";
-import { extractLatexFromText, TimingPoint } from "./types";
+// editContentComponents/MathInput.tsx
+import React, { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Check, Clock, Edit } from "lucide-react";
+import { Check } from "lucide-react";
+import { MathfieldElement } from "mathlive";
+
+export const extractLatexFromText = (text: string): string => {
+  if (!text) return "";
+  if (text.startsWith("\\(") && text.endsWith("\\)")) {
+    return text.substring(2, text.length - 2);
+  }
+  return text;
+};
+
+export const getDisplayLines = (raw: string): string[] => {
+  // Keep leading/trailing spacing commands such as \, \; \hspace{...}
+  const unwrapped = extractLatexFromText(raw || "");
+
+  const m = unwrapped.match(/\\displaylines\s*\{([\s\S]*?)\}$/);
+  const body = m ? m[1] : unwrapped;
+
+  let lines = body.split(/\\\\/g);
+
+  if (lines.length <= 1) {
+    lines = body.split(/\r?\n/g);
+  }
+
+  const cleaned = lines
+    // don't trim — preserve edges
+    .map((s) => {
+      const textMatch = s.match(/^\\text\{([\s\S]*?)\}$/);
+      return textMatch ? textMatch[1] : s;
+    })
+    // strip a single wrapping brace but not inner spacing
+    .map((s) => s.replace(/^\{/, "").replace(/\}$/, ""))
+    .filter((s) => s.length > 0);
+
+  return cleaned;
+};
 
 interface MathInputProps {
   value: string;
@@ -13,13 +46,9 @@ interface MathInputProps {
   editing: boolean;
   placeholder?: string;
   className?: string;
-  // NEW: Timing functionality
-  enableTiming?: boolean;
-  timings?: TimingPoint[];
-  onTimingsChange?: (timings: TimingPoint[]) => void;
 }
 
-const MathInput: React.FC<MathInputProps> = ({
+export const MathInput: React.FC<MathInputProps> = ({
   value,
   onChange,
   onSave,
@@ -27,174 +56,162 @@ const MathInput: React.FC<MathInputProps> = ({
   editing,
   placeholder = "",
   className = "",
-  enableTiming = false,
-  timings = [],
-  onTimingsChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mathfieldRef = useRef<MathfieldElement | null>(null);
   const ignoreNextChange = useRef(false);
-  const [showTimingInput, setShowTimingInput] = useState(false);
 
-  // Create the mathfield exactly once, and destroy on unmount only
   useEffect(() => {
-    if (!containerRef.current || mathfieldRef.current) return;
-    const mf = new MathfieldElement();
-    mathfieldRef.current = mf;
+    if (!containerRef.current) return;
 
-    // Base options
-    mf.setOptions({
-      defaultMode: "math",
-      smartMode: true,
-      virtualKeyboardMode: "onfocus",
-      virtualKeyboards: "all",
-      inlineShortcuts: {
-        "++": "\\plus",
-        "->": "\\rightarrow",
-      },
-      readOnly: !editing,
-    });
+    if (!mathfieldRef.current) {
+      const mf = new MathfieldElement();
+      mathfieldRef.current = mf;
 
-    // Base styles
-    mf.style.width = "100%";
-    containerRef.current.appendChild(mf);
+      // Helper that inserts LaTeX robustly across MathLive versions
+      const insertLatex = (latex: string) => {
+        const anyMf = mf as any;
+        if (typeof anyMf.executeCommand === "function") {
+          anyMf.executeCommand(["insert", latex]);
+        } else if (typeof anyMf.insert === "function") {
+          anyMf.insert(latex);
+        } else {
+          // Last-resort fallback (should rarely be needed)
+          mf.value = (mf.value || "") + latex;
+        }
+      };
 
-    // Input listener: wrap with \( ... \)
-    const onInput = (evt: Event) => {
-      if (!editing) return;
-      ignoreNextChange.current = true;
-      onChange(`\\(${(evt.target as MathfieldElement).value}\\)`);
-    };
-    mf.addEventListener("input", onInput);
+      // Choose the spacing token you want for each "space":
+      // const SPACE_TOKEN = "\\hspace{0.5em}";
+      // const SPACE_TOKEN = "\\;";
+      const SPACE_TOKEN = "\\,"; // thin space is a nice default
+
+      mf.setOptions({
+        defaultMode: "math",
+        smartMode: true,
+        virtualKeyboardMode: "onfocus",
+        virtualKeyboards: "all",
+        inlineShortcuts: { "++": "\\plus", "->": "\\rightarrow" },
+        readOnly: !editing,
+      });
+
+      // Style
+      mf.style.width = "100%";
+      mf.style.minHeight = !editing ? "auto" : "60px";
+      mf.style.padding = !editing ? "0" : "8px";
+      mf.style.border = !editing ? "none" : "1px solid #d1d5db";
+      mf.style.borderRadius = "6px";
+      mf.style.backgroundColor = !editing ? "transparent" : "#fff";
+      if (!editing) {
+        mf.style.pointerEvents = "none";
+        mf.style.cursor = "default";
+      }
+
+      // --- CRITICAL: Intercept space insertion paths ---
+
+      // 1) Keydown (most common path, handles auto-repeat too)
+      mf.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (!editing) return;
+        // Some browsers use ' ' (space) and some 'Spacebar' (old); modern is ' '
+        const isSpace =
+          e.key === " " || e.code === "Space" || (e as any).key === "Spacebar";
+        if (isSpace) {
+          e.preventDefault();
+          insertLatex(SPACE_TOKEN);
+        }
+      });
+
+      // 2) beforeinput (IME / some engines send insertText with data = " ")
+      mf.addEventListener("beforeinput", (e: InputEvent) => {
+        if (!editing) return;
+        // Only handle direct text insertion; keep deletions/moves intact
+        if (e.inputType === "insertText" && typeof e.data === "string") {
+          if (e.data.includes(" ")) {
+            e.preventDefault();
+            // Replace every literal space with our LaTeX spacing token
+            const latex = e.data.replace(/ /g, SPACE_TOKEN);
+            insertLatex(latex);
+          }
+        }
+      });
+
+      // 3) Paste (insertFromPaste path)
+      mf.addEventListener("paste", (e: ClipboardEvent) => {
+        if (!editing) return;
+        const text = e.clipboardData?.getData("text") ?? "";
+        if (text && text.includes(" ")) {
+          e.preventDefault();
+          const latex = text.replace(/ /g, SPACE_TOKEN);
+          insertLatex(latex);
+        }
+      });
+
+      // Propagate changes upstream (note: MathLive value already contains our tokens)
+      mf.addEventListener("input", (evt) => {
+        if (!editing) return;
+        ignoreNextChange.current = true;
+        const rawLatex = (evt.target as MathfieldElement).value;
+        onChange(`\\(${rawLatex}\\)`);
+      });
+
+      containerRef.current.appendChild(mf);
+    }
+
+    // Push prop value into the mathfield as-is (preserves \, / \; / \hspace{...})
+    const unwrappedValue = extractLatexFromText(value || "");
+    if (mathfieldRef.current!.value !== unwrappedValue) {
+      mathfieldRef.current!.value = unwrappedValue;
+    }
+
+    // Sync interactivity styles with `editing`
+    mathfieldRef.current!.setOptions({ readOnly: !editing });
+    mathfieldRef.current!.style.pointerEvents = editing ? "auto" : "none";
+    mathfieldRef.current!.style.backgroundColor = editing ? "#fff" : "transparent";
+    mathfieldRef.current!.style.minHeight = editing ? "60px" : "auto";
+    mathfieldRef.current!.style.padding = editing ? "8px" : "0";
+    mathfieldRef.current!.style.border = editing ? "1px solid #d1d5db" : "none";
 
     return () => {
-      mf.removeEventListener("input", onInput);
-      mf.remove();
-      mathfieldRef.current = null;
+      if (mathfieldRef.current) {
+        mathfieldRef.current.remove();
+        mathfieldRef.current = null;
+      }
     };
-  }, []);
+  }, [editing]);
 
-  // Keep value in sync
   useEffect(() => {
-    const mf = mathfieldRef.current;
-    if (!mf) return;
-    if (ignoreNextChange.current) {
+    if (!mathfieldRef.current || ignoreNextChange.current) {
       ignoreNextChange.current = false;
       return;
     }
     const unwrappedValue = extractLatexFromText(value || "");
-    if (mf.value !== unwrappedValue) mf.value = unwrappedValue;
+    if (mathfieldRef.current.value !== unwrappedValue) {
+      mathfieldRef.current.value = unwrappedValue;
+    }
   }, [value]);
-
-  // Toggle readOnly and visuals when editing changes
-  useEffect(() => {
-    const mf = mathfieldRef.current;
-    if (!mf) return;
-    mf.setOptions({ readOnly: !editing });
-    mf.style.pointerEvents = editing ? "auto" : "none";
-    mf.style.backgroundColor = editing ? "#fff" : "transparent";
-    mf.style.minHeight = editing ? "60px" : "auto";
-    mf.style.padding = editing ? "8px" : "0";
-    mf.style.border = editing ? "1px solid #d1d5db" : "none";
-    mf.style.borderRadius = editing ? "6px" : "0";
-    mf.style.cursor = editing ? "text" : "default";
-  }, [editing]);
-
-  // Split text by lines for timing
-  const lines = value ? value.split("//").map((line) => line.trim()) : [""];
-
-  const handleTimingChange = (index: number, secondsInput: number) => {
-    const seconds = Number.isFinite(secondsInput) ? secondsInput : 0;
-    const newTimings = [...timings];
-    newTimings[index] = { text: lines[index], seconds };
-    onTimingsChange?.(newTimings);
-  };
 
   return (
     <div className={`relative ${className}`}>
       <div ref={containerRef} />
-
-      {/* Timing Input Section */}
-      {enableTiming && editing && lines.length > 1 && (
-        <div className="mt-4 border-t pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-medium text-gray-700">
-              Set timing for each line:
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setShowTimingInput(!showTimingInput)}
-              className="inline-flex items-center gap-1"
-            >
-              <Clock className="h-3.5 w-3.5" />
-              {showTimingInput ? "Hide Timing" : "Show Timing"}
-            </Button>
-          </div>
-
-          {showTimingInput && (
-            <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
-              {lines.map((line, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 p-2 bg-white rounded border"
-                >
-                  <div className="flex-1 text-sm text-gray-600 min-w-0">
-                    <div className="font-medium">Line {index + 1}:</div>
-                    <div className="truncate" title={line}>
-                      {line || (
-                        <em className="text-gray-400">Empty line</em>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Seconds"
-                      value={timings[index]?.seconds ?? ""}
-                      onChange={(e) =>
-                        handleTimingChange(index, Number(e.target.value))
-                      }
-                      className="w-24 h-8 text-sm"
-                      min="0"
-                      step="0.1"
-                    />
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                      sec
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {editing && (onSave || onCancel) && (
+      {editing && (
         <div className="flex justify-end gap-2 mt-2">
-          {onCancel && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onCancel}
-              className="h-8 px-3"
-            >
-              Cancel
-            </Button>
-          )}
-          {onSave && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={onSave}
-              className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white inline-flex items-center"
-            >
-              <Check className="mr-1 h-3.5 w-3.5" />
-              Save
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            className="h-8 px-3"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSave}
+            className="h-8 px-3 bg-green-500 hover:bg-green-600 text-white"
+          >
+            <Check size={14} className="mr-1" /> Save
+          </Button>
         </div>
       )}
       {!value && !editing && (
@@ -203,5 +220,3 @@ const MathInput: React.FC<MathInputProps> = ({
     </div>
   );
 };
-
-export default MathInput;
