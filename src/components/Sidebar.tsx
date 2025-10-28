@@ -19,6 +19,7 @@ const Sidebar = () => {
     { label: "ADMINSTRATION", path: "/all_admins_page" },
     { label: "TRASH", path: "/content_trash" },
     { label: "PROFILE", path: "/admin_profile" },
+    { label: "HOME BANNER", path: "/admin_home_banner" },
   ];
 
   // Filter items if role is teacher
@@ -26,7 +27,8 @@ const Sidebar = () => {
     navItems = navItems.filter(
       (item) =>
         item.label !== "ADMINSTRATION" &&
-        item.label !== "TRASH"
+        item.label !== "TRASH"&& 
+        item.label !== "HOME BANNER"
     );
   }
 

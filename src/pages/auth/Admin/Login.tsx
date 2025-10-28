@@ -1,3 +1,4 @@
+// src/pages/Admin_login/Login.tsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, KeyRound, Shield } from "lucide-react";
@@ -5,18 +6,16 @@ import logo from "@/assets/logo2.png";
 import backgroundImage from "@/assets/bg.jpg";
 import logimage from "@/assets/log.jpg";
 
-// Import services
+// Services
 import loginAdmin, {
   forgotPassword,
   verifyResetOTP,
   resetPassword,
 } from "@/services/Admin_Service/Auth_service/Admin_login_service";
 
-// Import components
 import CustomSpin from "@/components/customised_spins/customised_sprin";
 import { showMessage } from "@/components/helper/feedback_message";
 
-// Import reactstrap components
 import {
   Button,
   Card,
@@ -32,11 +31,12 @@ import {
   ModalFooter,
 } from "reactstrap";
 
-const Admin_login = () => {
+const Admin_login: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -54,42 +54,36 @@ const Admin_login = () => {
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleForgotPasswordChange = (e) => {
+  const handleForgotPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForgotPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Call to your backend API
-      const response = await loginAdmin(formData);
+      // Call backend
+      const response = await loginAdmin(formData); // returns { message, token, admin }
 
-      // Handle successful response
-      showMessage("success", "Login successful!");
+      // Optional: if you prefer to store here (and NOT in the service), uncomment below
+      // localStorage.setItem("adminToken", response.token);
+      // localStorage.setItem("adminData", JSON.stringify(response.admin));
+      // localStorage.setItem("adminId", response.admin._id);
 
-      // Save auth token or user data to localStorage if needed
-      localStorage.setItem("token", response.token);
-      const storedUser = localStorage.setItem(
-        "user",
-        JSON.stringify(response.user)
-      );
-      console.log("----- storeduser", storedUser);
-
-      // Navigate to dashboard or home page
+      showMessage("success", response.message || "Login successful!");
       navigate("/admin_dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
       showMessage(
         "error",
-        error.response?.data?.message || "Login failed. Please try again."
+        error?.response?.data?.message || "Login failed. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -98,7 +92,6 @@ const Admin_login = () => {
 
   const handleForgotPassword = async () => {
     if (forgotPasswordStep === 1) {
-      // Validate email
       if (!forgotPasswordData.email) {
         showMessage("error", "Please enter your email address");
         return;
@@ -109,7 +102,7 @@ const Admin_login = () => {
         const response = await forgotPassword(forgotPasswordData.email);
         showMessage("success", response.message || "OTP sent to your email");
         setForgotPasswordStep(2);
-        // Start countdown for OTP resend (60 seconds)
+
         setCountdown(60);
         const timer = setInterval(() => {
           setCountdown((prev) => {
@@ -120,16 +113,15 @@ const Admin_login = () => {
             return prev - 1;
           });
         }, 1000);
-      } catch (error) {
+      } catch (error: any) {
         showMessage(
           "error",
-          error.response?.data?.message || "Failed to send OTP. Please try again."
+          error?.response?.data?.message || "Failed to send OTP. Please try again."
         );
       } finally {
         setForgotPasswordLoading(false);
       }
     } else if (forgotPasswordStep === 2) {
-      // Validate OTP
       if (!forgotPasswordData.otp) {
         showMessage("error", "Please enter the OTP");
         return;
@@ -143,16 +135,15 @@ const Admin_login = () => {
         );
         showMessage("success", response.message || "OTP verified successfully");
         setForgotPasswordStep(3);
-      } catch (error) {
+      } catch (error: any) {
         showMessage(
           "error",
-          error.response?.data?.message || "Invalid OTP. Please try again."
+          error?.response?.data?.message || "Invalid OTP. Please try again."
         );
       } finally {
         setForgotPasswordLoading(false);
       }
     } else if (forgotPasswordStep === 3) {
-      // Validate new password
       if (!forgotPasswordData.newPassword) {
         showMessage("error", "Please enter a new password");
         return;
@@ -171,10 +162,10 @@ const Admin_login = () => {
         );
         showMessage("success", response.message || "Password reset successfully");
         setForgotPasswordStep(4);
-      } catch (error) {
+      } catch (error: any) {
         showMessage(
           "error",
-          error.response?.data?.message || "Failed to reset password. Please try again."
+          error?.response?.data?.message || "Failed to reset password. Please try again."
         );
       } finally {
         setForgotPasswordLoading(false);
@@ -199,10 +190,10 @@ const Admin_login = () => {
           return prev - 1;
         });
       }, 1000);
-    } catch (error) {
+    } catch (error: any) {
       showMessage(
         "error",
-        error.response?.data?.message || "Failed to resend OTP. Please try again."
+        error?.response?.data?.message || "Failed to resend OTP. Please try again."
       );
     } finally {
       setForgotPasswordLoading(false);
@@ -221,7 +212,7 @@ const Admin_login = () => {
     setCountdown(0);
   };
 
-  const getStepIcon = (step) => {
+  const getStepIcon = (step: number) => {
     switch (step) {
       case 1:
         return <Mail className="h-4 w-4" />;
@@ -234,7 +225,7 @@ const Admin_login = () => {
     }
   };
 
-  const getStepTitle = (step) => {
+  const getStepTitle = (step: number) => {
     switch (step) {
       case 1:
         return "Email";
@@ -249,7 +240,7 @@ const Admin_login = () => {
 
   const renderForgotPasswordStep = () => {
     switch (forgotPasswordStep) {
-      case 1: // Email input
+      case 1:
         return (
           <>
             <div className="mb-6 text-center">
@@ -284,7 +275,7 @@ const Admin_login = () => {
             </FormGroup>
           </>
         );
-      case 2: // OTP input
+      case 2:
         return (
           <>
             <div className="mb-6 text-center">
@@ -316,7 +307,7 @@ const Admin_login = () => {
                   className="bg-blue-50 border-2 border-blue-200 text-blue-950 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 pr-4 py-3 text-sm font-medium text-center tracking-widest transition-all duration-200 hover:border-blue-300"
                   type="text"
                   placeholder="000000"
-                  maxLength="6"
+                  maxLength={6}
                   required
                 />
               </div>
@@ -328,8 +319,8 @@ const Admin_login = () => {
                 onClick={resendOTP}
                 disabled={countdown > 0}
                 className={`text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-200 ${countdown > 0
-                  ? "text-blue-400 bg-blue-50 cursor-not-allowed"
-                  : "text-blue-950 bg-blue-100 hover:bg-blue-200 hover:text-blue-950"
+                    ? "text-blue-400 bg-blue-50 cursor-not-allowed"
+                    : "text-blue-950 bg-blue-100 hover:bg-blue-200 hover:text-blue-950"
                   }`}
               >
                 {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
@@ -337,7 +328,7 @@ const Admin_login = () => {
             </div>
           </>
         );
-      case 3: // New password
+      case 3:
         return (
           <>
             <div className="mb-6 text-center">
@@ -401,7 +392,7 @@ const Admin_login = () => {
             </FormGroup>
           </>
         );
-      case 4: // Success
+      case 4:
         return (
           <div className="text-center py-8">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -467,10 +458,7 @@ const Admin_login = () => {
             Sign into your admin account
           </p>
 
-          <Form
-            onSubmit={handleSubmit}
-            className="w-full max-w-md flex flex-col mx-auto"
-          >
+          <Form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col mx-auto">
             <FormGroup className="mb-6 w-full">
               <label className="w-full block mb-3 text-sm font-semibold text-blue-950">
                 Email Address
@@ -562,13 +550,10 @@ const Admin_login = () => {
         isOpen={forgotPasswordModal}
         toggle={closeForgotPasswordModal}
         centered
-        className="max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl" // Responsive sizing
+        className="max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl"
         backdrop="static"
       >
-        <ModalHeader
-          toggle={closeForgotPasswordModal}
-          className="border-0 pb-2"
-        >
+        <ModalHeader toggle={closeForgotPasswordModal} className="border-0 pb-2">
           <div className="flex items-center text-blue-950">
             {forgotPasswordStep > 1 && forgotPasswordStep < 4 && (
               <button
@@ -582,19 +567,19 @@ const Admin_login = () => {
           </div>
         </ModalHeader>
         <ModalBody className="px-6 py-4">
-          {/* Enhanced Stepper indicator */}
+          {/* Stepper: replace Fragment with a real element to avoid invalid prop warnings */}
           {forgotPasswordStep < 4 && (
             <div className="flex justify-center mb-8">
               <div className="flex items-center">
                 {[1, 2, 3].map((step) => (
-                  <React.Fragment key={step}>
+                  <span key={step} className="flex items-center">
                     <div className="flex flex-col items-center">
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${step === forgotPasswordStep
-                          ? "bg-blue-950 border-blue-950 text-white shadow-lg scale-110"
-                          : step < forgotPasswordStep
-                            ? "bg-blue-100 border-blue-950 text-blue-950"
-                            : "bg-gray-100 border-gray-300 text-gray-400"
+                            ? "bg-blue-950 border-blue-950 text-white shadow-lg scale-110"
+                            : step < forgotPasswordStep
+                              ? "bg-blue-100 border-blue-950 text-blue-950"
+                              : "bg-gray-100 border-gray-300 text-gray-400"
                           }`}
                       >
                         {step < forgotPasswordStep ? (
@@ -603,20 +588,20 @@ const Admin_login = () => {
                           getStepIcon(step)
                         )}
                       </div>
-                      <div className={`mt-2 text-xs font-semibold ${step <= forgotPasswordStep ? "text-blue-950" : "text-gray-400"
-                        }`}>
+                      <div
+                        className={`mt-2 text-xs font-semibold ${step <= forgotPasswordStep ? "text-blue-950" : "text-gray-400"
+                          }`}
+                      >
                         {getStepTitle(step)}
                       </div>
                     </div>
                     {step < 3 && (
                       <div
-                        className={`w-16 h-1 mx-3 mt-6 rounded-full transition-all duration-300 ${step < forgotPasswordStep
-                          ? "bg-blue-950"
-                          : "bg-gray-200"
+                        className={`w-16 h-1 mx-3 mt-6 rounded-full transition-all duration-300 ${step < forgotPasswordStep ? "bg-blue-950" : "bg-gray-200"
                           }`}
-                      ></div>
+                      />
                     )}
-                  </React.Fragment>
+                  </span>
                 ))}
               </div>
             </div>

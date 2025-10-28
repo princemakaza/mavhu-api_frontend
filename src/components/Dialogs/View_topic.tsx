@@ -150,11 +150,11 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Quiz presence per content
-  // 'loading' | 'exists' | 'none' | 'error'
-  const [quizStatus, setQuizStatus] = useState<Record<string, "loading" | "exists" | "none" | "error">>({});
+  // Quiz presence per LESSON (key = `${contentId}:${lessonId}`)
+  type QuizState = "loading" | "exists" | "none" | "error";
+  const [quizStatus, setQuizStatus] = useState<Record<string, QuizState>>({});
 
-  // Fetch contents (and then quiz presence)
+  // Fetch contents (and then quiz presence per lesson)
   useEffect(() => {
     const fetchTopicContents = async () => {
       if (!topic) return;
@@ -173,8 +173,8 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
 
         setContents(contentsData);
 
-        // After contents load, check quiz existence per content
-        await checkQuizzesForContents(contentsData);
+        // After contents load, check quiz existence per LESSON
+        await checkQuizzesForLessons(contentsData);
       } catch (err) {
         console.error("Failed to fetch topic contents:", err);
         setError("Failed to load topic contents. Please try again.");
@@ -182,6 +182,8 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
           variant: "destructive",
           title: "Error",
           description: "Failed to load topic contents. Please try again.",
+            duration: 2000, // show for 3 seconds
+
         });
       } finally {
         setLoading(false);
@@ -191,33 +193,36 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     if (open && topic) fetchTopicContents();
   }, [open, topic, toast]);
 
-  const checkQuizzesForContents = async (items: ContentItem[]) => {
-    // set initial loading
-    const init: Record<string, "loading" | "exists" | "none" | "error"> = {};
-    items.forEach((c) => (init[c._id] = "loading"));
+  const keyFor = (contentId: string, lessonId: string) => `${contentId}:${lessonId}`;
+
+  const checkSingleLessonQuiz = async (contentId: string, lessonId: string) => {
+    const key = keyFor(contentId, lessonId);
+    setQuizStatus((prev) => ({ ...prev, [key]: "loading" }));
+    try {
+      const res = await EndLessonQuestionService.getQuizByContentAndLesson(contentId, lessonId);
+      const exists = !!res?.data;
+      setQuizStatus((prev) => ({ ...prev, [key]: exists ? "exists" : "none" }));
+    } catch (e: any) {
+      const msg = (typeof e === "object" && e?.message) ? String(e.message) : "";
+      // Treat 404-ish "not found" as 'none'; other failures as 'error'
+      const state: QuizState = /not\s*found/i.test(msg) ? "none" : "error";
+      setQuizStatus((prev) => ({ ...prev, [key]: state }));
+    }
+  };
+
+  const checkQuizzesForLessons = async (items: ContentItem[]) => {
+    // initialize all lessons as loading
+    const init: Record<string, QuizState> = {};
+    items.forEach((c) => (c.lesson || []).forEach((l) => (init[keyFor(c._id, l._id)] = "loading")));
     setQuizStatus(init);
 
-    // run checks in parallel
-    const results = await Promise.all(
-      items.map(async (c) => {
-        try {
-          const res = await EndLessonQuestionService.getQuizzesByContentId(c._id);
-          const count =
-            typeof res?.count === "number" ? res.count :
-            Array.isArray(res?.data) ? res.data.length : 0;
-          return { id: c._id, status: count > 0 ? "exists" as const : "none" as const };
-        } catch (e) {
-          console.error("Quiz check failed for content:", c._id, e);
-          return { id: c._id, status: "error" as const };
-        }
-      })
+    await Promise.all(
+      items.flatMap((c) =>
+        (c.lesson || []).map(async (l) => {
+          await checkSingleLessonQuiz(c._id, l._id);
+        })
+      )
     );
-
-    setQuizStatus((prev) => {
-      const next = { ...prev };
-      results.forEach(({ id, status }) => (next[id] = status));
-      return next;
-    });
   };
 
   const handleAddContentClick = () => {
@@ -240,7 +245,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     else if (result && typeof result === "object") contentsData = [result];
 
     setContents(contentsData);
-    await checkQuizzesForContents(contentsData);
+    await checkQuizzesForLessons(contentsData);
   };
 
   const openUpdateDialog = (content: ContentItem) => {
@@ -258,11 +263,14 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
     try {
       await TopicContentService.moveToTrash(contentToDelete);
       setContents((prev) => prev.filter((c) => c._id !== contentToDelete));
-      toast({ title: "Success", description: "Content deleted successfully" });
-      // also remove quiz status for the deleted content
+      toast({ title: "Success", description: "Content deleted successfully",   duration: 3000, // show for 3 seconds
+});
+      // also remove quiz status for all lessons of this content
       setQuizStatus((prev) => {
         const next = { ...prev };
-        delete next[contentToDelete];
+        Object.keys(next).forEach((k) => {
+          if (k.startsWith(`${contentToDelete}:`)) delete next[k];
+        });
         return next;
       });
     } catch (err) {
@@ -271,6 +279,8 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         variant: "destructive",
         title: "Error",
         description: "Failed to delete content. Please try again.",
+          duration: 3000, // show for 3 seconds
+
       });
     } finally {
       setDeleteDialogOpen(false);
@@ -318,13 +328,15 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
         exportLinkRef.current.click();
         URL.revokeObjectURL(url);
       }
-      toast({ title: "Export Complete", description: "Topic content exported successfully." });
+      toast({ title: "Export Complete", description: "Topic content exported successfully.",  duration: 2000, // show for 3 seconds
+ });
     } catch (err) {
       console.error("Export error:", err);
       toast({
         variant: "destructive",
         title: "Export Failed",
-        description: "Unable to export topic content. Please try again.",
+        description: "Unable to export topic content. Please try again."  ,duration: 2000, // show for 3 seconds
+
       });
     }
   };
@@ -360,13 +372,15 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
       await refreshContents();
       setLessonEditOpen(false);
       setLessonBeingEdited(null);
-      toast({ title: "Updated", description: "Lesson updated successfully." });
+      toast({ title: "Updated", description: "Lesson updated successfully."  , duration: 3000, // show for 3 seconds
+});
     } catch (err) {
       console.error(err);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update lesson. Please try again.",
+        description: "Failed to update lesson. Please try again.",  duration: 2000, // show for 3 seconds
+
       });
     }
   };
@@ -379,7 +393,8 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
       await refreshContents();
       setLessonDeleteOpen(false);
       setLessonBeingDeleted(null);
-      toast({ title: "Deleted", description: "Lesson permanently deleted." });
+      toast({ title: "Deleted", description: "Lesson permanently deleted."  ,duration: 2000, // show for 3 seconds
+ });
     } catch (err) {
       console.error(err);
       toast({
@@ -571,7 +586,6 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                     <div className="space-y-6">
                       {contents.map((content) => {
                         const lessons = content.lesson || [];
-                        const qStatus = quizStatus[content._id] || "loading";
 
                         return (
                           <div key={content._id} className="bg-white rounded-xl border">
@@ -608,40 +622,7 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                                   Delete Content
                                 </Button>
 
-                                {/* ==== QUIZ BUTTON (conditional) ==== */}
-                                {qStatus === "loading" ? (
-                                  <Button variant="outline" size="sm" disabled>
-                                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                    Checking quiz…
-                                  </Button>
-                                ) : qStatus === "exists" ? (
-                                  <Button
-                                    onClick={() => navigate(`/topics/${content._id}/quiz/edit`)}
-                                    variant="outline"
-                                    size="sm"
-                                  >
-                                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                                    Edit end-lesson quiz
-                                  </Button>
-                                ) : qStatus === "error" ? (
-                                  <Button
-                                    onClick={() => checkQuizzesForContents([content])}
-                                    variant="outline"
-                                    size="sm"
-                                  >
-                                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                                    Retry quiz check
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    onClick={() => navigate(`/topics/${content._id}/quiz/new`)}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    Add End Lesson Questions
-                                  </Button>
-                                )}
+                                {/* Removed per-content quiz button: now handled per-lesson below */}
                               </div>
                             </div>
 
@@ -660,58 +641,103 @@ const ViewTopicContentDialog: React.FC<ViewTopicContentDialogProps> = ({
                                   strategy={verticalListSortingStrategy}
                                 >
                                   <ul className="divide-y">
-                                    {lessons.map((lesson) => (
-                                      <Sortable key={lesson._id} id={lesson._id} className="bg-white">
-                                        {({ attributes, listeners }) => (
-                                          <li className="flex items-center justify-between p-3">
-                                            <div className="flex items-start gap-3 min-w-0">
-                                              {/* Drag handle */}
-                                              <button
-                                                className="p-1 rounded hover:bg-gray-100 text-gray-500 cursor-grab active:cursor-grabbing"
-                                                {...attributes}
-                                                {...listeners}
-                                                aria-label="Drag to reorder"
-                                                title="Drag to reorder"
-                                              >
-                                                <GripVertical size={16} />
-                                              </button>
+                                    {lessons.map((lesson) => {
+                                      const k = keyFor(content._id, lesson._id);
+                                      const qStatus = quizStatus[k] || "loading";
 
-                                              <div className="min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="text-sm font-medium text-gray-900 truncate">
-                                                    {lesson.text}
-                                                  </span>
-                                                  <Badge variant="outline" className="shrink-0 text-xs">
-                                                    Lesson
-                                                  </Badge>
+                                      return (
+                                        <Sortable key={lesson._id} id={lesson._id} className="bg-white">
+                                          {({ attributes, listeners }) => (
+                                            <li className="flex items-center justify-between p-3">
+                                              <div className="flex items-start gap-3 min-w-0">
+                                                {/* Drag handle */}
+                                                <button
+                                                  className="p-1 rounded hover:bg-gray-100 text-gray-500 cursor-grab active:cursor-grabbing"
+                                                  {...attributes}
+                                                  {...listeners}
+                                                  aria-label="Drag to reorder"
+                                                  title="Drag to reorder"
+                                                >
+                                                  <GripVertical size={16} />
+                                                </button>
+
+                                                <div className="min-w-0">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-gray-900 truncate">
+                                                      {lesson.text}
+                                                    </span>
+                                                    <Badge variant="outline" className="shrink-0 text-xs">
+                                                      Lesson
+                                                    </Badge>
+                                                  </div>
                                                 </div>
                                               </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-2 shrink-0">
-                                              <Button
-                                                variant="outline"
-                                                className="h-8 text-xs font-medium border-amber-200 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                                onClick={() =>
-                                                  navigate(`/content/${content._id}/lessons/${lesson._id}/edit`)
-                                                }
-                                              >
-                                                <Edit size={14} className="mr-1" />
-                                                Edit
-                                              </Button>
-                                              <Button
-                                                variant="outline"
-                                                className="h-8 text-xs font-medium border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                onClick={() => openLessonDeleteDialog(lesson, content._id)}
-                                              >
-                                                <Trash2 size={14} className="mr-1" />
-                                                Delete
-                                              </Button>
-                                            </div>
-                                          </li>
-                                        )}
-                                      </Sortable>
-                                    ))}
+                                              <div className="flex items-center gap-2 shrink-0">
+                                                <Button
+                                                  variant="outline"
+                                                  className="h-8 text-xs font-medium border-amber-200 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                                  onClick={() =>
+                                                    navigate(`/content/${content._id}/lessons/${lesson._id}/edit`)
+                                                  }
+                                                >
+                                                  <Edit size={14} className="mr-1" />
+                                                  Edit
+                                                </Button>
+                                                <Button
+                                                  variant="outline"
+                                                  className="h-8 text-xs font-medium border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                  onClick={() => openLessonDeleteDialog(lesson, content._id)}
+                                                >
+                                                  <Trash2 size={14} className="mr-1" />
+                                                  Delete
+                                                </Button>
+
+                                                {/* ==== QUIZ BUTTONS (per LESSON) ==== */}
+                                                {qStatus === "loading" ? (
+                                                  <Button variant="outline" size="sm" disabled>
+                                                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                                    Checking quiz…
+                                                  </Button>
+                                                ) : qStatus === "exists" ? (
+                                                  <Button
+                                                    onClick={() =>
+                                                      navigate(`/admin/content/${content._id}/lesson/${lesson._id}/quiz/edit`)
+                                                    }
+                                                    variant="outline"
+                                                    size="sm"
+                                                  >
+                                                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                                    Edit end-lesson quiz
+                                                  </Button>
+                                                ) : qStatus === "error" ? (
+                                                  <Button
+                                                    onClick={() => checkSingleLessonQuiz(content._id, lesson._id)}
+                                                    variant="outline"
+                                                    size="sm"
+                                                  >
+                                                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                                    Retry quiz check
+                                                  </Button>
+                                                ) : (
+                                                  <Button
+                                                    onClick={() =>
+                                                      navigate(`/admin/content/${content._id}/lesson/${lesson._id}/quiz/create`)
+                                                    }
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50"
+                                                  >
+                                                    Add End Lesson Questions
+                                                  </Button>
+                                                )}
+                                                {/* The button to edit the end lesson quiz or the buton to add end of lesson quiz is placed here */}
+                                              </div>
+                                            </li>
+                                          )}
+                                        </Sortable>
+                                      );
+                                    })}
                                   </ul>
                                 </SortableContext>
                               </DndContext>

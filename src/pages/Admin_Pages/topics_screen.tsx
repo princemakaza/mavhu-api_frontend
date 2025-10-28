@@ -13,9 +13,10 @@ import {
   List as ListIcon,
   XCircle,
   Eye,
+  EyeOff,
   Pencil,
   Trash2,
-  FileText
+  FileText,
 } from "lucide-react";
 
 import Sidebar from "@/components/Sidebar";
@@ -42,16 +43,18 @@ import {
 
 import { useToast } from "@/components/ui/use-toast";
 
-import TopicCard from "@/components/TopicCard";
+// Dialogs
 import AddTopicDialog from "@/components/Dialogs/Add_topic";
 import ViewTopicDialog from "@/components/Dialogs/View_topic";
 import EditTopicDialog from "@/components/Dialogs/Edit_topic";
 import DeleteTopicDialog from "@/components/Dialogs/Delet_topic";
 import ViewTopicContentDialog from "@/components/Dialogs/View_Content";
 
+// Services
 import TopicInSubjectService from "@/services/Admin_Service/Topic_InSubject_service";
 import SubjectService from "@/services/Admin_Service/Subject_service";
 
+// Types
 import type Topic from "@/components/Interfaces/Topic_Interface";
 import type Subject from "@/components/Interfaces/Subject_Interface";
 
@@ -71,7 +74,10 @@ const TopicCardShimmer = () => (
   </Card>
 );
 
-// Utilities
+// ---- Utilities ----
+const getId = (t: any): string =>
+  ((t && (t._id || t.id)) ?? "").toString();
+
 const getTitle = (t: any): string =>
   (t?.title ?? t?.name ?? t?.topicName ?? t?.TopicName ?? "").toString();
 
@@ -95,21 +101,27 @@ const formatDate = (ms: number) => {
   }
 };
 
-// A sleeker list-row card for top-to-bottom view
+// ---- List view card (row) ----
 function TopicRowCard({
   topic,
   index,
   onView,
   onEdit,
-  onDelete,
+  onTrash,
   onViewContent,
+  onToggleVisibility,
+  toggling,
+  trashing,
 }: {
-  topic: Topic;
+  topic: Topic & { showTopic?: boolean; isDeleted?: boolean };
   index: number;
   onView: (t: Topic) => void;
   onEdit: (t: Topic) => void;
-  onDelete: (id: string) => void;
+  onTrash: (id: string, title?: string) => void;
   onViewContent: (t: Topic) => void;
+  onToggleVisibility: (t: Topic & { showTopic?: boolean }) => void;
+  toggling?: boolean;
+  trashing?: boolean;
 }) {
   const title = getTitle(topic);
   const created = getCreatedAt(topic);
@@ -117,6 +129,8 @@ function TopicRowCard({
   const tags: string[] = Array.isArray((topic as any)?.tags)
     ? ((topic as any).tags as string[])
     : [];
+  const id = getId(topic);
+  const visible = (topic as any)?.showTopic !== false;
 
   return (
     <Card className="group w-full border border-gray-200/80 hover:border-blue-200 shadow-sm hover:shadow-md transition-all duration-200 rounded-2xl overflow-hidden">
@@ -136,6 +150,15 @@ function TopicRowCard({
                   {formatDate(created)}
                 </Badge>
               ) : null}
+              <Badge
+                variant={visible ? "default" : "secondary"}
+                className={`${visible
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+              >
+                {visible ? "Visible" : "Hidden"}
+              </Badge>
             </div>
             {description ? (
               <p className="mt-1 text-sm text-slate-600 line-clamp-2">
@@ -150,7 +173,9 @@ function TopicRowCard({
                   </Badge>
                 ))}
                 {tags.length > 5 && (
-                  <Badge variant="outline" className="rounded-full">+{tags.length - 5}</Badge>
+                  <Badge variant="outline" className="rounded-full">
+                    +{tags.length - 5}
+                  </Badge>
                 )}
               </div>
             ) : null}
@@ -169,14 +194,92 @@ function TopicRowCard({
             <Pencil className="h-4 w-4 mr-2" /> Edit
           </Button>
           <Button
+            variant={visible ? "secondary" : "default"}
+            className="rounded-xl"
+            onClick={() => onToggleVisibility(topic as any)}
+            disabled={toggling}
+            title={visible ? "Hide topic" : "Show topic"}
+          >
+            {visible ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            {visible ? "Hide" : "Show"}
+          </Button>
+          <Button
             variant="destructive"
             className="rounded-xl"
-            onClick={() => onDelete(((topic as any)?._id || (topic as any)?.id) as string)}
+            onClick={() => onTrash(id, title)}
+            disabled={trashing}
           >
-            <Trash2 className="h-4 w-4 mr-2" /> Delete
+            <Trash2 className="h-4 w-4 mr-2" /> Move to Trash
           </Button>
         </div>
       </div>
+    </Card>
+  );
+}
+
+// ---- Grid view card ----
+function GridTopicCard({
+  topic,
+  index,
+  onView,
+  onEdit,
+  onTrash,
+  onToggleVisibility,
+  toggling,
+  trashing,
+}: {
+  topic: Topic & { showTopic?: boolean; isDeleted?: boolean };
+  index: number;
+  onView: (t: Topic) => void;
+  onEdit: (t: Topic) => void;
+  onTrash: (id: string, title?: string) => void;
+  onToggleVisibility: (t: Topic & { showTopic?: boolean }) => void;
+  toggling?: boolean;
+  trashing?: boolean;
+}) {
+  const title = getTitle(topic);
+  const created = getCreatedAt(topic);
+  const id = getId(topic);
+  const visible = (topic as any)?.showTopic !== false;
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 rounded-2xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base line-clamp-1">{title}</CardTitle>
+        <CardDescription className="flex items-center gap-2">
+          {created ? formatDate(created) : ""}
+          <span>•</span>
+          <span className={`text-xs ${visible ? "text-emerald-600" : "text-slate-600"}`}>
+            {visible ? "Visible" : "Hidden"}
+          </span>
+        </CardDescription>
+      </CardHeader>
+      <CardFooter className="flex flex-wrap gap-2">
+        <Button variant="outline" className="rounded-xl" onClick={() => onView(topic)}>
+          <Eye className="h-4 w-4 mr-2" /> View
+        </Button>
+        <Button variant="ghost" className="rounded-xl" onClick={() => onEdit(topic)}>
+          <Pencil className="h-4 w-4 mr-2" /> Edit
+        </Button>
+        <Button
+          variant={visible ? "secondary" : "default"}
+          className="rounded-xl"
+          onClick={() => onToggleVisibility(topic as any)}
+          disabled={toggling}
+          title={visible ? "Hide topic" : "Show topic"}
+        >
+          {visible ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+          {visible ? "Hide" : "Show"}
+        </Button>
+        <Button
+          variant="destructive"
+          className="rounded-xl ml-auto"
+          onClick={() => onTrash(id, title)}
+          disabled={trashing}
+        >
+          <Trash2 className="h-4 w-4 mr-2" /> Move to Trash
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
@@ -195,7 +298,7 @@ export default function TopicsScreen() {
   const [isLargeScreen, setIsLargeScreen] = useState<boolean>(false);
   const toggleSidebar = () => setSidebarOpen((v) => !v);
 
-  // Dialogs
+  // Dialogs & UI state
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
   const [viewingTopic, setViewingTopic] = useState<Topic | null>(null);
   const [viewTopicDialogOpen, setViewTopicDialogOpen] = useState(false);
@@ -209,10 +312,12 @@ export default function TopicsScreen() {
 
   // New: search, sort, and view state
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"alpha-asc" | "alpha-desc" | "newest" | "oldest">(
-    "alpha-asc"
-  );
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid"); // default grid, list = top-to-bottom
+  const [sort, setSort] = useState<"alpha-asc" | "alpha-desc" | "newest" | "oldest">("alpha-asc");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Async action flags (per action batch—not per item)
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const [movingToTrash, setMovingToTrash] = useState(false);
 
   const topicCount = useMemo(() => topics.length, [topics]);
 
@@ -229,7 +334,7 @@ export default function TopicsScreen() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Responsive behavior (match AdminSubjects)
+  // Responsive behavior
   useEffect(() => {
     const checkScreenSize = () => {
       const large = window.innerWidth >= 768;
@@ -241,14 +346,14 @@ export default function TopicsScreen() {
     return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
-  // Fetch subject (for name/level/requests)
+  // Fetch subject
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         setLoadingSubject(true);
         const apiHasGetById = (SubjectService as any).getSubjectById;
-        if (!apiHasGetById) return; // fallback title will show
+        if (!apiHasGetById) return;
         const res = await (SubjectService as any).getSubjectById(subjectId);
         const data = (res as any)?.data ?? null;
         if (active) setSubject(data);
@@ -263,20 +368,22 @@ export default function TopicsScreen() {
     };
   }, [subjectId]);
 
-  // Fetch topics
+  // Fetch topics (and filter out isDeleted)
   const loadTopics = async () => {
     try {
       setLoadingTopics(true);
       const res = await TopicInSubjectService.getTopicsBySubjectId(subjectId);
-      const list: Topic[] = (res as any)?.data || [];
-      setTopics(list);
+      const list: any[] = (res as any)?.data || [];
+      // Filter out trashed topics (isDeleted === true)
+      const activeOnly = list.filter((t) => (t?.isDeleted ?? false) === false);
+      setTopics(activeOnly);
     } catch (err) {
       console.error("Failed to fetch topics:", err);
       toast({
         variant: "destructive",
         title: "Couldn't load topics",
         description: "Please retry in a moment.",
-        duration: 6000,
+        duration: 2000,
       });
     } finally {
       setLoadingTopics(false);
@@ -295,9 +402,6 @@ export default function TopicsScreen() {
   const onTopicUpdated = async () => {
     await loadTopics();
   };
-  const onTopicDeleted = async () => {
-    await loadTopics();
-  };
 
   const onViewTopic = (t: Topic) => {
     setViewingTopic(t);
@@ -308,6 +412,7 @@ export default function TopicsScreen() {
     setEditTopicDialogOpen(true);
   };
   const onDeleteTopic = (id: string, title?: string) => {
+    // Keep the delete confirmation dialog flow you already have
     setDeletingTopicId(id);
     setDeletingTopicTitle(title || "this topic");
     setDeleteTopicDialogOpen(true);
@@ -317,26 +422,72 @@ export default function TopicsScreen() {
     setViewContentDialogOpen(true);
   };
 
-  // Derive a nice title
-  const subjectTitle =
-    (subject as any)?.subjectName ||
-    (subject as any)?.title ||
-    (subject as any)?.name ||
-    (loadingSubject ? "Loading subject…" : "Subject");
+  // New: Soft delete directly (Move to Trash)
+  const moveTopicToTrash = async (id: string, title?: string) => {
+    try {
+      setMovingToTrash(true);
+      await TopicInSubjectService.softDeleteTopic(id);
+      toast({
+        title: "Moved to trash",
+        description: `${title || "Topic"} is now in trash.`,
+        duration: 1000, // show for 1 second
+      });
+
+      await loadTopics();
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Failed to move to trash",
+        description: e?.message || "Please try again.",
+        duration: 1000, // show for 1 second
+      });
+
+    } finally {
+      setMovingToTrash(false);
+    }
+  };
+
+  // New: Toggle visibility
+  const toggleVisibility = async (topic: any) => {
+    const id = getId(topic);
+    const current = (topic?.showTopic ?? true) as boolean;
+    try {
+      setTogglingVisibility(true);
+      await TopicInSubjectService.setTopicVisibility(id, !current);
+      toast({
+        title: !current ? "Topic is now visible" : "Topic hidden",
+        description: `"${getTitle(topic)}" has been ${!current ? "shown" : "hidden"}.`,
+        duration: 1000, // show for 1 second
+      });
+
+      await loadTopics();
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Failed to update visibility",
+        description: e?.message || "Please try again.",
+        duration: 1000, // show for 1 second
+      });
+
+    } finally {
+      setTogglingVisibility(false);
+    }
+  };
 
   // Derived: filter & sort topics
+  const [queryInternal, setQueryInternal] = useState("");
+  useEffect(() => setQueryInternal(query), [query]);
+
   const filteredTopics = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = queryInternal.trim().toLowerCase();
     if (!q) return topics;
-    return topics.filter((t) => {
+    return topics.filter((t: any) => {
       const title = getTitle(t).toLowerCase();
-      const desc = (t as any)?.description?.toLowerCase?.() ?? "";
-      const tags = Array.isArray((t as any)?.tags)
-        ? ((t as any).tags as string[]).join(" ").toLowerCase()
-        : "";
+      const desc = t?.description?.toLowerCase?.() ?? "";
+      const tags = Array.isArray(t?.tags) ? (t.tags as string[]).join(" ").toLowerCase() : "";
       return title.includes(q) || desc.includes(q) || tags.includes(q);
     });
-  }, [topics, query]);
+  }, [topics, queryInternal]);
 
   const sortedTopics = useMemo(() => {
     const list = [...filteredTopics];
@@ -354,6 +505,11 @@ export default function TopicsScreen() {
   }, [filteredTopics, sort]);
 
   const hasSearch = query.trim().length > 0;
+  const subjectTitle =
+    (subject as any)?.subjectName ||
+    (subject as any)?.title ||
+    (subject as any)?.name ||
+    (loadingSubject ? "Loading subject…" : "Subject");
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -396,7 +552,6 @@ export default function TopicsScreen() {
                 </Button>
               </Link>
               <div>
-                {/* Show SUBJECT name as the title (no Subject ID) */}
                 <h1 className="text-2xl md:text-3xl font-bold text-blue-900">{subjectTitle}</h1>
 
                 <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -437,7 +592,7 @@ export default function TopicsScreen() {
             </Dialog>
           </div>
 
-          {/* Search + Sort + View controls (restyled) */}
+          {/* Search + Sort + View controls */}
           <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-6">
             {/* Search input */}
             <div className="relative w-full md:max-w-2xl">
@@ -449,6 +604,7 @@ export default function TopicsScreen() {
                 className="pl-9 h-11 rounded-2xl bg-white/80 border-gray-200 shadow-sm focus-visible:ring-2 focus-visible:ring-blue-400"
                 aria-label="Search topics"
               />
+              {/* <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /> */}
               {query && (
                 <button
                   onClick={() => setQuery("")}
@@ -480,9 +636,8 @@ export default function TopicsScreen() {
                 <Button
                   type="button"
                   variant={viewMode === "grid" ? "default" : "ghost"}
-                  className={`flex items-center gap-1 px-3 ${
-                    viewMode === "grid" ? "bg-blue-900 text-white" : ""
-                  }`}
+                  className={`flex items-center gap-1 px-3 ${viewMode === "grid" ? "bg-blue-900 text-white" : ""
+                    }`}
                   onClick={() => setViewMode("grid")}
                   aria-pressed={viewMode === "grid"}
                   aria-label="Grid view"
@@ -493,9 +648,8 @@ export default function TopicsScreen() {
                 <Button
                   type="button"
                   variant={viewMode === "list" ? "default" : "ghost"}
-                  className={`flex items-center gap-1 px-3 ${
-                    viewMode === "list" ? "bg-blue-900 text-white" : ""
-                  }`}
+                  className={`flex items-center gap-1 px-3 ${viewMode === "list" ? "bg-blue-900 text-white" : ""
+                    }`}
                   onClick={() => setViewMode("list")}
                   aria-pressed={viewMode === "list"}
                   aria-label="List view (top to bottom)"
@@ -518,32 +672,35 @@ export default function TopicsScreen() {
             </div>
           ) : sortedTopics.length > 0 ? (
             viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {sortedTopics.map((topic, index) => (
-                  <TopicCard
-                    key={(topic as any)._id || (topic as any).id || index}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
+                {sortedTopics.map((topic: any, index) => (
+                  <GridTopicCard
+                    key={getId(topic) || index}
                     topic={topic}
                     index={index}
-                    onViewTopic={onViewTopic}
-                    onEditTopic={onEditTopic}
-                    onDeleteTopic={(id: string) =>
-                      onDeleteTopic(id, (topic as any).title || (topic as any).name)}
-                    onViewContent={onViewContent}
+                    onView={onViewTopic}
+                    onEdit={onEditTopic}
+                    onTrash={(id, title) => moveTopicToTrash(id, title)}
+                    onToggleVisibility={toggleVisibility}
+                    toggling={togglingVisibility}
+                    trashing={movingToTrash}
                   />
                 ))}
               </div>
             ) : (
-              // List view: sleek top-to-bottom cards
               <div className="flex flex-col gap-4">
-                {sortedTopics.map((topic, index) => (
+                {sortedTopics.map((topic: any, index) => (
                   <TopicRowCard
-                    key={(topic as any)._id || (topic as any).id || index}
+                    key={getId(topic) || index}
                     topic={topic}
                     index={index}
                     onView={(t) => onViewTopic(t)}
                     onEdit={(t) => onEditTopic(t)}
-                    onDelete={(id) => onDeleteTopic(id, getTitle(topic))}
+                    onTrash={(id, title) => moveTopicToTrash(id, title)}
                     onViewContent={(t) => onViewContent(t)}
+                    onToggleVisibility={toggleVisibility}
+                    toggling={togglingVisibility}
+                    trashing={movingToTrash}
                   />
                 ))}
               </div>
@@ -603,13 +760,20 @@ export default function TopicsScreen() {
             />
           </Dialog>
 
+          {/* NOTE:
+              The existing DeleteTopicDialog likely calls a hard delete.
+              Since the requirement is to "move to trash", we now perform soft delete
+              directly from the buttons above. You can keep this dialog for other flows,
+              but it’s no longer used by the "Move to Trash" buttons. */}
           <Dialog open={deleteTopicDialogOpen} onOpenChange={setDeleteTopicDialogOpen}>
             <DeleteTopicDialog
               open={deleteTopicDialogOpen}
               onOpenChange={setDeleteTopicDialogOpen}
               topicId={deletingTopicId}
               topicTitle={deletingTopicTitle}
-              onTopicDeleted={onTopicDeleted}
+              onTopicDeleted={async () => {
+                await loadTopics();
+              }}
             />
           </Dialog>
 

@@ -1,61 +1,102 @@
+// sign_up_service.tsx
 import axios from "axios";
+
+export interface Admin {
+  _id: string;
+  email?: string;
+  name?: string;
+  [k: string]: any;
+}
+
+export interface SignUpResult {
+  message?: string;
+  admin?: Admin;
+  token?: string;
+  raw?: any; // raw response for debugging if needed
+}
 
 const BASE_URL = "/api/v1/admin_route";
 
-const SignUpAdmin = async (userData) => {
+/**
+ * Try to find an object shaped like an Admin in a variety of common response shapes.
+ * This makes the client resilient to backend shape changes like { data: {...} } vs { admin: {...} } etc.
+ */
+function extractAdminAndToken(rd: any): SignUpResult {
+  if (!rd || typeof rd !== "object") return {};
+
+  const message =
+    rd.message ??
+    rd.msg ??
+    rd.statusText ??
+    (typeof rd.status === "string" ? rd.status : undefined);
+
+  const token =
+    rd.token ??
+    rd.accessToken ??
+    rd.data?.token ??
+    rd.payload?.token ??
+    rd.result?.token;
+
+  // potential places the admin object may live
+  const candidates = [
+    rd.data,
+    rd.admin,
+    rd.user,
+    rd.payload,
+    rd.result,
+    // some APIs return { data: { admin: {...} } }
+    rd.data?.admin,
+    rd.data?.user,
+    rd // fallback (in case the API returns the admin at the top level)
+  ];
+
+  const admin = candidates.find(
+    (c: any) => c && typeof c === "object" && typeof c._id === "string"
+  ) as Admin | undefined;
+
+  return { message, admin, token, raw: rd };
+}
+
+const SignUpAdmin = async (userData: Record<string, unknown>): Promise<SignUpResult> => {
   try {
-    console.log("Sending JSON data to API");
+    console.log("Sending JSON data to API...");
 
-    // For JSON data, we use application/json content type
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
+    const response = await axios.post(`${BASE_URL}/signup`, userData, {
+      headers: { "Content-Type": "application/json" }
+    });
 
-    // Make the API call with JSON data
-    const response = await axios.post(`${BASE_URL}/signup`, userData, config);
-
-    // Extract the token from the response
     console.log("API Response:", response.data);
-    console.log("Admin signup token:", response.data.token);
 
-    // Store the token if it exists
-    if (response.data.token) {
-      localStorage.setItem("adminToken", response.data.token);
-      localStorage.setItem("adminData", JSON.stringify(response.data.admin)); // 👈 store role & info
-      localStorage.setItem("adminId", response.data.admin._id); 
-      console.log("Token stored successfully!");
+    const { message, admin, token, raw } = extractAdminAndToken(response.data);
+
+    // Store only when we actually have something to store
+    if (token) localStorage.setItem("adminToken", token);
+    if (admin) {
+      localStorage.setItem("adminData", JSON.stringify(admin));
+      localStorage.setItem("adminId", admin._id);
+      console.log("Admin signup successful — token/admin stored.");
     } else {
-      console.warn("No token received during signup");
+      console.warn("Signup response missing admin object with _id.");
     }
 
-    return response.data;
-  } catch (error) {
-    // Enhanced error logging
+    // Return consistently shaped data to the caller UI
+    return { message, admin, token, raw };
+  } catch (error: any) {
     console.error("Error signing up admin:", error);
 
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error("Error response data:", error.response.data);
-      console.error("Error response status:", error.response.status);
-      console.error("Error response headers:", error.response.headers);
-
-      // Throw a more specific error message if available
+      console.error("Error response:", error.response.data);
       const errorMessage =
         error.response.data?.message ||
         error.response.data?.error ||
         `Server error: ${error.response.status}`;
       throw new Error(errorMessage);
     } else if (error.request) {
-      // The request was made but no response was received
       console.error("No response received:", error.request);
       throw new Error("Network error: No response from server");
     } else {
-      // Something happened in setting up the request that triggered an Error
       console.error("Error message:", error.message);
-      throw new Error(error.message);
+      throw new Error(error.message || "Unknown error");
     }
   }
 };

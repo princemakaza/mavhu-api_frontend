@@ -2,32 +2,74 @@ import axios from "axios";
 
 const BASE_URL = "/api/v1/admin_route";
 
-const loginAdmin = async (userData) => {
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface Admin {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  profilePicture?: string;
+  email: string;
+  contactNumber?: string;
+  role?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LoginResponse {
+  message: string;
+  token: string;
+  admin: Admin;
+}
+
+/**
+ * Logs an admin in and persists token/admin to localStorage.
+ * Server response shape: { message, token, admin }
+ */
+const loginAdmin = async (userData: LoginPayload): Promise<LoginResponse> => {
   try {
-    const response = await axios.post(`${BASE_URL}/login`, userData);
+    console.log("User data for login:", userData);
 
-    // Extract the token from the response
-    console.log(" my  to token", response.data.token);
+    // axios will JSON-serialize objects automatically
+    const response = await axios.post<LoginResponse>(
+      `${BASE_URL}/login`,
+      userData,
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
-    // Store the token using the TokenStorageService
-    if (response.data.token) {
-      localStorage.setItem("adminToken", response.data.token);
-      localStorage.setItem("adminData", JSON.stringify(response.data.admin)); // 👈 store role & info
-      localStorage.setItem("adminId", response.data.admin._id);               // convenience ID
+    console.log("API Response:", response.data);
+    console.log("Admin token:", response.data.token);
+
+    const { token, admin } = response.data;
+
+    if (token) {
+      localStorage.setItem("adminToken", token);
       console.log("Token stored successfully!");
+    } else {
+      console.warn("No token found in response.");
     }
-    // Store the token using the TokenStorageService
-    if (!response.data.token) {
-      alert("Error storing token!");
+
+    if (admin) {
+      localStorage.setItem("adminData", JSON.stringify(admin));
+      if (admin._id) localStorage.setItem("adminId", admin._id);
+    } else {
+      console.warn("No admin object found in response.");
     }
 
     return response.data;
-  } catch (error) {
-    console.error("Error login user:", error.response?.data || error.message);
+  } catch (error: any) {
+    console.error(
+      "Error logging in admin:",
+      error?.response?.data || error?.message || error
+    );
     throw error;
   }
 };
-
 // Forgot password - Request OTP
 const forgotPassword = async (email) => {
   try {

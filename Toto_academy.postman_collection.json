@@ -24,7 +24,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/admin_route/signup",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/admin_route/signup",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -56,7 +56,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/admin_route/getalladmins",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/admin_route/getalladmins",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -87,7 +87,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/admin_route/login",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/admin_route/login",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -397,7 +397,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/student_route/signup",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/student_route/signup",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -428,7 +428,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/student_route/login",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/student_route/login",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -459,7 +459,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/student_route/loginbyphone",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/student_route/loginbyphone",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -491,7 +491,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/student_route/getallstudents",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/student_route/getallstudents",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -532,7 +532,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/student_route/updatestudent/6808cbc6d407c3221f36b5e0",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/student_route/updatestudent/6808cbc6d407c3221f36b5e0",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -555,7 +555,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/student_route/deletestudent/6808cbc6d407c3221f36b5e0",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/student_route/deletestudent/6808cbc6d407c3221f36b5e0",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -651,7 +651,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/subject/create",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/subject/create",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -692,7 +692,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/subject/update/680f6c8ce4e0804cf98cab35",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/subject/update/680f6c8ce4e0804cf98cab35",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -725,7 +725,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/subject/getall",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/subject/getall",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -747,7 +747,7 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/subject/delete/680f6c8ce4e0804cf98cab35",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/subject/delete/680f6c8ce4e0804cf98cab35",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -780,7 +780,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/subject/get/680f6c8ce4e0804cf98cab35",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/subject/get/680f6c8ce4e0804cf98cab35",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -833,7 +833,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_in_subject/create",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_in_subject/create",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -883,7 +883,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_in_subject/getall",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_in_subject/getall",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -954,7 +954,7 @@
 									}
 								},
 								"url": {
-									"raw": "http://localhost:4071/api/v1/comment_topic_content/create",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/comment_topic_content/create",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -986,7 +986,7 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/comment_topic_content/getall",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/comment_topic_content/getall",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1018,7 +1018,7 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/comment_topic_content/bytopic/6814887e24dcd63d82ad6521",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/comment_topic_content/bytopic/6814887e24dcd63d82ad6521",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1041,7 +1041,7 @@
 								"method": "DELETE",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/comment_topic_content/delete/6814887e24dcd63d82ad6521",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/comment_topic_content/delete/6814887e24dcd63d82ad6521",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1083,7 +1083,7 @@
 									}
 								},
 								"url": {
-									"raw": "http://localhost:4071/api/v1/comment_topic_content/update/6814887e24dcd63d82ad6521",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/comment_topic_content/update/6814887e24dcd63d82ad6521",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1106,7 +1106,7 @@
 								"method": "DELETE",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/comment_topic_content/delete/bytopic/6814887e24dcd63d82ad6521",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/comment_topic_content/delete/bytopic/6814887e24dcd63d82ad6521",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1151,7 +1151,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_content/create",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_content/create",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1203,7 +1203,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_content/update/6814887724dcd63d82ad651f",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_content/update/6814887724dcd63d82ad651f",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1236,7 +1236,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_content/get/6814887724dcd63d82ad651f",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_content/get/6814887724dcd63d82ad651f",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1269,7 +1269,7 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_content/delete/6814887724dcd63d82ad651f",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_content/delete/6814887724dcd63d82ad651f",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1302,7 +1302,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/topic_content/by-topic/6814813924dcd63d82ad6519",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/topic_content/by-topic/6814813924dcd63d82ad6519",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1363,7 +1363,7 @@
 									}
 								},
 								"url": {
-									"raw": "http://localhost:4071/api/v1/message_community_route/create",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/message_community_route/create",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1395,7 +1395,7 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/message_community_route/get/681c87570fc9d323da5e3625",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/message_community_route/get/681c87570fc9d323da5e3625",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1428,7 +1428,7 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/message_community_route/community/681c6a3e88b9909f563ee690",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/message_community_route/community/681c6a3e88b9909f563ee690",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1461,7 +1461,7 @@
 								"method": "DELETE",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/message_community_route/delete/681c87570fc9d323da5e3625",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/message_community_route/delete/681c87570fc9d323da5e3625",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1503,7 +1503,7 @@
 									}
 								},
 								"url": {
-									"raw": "http://localhost:4071/api/v1/message_community_route/update/681c87570fc9d323da5e3625",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/message_community_route/update/681c87570fc9d323da5e3625",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1536,7 +1536,7 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "http://localhost:4071/api/v1/message_community_route/sender/681374a1a32332081e3da351",
+									"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/message_community_route/sender/681374a1a32332081e3da351",
 									"protocol": "http",
 									"host": [
 										"localhost"
@@ -1580,7 +1580,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/create",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/create",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1612,7 +1612,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/getall",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/getall",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1644,7 +1644,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/get/681c6a3e88b9909f563ee690",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/get/681c6a3e88b9909f563ee690",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1686,7 +1686,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/update/681c6a3e88b9909f563ee690",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/update/681c6a3e88b9909f563ee690",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1709,7 +1709,7 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/delete/681c6a3e88b9909f563ee690",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/delete/681c6a3e88b9909f563ee690",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1751,7 +1751,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/join/681c6a3e88b9909f563ee690",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/join/681c6a3e88b9909f563ee690",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1796,7 +1796,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/subject/681c67c388b9909f563ee689",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/subject/681c67c388b9909f563ee689",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1838,7 +1838,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/community_service/leave/681c6a3e88b9909f563ee690",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/community_service/leave/681c6a3e88b9909f563ee690",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1866,7 +1866,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/library_book/create",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/library_book/create",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1888,7 +1888,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/library_book/getall",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/library_book/getall",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1910,7 +1910,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/library_book/get/:id",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/library_book/get/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1939,7 +1939,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/library_book/get-by-subject/:subjectId",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/library_book/get-by-subject/:subjectId",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1968,7 +1968,7 @@
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/library_book/update/:id",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/library_book/update/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -1997,7 +1997,7 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/library_book/delete/:id",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/library_book/delete/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2043,7 +2043,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/exam/getall",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/exam/getall",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2065,7 +2065,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/exam/get/:id",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/exam/get/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2094,7 +2094,7 @@
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/exam/update/:id",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/exam/update/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2150,7 +2150,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:4071/api/v1/exam/create",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/exam/create",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2177,7 +2177,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/payment/createPayment",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/payment/createPayment",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2199,7 +2199,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/payment/getAllPayments",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/payment/getAllPayments",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2221,7 +2221,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/payment/getAllPayments",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/payment/getAllPayments",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2243,7 +2243,7 @@
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/payment/paymentStatus/:id/status",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/payment/paymentStatus/:id/status",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2273,7 +2273,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/payment/status/:status",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/payment/status/:status",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2302,7 +2302,7 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:4071/api/v1/payment/delete/:id",
+							"raw": "http://localhost:4071http://13.61.185.238:4071/api/v1/payment/delete/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"

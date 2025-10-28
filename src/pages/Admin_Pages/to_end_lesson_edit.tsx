@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Skeleton } from "@/components/ui/skeleton"; // ⬅️ added
+import { Skeleton } from "@/components/ui/skeleton";
 import MathInput from "./createContentComponent/MathInput";
 import {
   ChevronLeft,
@@ -25,14 +24,18 @@ import EndLessonQuestionService from "@/services/Admin_Service/end_lesson_questi
 // Types
 export type QuestionType = "open-ended" | "multiple-choice";
 export interface QuizQuestion {
-  _id?: string; // existing questions carry _id
+  _id?: string;
   questionText: string;
   type: QuestionType;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string; // MCQ: required; Open-ended: optional (UI now supports entering this)
 }
-interface QuizPayload {
+
+interface LessonScopedAutosave {
   topic_content_id: string;
+  lesson_id: string;
+  quizId: string | null;           // informational only
+  topicTitle: string;
   questions: QuizQuestion[];
 }
 
@@ -52,7 +55,7 @@ const LoadingScaffold: React.FC = () => {
                 <ChevronLeft size={18} className="mr-1" />
                 Back
               </Button>
-              <div className="h-4 w-px bg-gray-200" />
+              <div className="h-4 w-px bg-gray-2 00" />
               <div className="hidden md:block">
                 <div className="inline-flex items-center gap-2">
                   <Skeleton className="h-4 w-4 rounded-full" />
@@ -88,7 +91,7 @@ const LoadingScaffold: React.FC = () => {
             </div>
           </div>
 
-          {[0,1,2].map((i) => (
+          {[0, 1, 2].map((i) => (
             <div key={i} className="bg-white rounded-xl border-2 border-gray-100 shadow-sm p-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -103,7 +106,7 @@ const LoadingScaffold: React.FC = () => {
 
               <div className="mt-3">
                 <div className="inline-flex items-center gap-2 text-xs text-gray-600 mb-1">
-                  <Radio size={14} /><span>Is this a multiple‑choice question?</span>
+                  <Radio size={14} /><span>Is this a multiple-choice question?</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Skeleton className="h-8 w-36 rounded-md" />
@@ -140,17 +143,19 @@ const LoadingScaffold: React.FC = () => {
 };
 
 const ToEditEndLesson: React.FC = () => {
-  const { topicId } = useParams<{ topicId: string }>();
+  const { topicId, lessonId } = useParams<{ topicId: string; lessonId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const AUTOSAVE_KEY = `QUIZ_EDIT_AUTOSAVE_${topicId || "unknown"}`;
+  // autosave key now includes BOTH ids
+  const AUTOSAVE_KEY = `QUIZ_EDIT_AUTOSAVE_${topicId || "unknown"}_${lessonId || "unknown"}`;
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState<number | null>(null);
 
+  // quizId kept only for context; updates use lesson-scoped routes
   const [quizId, setQuizId] = useState<string | null>(null);
   const [topicTitle, setTopicTitle] = useState<string>("");
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -160,50 +165,61 @@ const ToEditEndLesson: React.FC = () => {
     const saved = localStorage.getItem(AUTOSAVE_KEY);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as { quizId: string | null; topicTitle: string; questions: QuizQuestion[] };
-        setQuizId(parsed.quizId || null);
-        setTopicTitle(parsed.topicTitle || "");
-        setQuestions(Array.isArray(parsed.questions) ? parsed.questions : []);
-        setLoading(false);
-        return; // defer fetching to user if they want fresh
-      } catch {}
+        const parsed = JSON.parse(saved) as LessonScopedAutosave;
+        if (
+          parsed.topic_content_id === (topicId || "") &&
+          parsed.lesson_id === (lessonId || "")
+        ) {
+          setQuizId(parsed.quizId || null);
+          setTopicTitle(parsed.topicTitle || "");
+          setQuestions(Array.isArray(parsed.questions) ? parsed.questions : []);
+          setLoading(false);
+          return; // defer fetching to user if they want fresh
+        }
+      } catch { }
     }
     // Otherwise fetch from API
     fetchFromServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicId]);
+  }, [topicId, lessonId]);
 
   const fetchFromServer = async () => {
-    if (!topicId) return;
+    if (!topicId || !lessonId) return;
     setLoading(true);
     try {
-      const res = await EndLessonQuestionService.getQuizzesByContentId(topicId);
-      // Expecting { success, data: [ ... ], count }
-      const arr = Array.isArray(res?.data) ? res.data : [];
-      if (!arr.length) {
-        setQuestions([
-          { questionText: "", type: "open-ended", options: [], correctAnswer: "" },
-        ]);
+      // LESSON-SCOPED GET
+      const res = await EndLessonQuestionService.getQuizByContentAndLesson(topicId, lessonId);
+      // Expecting { success, data }
+      const qdoc = res?.data;
+      if (!qdoc) {
+        setQuestions([{ questionText: "", type: "open-ended", options: [], correctAnswer: "" }]);
         setQuizId(null);
         setTopicTitle("");
-        toast({ title: "No quiz found", description: "Create one from scratch and save to persist." });
+        toast({
+          title: "No quiz found for this lesson",
+          description: "Create one from scratch and save to persist.",
+          duration: 1000, // show for 1 second
+        });
       } else {
-        // take the first quiz (or you could add a selector if multiple)
-        const q = arr[0];
-        setQuizId(q._id);
-        setTopicTitle(q.topic_content_id?.title || "");
-        const qs: QuizQuestion[] = (q.questions || []).map((item: any) => ({
+        setQuizId(qdoc._id || null);
+        setTopicTitle(qdoc.topic_content_id?.title || "");
+        const qs: QuizQuestion[] = (qdoc.questions || []).map((item: any) => ({
           _id: item._id,
           questionText: item.questionText || "",
           type: item.type || "open-ended",
           options: Array.isArray(item.options) ? item.options : [],
-          correctAnswer: item.correctAnswer || "",
+          correctAnswer: item.correctAnswer || "", // will be blank for open-ended in DB, OK
         }));
         setQuestions(qs.length ? qs : [{ questionText: "", type: "open-ended", options: [], correctAnswer: "" }]);
       }
     } catch (e: any) {
       const msg = typeof e === "string" ? e : e?.message || "Failed to retrieve quiz";
-      toast({ variant: "destructive", title: "Error", description: msg });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: msg,
+        duration: 1000, // show for 1 second
+      });
     } finally {
       setLoading(false);
     }
@@ -213,15 +229,19 @@ const ToEditEndLesson: React.FC = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       if (!dirty) return;
-      localStorage.setItem(
-        AUTOSAVE_KEY,
-        JSON.stringify({ quizId, topicTitle, questions })
-      );
+      const payload: LessonScopedAutosave = {
+        topic_content_id: topicId || "",
+        lesson_id: lessonId || "",
+        quizId,
+        topicTitle,
+        questions,
+      };
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
       setLastSaved(Date.now());
       setDirty(false);
     }, 1200);
     return () => clearTimeout(t);
-  }, [dirty, questions, quizId, topicTitle, AUTOSAVE_KEY]);
+  }, [dirty, questions, quizId, topicTitle, AUTOSAVE_KEY, topicId, lessonId]);
 
   // Unsaved guard
   useEffect(() => {
@@ -278,7 +298,7 @@ const ToEditEndLesson: React.FC = () => {
   const validate = (): string[] => {
     const errs: string[] = [];
     if (!topicId) errs.push("Missing topic id in route.");
-    if (!quizId) errs.push("No quiz selected to update (fetch first).");
+    if (!lessonId) errs.push("Missing lesson id in route.");
     questions.forEach((q, i) => {
       if (!q.questionText.trim()) errs.push(`Q${i + 1}: question text is required.`);
       if (q.type === "multiple-choice") {
@@ -287,35 +307,44 @@ const ToEditEndLesson: React.FC = () => {
         if (!q.correctAnswer.trim()) errs.push(`Q${i + 1}: select the correct answer.`);
         if (q.correctAnswer && !opts.includes(q.correctAnswer)) errs.push(`Q${i + 1}: correct answer must match one of the options.`);
       }
+      // open-ended correctAnswer remains optional
     });
     return errs;
   };
 
-  // Submit (Update)
+  // Submit (Lesson-scoped Update)
   const handleUpdate = async () => {
     const errors = validate();
     if (errors.length) {
-      toast({ variant: "destructive", title: "Please fix these first", description: errors.join(" • ") });
+      toast({
+        variant: "destructive",
+        title: "Please fix these first",
+        description: errors.join(" • "),
+        duration: 3000, // show for 3 seconds
+      });
       return;
     }
     try {
       setIsSubmitting(true);
-      const payload: QuizPayload = {
-        topic_content_id: topicId!,
+
+      // Map questions; keep open-ended correctAnswer (optional)
+      const body = {
         questions: questions.map((q) => ({
-          _id: q._id, // include if present
+          _id: q._id, // if your API ignores this, it’s fine; helpful for server-side mapping
           questionText: q.questionText,
           type: q.type,
           options: q.type === "multiple-choice" ? q.options : [],
-          correctAnswer: q.type === "multiple-choice" ? q.correctAnswer : "",
+          correctAnswer: q.type === "multiple-choice" ? q.correctAnswer : (q.correctAnswer || ""),
         })),
-      } as any;
+      };
 
-      await EndLessonQuestionService.updateQuiz(quizId!, payload);
+      // LESSON-SCOPED UPDATE: PUT /content/:topicContentId/lesson/:lessonId
+      await EndLessonQuestionService.updateQuizByContentAndLesson(topicId!, lessonId!, body);
 
+      // clean up
       localStorage.removeItem(AUTOSAVE_KEY);
       setDirty(false);
-      toast({ title: "Quiz updated", description: "Changes have been saved." });
+      toast({ title: "Quiz updated", description: "Changes have been saved for this lesson." });
     } catch (e: any) {
       const msg = typeof e === "string" ? e : e?.message || "Failed to update quiz";
       toast({ variant: "destructive", title: "Error", description: msg });
@@ -325,7 +354,7 @@ const ToEditEndLesson: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingScaffold />; // ⬅️ shimmer while loading
+    return <LoadingScaffold />;
   }
 
   return (
@@ -364,10 +393,21 @@ const ToEditEndLesson: React.FC = () => {
               </div>
               <Button
                 onClick={() => {
-                  localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ quizId, topicTitle, questions }));
+                  const payload: LessonScopedAutosave = {
+                    topic_content_id: topicId || "",
+                    lesson_id: lessonId || "",
+                    quizId,
+                    topicTitle,
+                    questions,
+                  };
+                  localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
                   setLastSaved(Date.now());
                   setDirty(false);
-                  toast({ title: "Draft saved", description: "You can safely come back later." });
+                  toast({
+                    title: "Draft saved",
+                    description: "You can safely come back later.",
+                    duration: 1000, // show for 1 second
+                  });
                 }}
                 variant="outline"
                 className="hidden sm:inline-flex"
@@ -377,7 +417,11 @@ const ToEditEndLesson: React.FC = () => {
               <Button onClick={fetchFromServer} variant="outline" className="hidden sm:inline-flex">
                 <RefreshCw size={16} className="mr-1" /> Refresh
               </Button>
-              <Button onClick={handleUpdate} disabled={isSubmitting || !quizId} className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white">
+              <Button
+                onClick={handleUpdate}
+                disabled={isSubmitting || !topicId || !lessonId}
+                className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white"
+              >
                 {isSubmitting ? (
                   <span className="inline-flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Updating…</span>
                 ) : (
@@ -395,9 +439,13 @@ const ToEditEndLesson: React.FC = () => {
             <div className="flex items-start gap-3">
               <div className="mt-0.5 text-blue-600"><HelpCircle size={18} /></div>
               <div className="text-sm text-gray-700">
-                <div className="font-medium">Edit end‑lesson quiz</div>
-                <p className="mt-1 text-gray-600">Topic: <span className="font-medium">{topicTitle || "(untitled)"}</span></p>
-                <p className="mt-1 text-gray-600">Questions support LaTeX through <code>MathInput</code>. Switch between open‑ended and multiple‑choice below.</p>
+                <div className="font-medium">Edit end-lesson quiz</div>
+                <p className="mt-1 text-gray-600">
+                  Topic ID: <code>{topicId}</code> • Lesson ID: <code>{lessonId}</code>
+                </p>
+                <p className="mt-1 text-gray-600">
+                  Questions support LaTeX through <code>MathInput</code>. Switch between open-ended and multiple-choice below.
+                </p>
               </div>
             </div>
           </div>
@@ -412,7 +460,7 @@ const ToEditEndLesson: React.FC = () => {
                     <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white flex items-center justify-center text-sm">{qIdx + 1}</div>
                     <div className="min-w-0">
                       <div className="text-xs text-gray-500">Question</div>
-                      <div className="text-sm font-medium text-gray-800">{q.type === "multiple-choice" ? "Multiple choice" : "Open‑ended"}</div>
+                      <div className="text-sm font-medium text-gray-800">{q.type === "multiple-choice" ? "Multiple choice" : "Open-ended"}</div>
                     </div>
                   </div>
                   {questions.length > 1 && (
@@ -424,21 +472,32 @@ const ToEditEndLesson: React.FC = () => {
 
                 {/* Choose type */}
                 <div className="mt-3">
-                  <div className="inline-flex items-center gap-2 text-xs text-gray-600 mb-1"><Radio size={14} /><span>Is this a multiple‑choice question?</span></div>
+                  <div className="inline-flex items-center gap-2 text-xs text-gray-600 mb-1"><Radio size={14} /><span>Is this a multiple-choice question?</span></div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant={q.type === "open-ended" ? "default" : "outline"}
                       size="sm"
                       className={q.type === "open-ended" ? "bg-blue-600 text-white" : ""}
-                      onClick={() => updateQuestion(qIdx, { type: "open-ended", options: [], correctAnswer: "" })}
+                      onClick={() =>
+                        updateQuestion(qIdx, {
+                          type: "open-ended",
+                          options: [],
+                          // keep any previously typed open-ended correctAnswer
+                        })
+                      }
                     >
-                      No — Open‑ended
+                      No — Open-ended
                     </Button>
                     <Button
                       variant={q.type === "multiple-choice" ? "default" : "outline"}
                       size="sm"
                       className={q.type === "multiple-choice" ? "bg-purple-600 text-white" : ""}
-                      onClick={() => updateQuestion(qIdx, { type: "multiple-choice" })}
+                      onClick={() =>
+                        updateQuestion(qIdx, {
+                          type: "multiple-choice",
+                          // retain existing options if toggling back
+                        })
+                      }
                     >
                       Yes — Multiple choice
                     </Button>
@@ -458,6 +517,24 @@ const ToEditEndLesson: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Open-ended: ideal/expected answer (optional) */}
+                {q.type === "open-ended" && (
+                  <div className="mt-4">
+                    <div className="text-xs text-gray-600 mb-1">Ideal / expected answer (optional)</div>
+                    <div className="border border-gray-200 rounded-lg p-2 bg-white">
+                      <MathInput
+                        value={q.correctAnswer}
+                        onChange={(v) => updateQuestion(qIdx, { correctAnswer: v })}
+                        editing={true}
+                        placeholder="Enter an ideal answer or solution steps (optional)"
+                      />
+                    </div>
+                    <div className="mt-1 text-[11px] text-gray-500">
+                      This is optional for open-ended questions. It is stored and can help graders or future auto-evaluation.
+                    </div>
+                  </div>
+                )}
 
                 {/* MCQ Options */}
                 {q.type === "multiple-choice" && (
@@ -508,7 +585,14 @@ const ToEditEndLesson: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={() => {
-                  localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ quizId, topicTitle, questions }));
+                  const payload: LessonScopedAutosave = {
+                    topic_content_id: topicId || "",
+                    lesson_id: lessonId || "",
+                    quizId,
+                    topicTitle,
+                    questions,
+                  };
+                  localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
                   setLastSaved(Date.now());
                   setDirty(false);
                   toast({ title: "Draft saved" });
@@ -518,7 +602,7 @@ const ToEditEndLesson: React.FC = () => {
                 <Save size={16} className="mr-1" /> Save
               </Button>
               <div className="text-xs text-gray-500">{completion}%</div>
-              <Button onClick={handleUpdate} disabled={isSubmitting || !quizId} className="rounded-full">
+              <Button onClick={handleUpdate} disabled={isSubmitting || !topicId || !lessonId} className="rounded-full">
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ListChecks size={16} className="mr-1" />}
                 Update
               </Button>
@@ -531,31 +615,3 @@ const ToEditEndLesson: React.FC = () => {
 };
 
 export default ToEditEndLesson;
-
-/* -----------------------------------------
-   ROUTING / NAVIGATION
-   -----------------------------------------
-
-1) Route (React Router v6)
-
-<Route path="/topics/:topicId/quiz/edit" element={<ToEditEndLesson />} />
-
-2) Navigate from anywhere (with topicId in scope)
-
-<Button onClick={() => navigate(`/topics/${topicId}/quiz/edit`)} variant="outline">
-  Edit end‑lesson quiz
-</Button>
-
-3) From CreateNewContent, add a link near your quiz creation link
-
-<Link to={`/topics/${topicId}/quiz/edit`} className="inline-flex items-center gap-2 text-sm text-indigo-600 hover:underline">
-  <RefreshCw className="h-4 w-4" /> Edit existing quiz
-</Link>
-
-4) Data flow
-- On mount, the component calls EndLessonQuestionService.getQuizzesByContentId(topicId).
-- It selects the first quiz in the response, mapping questions to local state (preserving each question's _id).
-- Edits are made in place; you can add/remove/toggle MCQ vs open‑ended.
-- On Update, it PUTs to updateQuiz(quizId, { topic_content_id, questions:[ { _id, questionText, type, options, correctAnswer } ] }).
-- Open‑ended questions send empty options/correctAnswer.
-*/

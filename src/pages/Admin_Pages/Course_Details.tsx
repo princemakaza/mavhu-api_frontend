@@ -225,7 +225,6 @@ const TopicCard = ({ topic, courseId, onTopicUpdated, onTopicDeleted }) => {
       {topic.description && (
         <p className="text-gray-600 text-sm mb-4">{topic.description}</p>
       )}
-
       <div className="flex justify-end gap-2">
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogTrigger asChild>
@@ -414,7 +413,6 @@ const CourseDetail = () => {
           </Button>
         ),
       });
-
     }
   };
 

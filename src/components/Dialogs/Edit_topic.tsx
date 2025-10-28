@@ -132,7 +132,9 @@ const EditTopicDialog: React.FC<EditTopicDialogProps> = ({
       toast({
         title: "Topic updated",
         description: "The topic has been updated successfully.",
+        duration: 1000, // show for 1 second
       });
+
 
       onOpenChange(false);
       onTopicUpdated();
@@ -144,11 +146,13 @@ const EditTopicDialog: React.FC<EditTopicDialogProps> = ({
         error.message ||
         "Failed to update topic. Please try again.";
 
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: errorMessage,
-      });
+toast({
+  variant: "destructive",
+  title: "Error",
+  description: errorMessage,
+  duration: 1000, // show for 1 second
+});
+
     } finally {
       setIsSubmitting(false);
     }
@@ -207,12 +211,10 @@ const EditTopicDialog: React.FC<EditTopicDialogProps> = ({
                   htmlFor="price"
                   className="text-sm font-medium text-gray-700 block mb-1"
                 >
-                  Price
+                  Price $:
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                    $
-                  </span>
+
                   <Input
                     id="price"
                     type="number"
@@ -230,12 +232,10 @@ const EditTopicDialog: React.FC<EditTopicDialogProps> = ({
                   htmlFor="regularPrice"
                   className="text-sm font-medium text-gray-700 block mb-1"
                 >
-                  Regular Price
+                  Regular Price $:
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                    $
-                  </span>
+
                   <Input
                     id="regularPrice"
                     type="number"
@@ -277,7 +277,7 @@ const EditTopicDialog: React.FC<EditTopicDialogProps> = ({
             </div>
 
             <div>
-              <Label
+              {/* <Label
                 htmlFor="order"
                 className="text-sm font-medium text-gray-700 block mb-1"
               >
@@ -291,7 +291,7 @@ const EditTopicDialog: React.FC<EditTopicDialogProps> = ({
                 onChange={handleNumberChange}
                 placeholder="1"
                 className="border-gray-300 focus:border-amber-500 focus:ring-amber-500"
-              />
+              /> */}
               <p className="text-xs text-gray-500 mt-1">
                 The order in which this topic appears in the subject
               </p>

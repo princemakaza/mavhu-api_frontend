@@ -153,8 +153,9 @@ const TopicContentService = {
  */
 deleteLesson: async (topicContentId: string, lessonId: string) => {
   try {
+    console.log("Deleting lesson:", { topicContentId, lessonId });
     const response = await axios.delete(
-      `${BASE_URL}/api/v1/topic_content/topic-contents/${topicContentId}/lessons/${lessonId}`,
+      `${BASE_URL}/topic-contents/${topicContentId}/lessons/${lessonId}`,
       {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
@@ -460,6 +461,7 @@ deleteLesson: async (topicContentId: string, lessonId: string) => {
           },
         }
       );
+      console.log("Trashed contents fetched:", response.data);
       return response.data;
     } catch (error) {
       throw error.response?.data || "Failed to retrieve trashed contents";

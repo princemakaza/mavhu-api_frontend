@@ -169,6 +169,7 @@ const AdminService = {
  * @returns {string} Authentication token
  */
 const getAuthToken = () => {
+  console.log("token for admin",localStorage.getItem("adminToken"));
   return localStorage.getItem("adminToken");
 };
 

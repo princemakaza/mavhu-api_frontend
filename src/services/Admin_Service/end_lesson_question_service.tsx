@@ -3,248 +3,326 @@ import axios from "axios";
 const BASE_URL = "/api/v1/end_lesson_questions";
 
 /**
+ * Helper to fetch the admin auth token
+ */
+const getAuthToken = () => localStorage.getItem("adminToken");
+
+const authHeaders = () => ({
+    Authorization: `Bearer ${getAuthToken()}`,
+});
+
+/**
+ * Extract a readable error payload
+ */
+const asError = (error, fallback) =>
+    error?.response?.data || { success: false, message: fallback };
+
+/**
  * Service for handling End-Lesson Quiz API requests
  * (matches the routes in end_lesson_question_service router)
  */
 const EndLessonQuestionService = {
+    // ---------- LESSON-SCOPED ROUTES (topic_content_id + lesson_id) ----------
+
     /**
-     * Create a new quiz
-     * @param {Object} data - quiz payload
+     * Upsert (create or replace) a quiz for a specific lesson
+     * POST /content/:topicContentId/lesson/:lessonId
+     * @param {string} topicContentId
+     * @param {string} lessonId
+     * @param {{questions: Array}} payload e.g. { questions: [...] }
      */
-    createQuiz: async (data) => {
+    upsertQuizForLesson: async (topicContentId, lessonId, payload) => {
         try {
-            const response = await axios.post(`${BASE_URL}/`, data, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                    "Content-Type": "application/json",
-                },
+            const url = `${BASE_URL}/content/${topicContentId}/lesson/${lessonId}`;
+            const res = await axios.post(url, payload, {
+                headers: { ...authHeaders(), "Content-Type": "application/json" },
             });
-            return response.data; // { success, data, message }
+            return res.data; // { success, data, message }
         } catch (error) {
-            throw error.response?.data || "Failed to create quiz";
+            throw asError(error, "Failed to upsert quiz for the lesson");
         }
     },
 
     /**
-     * Get all quizzes (non-deleted)
+     * Get a quiz for a specific lesson
+     * GET /content/:topicContentId/lesson/:lessonId
      */
-    getAllQuizzes: async () => {
+    getQuizByContentAndLesson: async (topicContentId, lessonId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/`, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
-            });
-            return response.data; // { success, data, count }
+            const url = `${BASE_URL}/content/${topicContentId}/lesson/${lessonId}`;
+            const res = await axios.get(url, { headers: authHeaders() });
+            return res.data; // { success, data }
         } catch (error) {
-            throw error.response?.data || "Failed to retrieve quizzes";
+            throw asError(error, "Failed to retrieve quiz for the lesson");
         }
     },
 
     /**
-     * Get quiz by ID
-     * @param {string} id
+     * Update quiz for a specific lesson
+     * PUT /content/:topicContentId/lesson/:lessonId
+     * @param {Object} data
      */
-    getQuizById: async (id) => {
+    updateQuizByContentAndLesson: async (topicContentId, lessonId, data) => {
         try {
-            const response = await axios.get(`${BASE_URL}/${id}`, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
+            const url = `${BASE_URL}/content/${topicContentId}/lesson/${lessonId}`;
+            const res = await axios.put(url, data, {
+                headers: { ...authHeaders(), "Content-Type": "application/json" },
             });
-            return response.data; // { success, data }
+            return res.data; // { success, data, message }
         } catch (error) {
-            throw error.response?.data || "Failed to retrieve quiz";
+            throw asError(error, "Failed to update quiz for the lesson");
         }
     },
+
+    /**
+     * Soft delete quiz(es) for a specific lesson
+     * PATCH /content/:topicContentId/lesson/:lessonId/soft-delete
+     */
+    softDeleteByContentAndLesson: async (topicContentId, lessonId) => {
+        try {
+            const url = `${BASE_URL}/content/${topicContentId}/lesson/${lessonId}/soft-delete`;
+            const res = await axios.patch(url, {}, { headers: authHeaders() });
+            return res.data; // { success, data, message }
+        } catch (error) {
+            throw asError(error, "Failed to move quiz(es) to trash for the lesson");
+        }
+    },
+
+    /**
+     * Restore quiz(es) for a specific lesson
+     * PATCH /content/:topicContentId/lesson/:lessonId/restore
+     */
+    restoreByContentAndLesson: async (topicContentId, lessonId) => {
+        try {
+            const url = `${BASE_URL}/content/${topicContentId}/lesson/${lessonId}/restore`;
+            const res = await axios.patch(url, {}, { headers: authHeaders() });
+            return res.data; // { success, data, message }
+        } catch (error) {
+            throw asError(error, "Failed to restore quiz(es) for the lesson");
+        }
+    },
+
+    /**
+     * Count quizzes for a specific lesson
+     * GET /content/:topicContentId/lesson/:lessonId/count
+     */
+    getQuizCountByContentAndLesson: async (topicContentId, lessonId) => {
+        try {
+            const url = `${BASE_URL}/content/${topicContentId}/lesson/${lessonId}/count`;
+            const res = await axios.get(url, { headers: authHeaders() });
+            return res.data; // { success, count }
+        } catch (error) {
+            throw asError(error, "Failed to get quiz count for the lesson");
+        }
+    },
+
+    // ---------- EXISTING CONTENT-SCOPED ROUTES (topic_content_id only) ----------
 
     /**
      * Get quizzes by topic_content_id
-     * @param {string} topicContentId
+     * GET /content/:topicContentId
      */
     getQuizzesByContentId: async (topicContentId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/content/${topicContentId}`, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
+            const res = await axios.get(`${BASE_URL}/content/${topicContentId}`, {
+                headers: authHeaders(),
             });
-            return response.data; // { success, data, count }
+            return res.data; // { success, data, count }
         } catch (error) {
-            throw error.response?.data || "Failed to retrieve quizzes by content id";
-        }
-    },
-
-    /**
-     * Update quiz by ID
-     * @param {string} id
-     * @param {Object} data
-     */
-    updateQuiz: async (id, data) => {
-        try {
-            const response = await axios.put(`${BASE_URL}/${id}`, data, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                    "Content-Type": "application/json",
-                },
-            });
-            return response.data; // { success, data, message }
-        } catch (error) {
-            throw error.response?.data || "Failed to update quiz";
-        }
-    },
-
-    /**
-     * Soft delete quiz by ID
-     * @param {string} id
-     */
-    softDeleteQuiz: async (id) => {
-        try {
-            const response = await axios.patch(`${BASE_URL}/${id}/soft-delete`, {}, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
-            });
-            return response.data; // { success, data, message }
-        } catch (error) {
-            throw error.response?.data || "Failed to move quiz to trash";
-        }
-    },
-
-    /**
-     * Restore a soft-deleted quiz by ID
-     * @param {string} id
-     */
-    restoreQuiz: async (id) => {
-        try {
-            const response = await axios.patch(`${BASE_URL}/${id}/restore`, {}, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
-            });
-            return response.data; // { success, data, message }
-        } catch (error) {
-            throw error.response?.data || "Failed to restore quiz";
-        }
-    },
-
-    /**
-     * Permanently delete quiz by ID
-     * @param {string} id
-     */
-    permanentDeleteQuiz: async (id) => {
-        try {
-            const response = await axios.delete(`${BASE_URL}/${id}/permanent`, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
-            });
-            return response.data; // { success, message }
-        } catch (error) {
-            throw error.response?.data || "Failed to permanently delete quiz";
-        }
-    },
-
-    /**
-     * Get all quizzes including deleted (admin only)
-     */
-    getAllQuizzesWithDeleted: async () => {
-        try {
-            const response = await axios.get(`${BASE_URL}/admin/all`, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
-            });
-            return response.data; // { success, data, count }
-        } catch (error) {
-            throw error.response?.data || "Failed to retrieve all quizzes";
-        }
-    },
-
-    /**
-     * Get only deleted (trashed) quizzes
-     */
-    getDeletedQuizzes: async () => {
-        try {
-            const response = await axios.get(`${BASE_URL}/trash/all`, {
-                headers: {
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
-            });
-            return response.data; // { success, data, count }
-        } catch (error) {
-            throw error.response?.data || "Failed to retrieve deleted quizzes";
+            throw asError(error, "Failed to retrieve quizzes by content id");
         }
     },
 
     /**
      * Soft delete quizzes by topic_content_id
-     * @param {string} topicContentId
+     * PATCH /content/:topicContentId/soft-delete
      */
     deleteQuizzesByContentId: async (topicContentId) => {
         try {
-            const response = await axios.patch(
+            const res = await axios.patch(
                 `${BASE_URL}/content/${topicContentId}/soft-delete`,
                 {},
-                {
-                    headers: {
-                        Authorization: `Bearer ${getAuthToken()}`,
-                    },
-                }
+                { headers: authHeaders() }
             );
-            return response.data; // { success, data, message }
+            return res.data; // { success, data, message }
         } catch (error) {
-            throw error.response?.data || "Failed to move quizzes to trash";
+            throw asError(error, "Failed to move quizzes to trash");
         }
     },
 
     /**
      * Restore quizzes by topic_content_id
-     * @param {string} topicContentId
+     * PATCH /content/:topicContentId/restore
      */
     restoreQuizzesByContentId: async (topicContentId) => {
         try {
-            const response = await axios.patch(
+            const res = await axios.patch(
                 `${BASE_URL}/content/${topicContentId}/restore`,
                 {},
-                {
-                    headers: {
-                        Authorization: `Bearer ${getAuthToken()}`,
-                    },
-                }
+                { headers: authHeaders() }
             );
-            return response.data; // { success, data, message }
+            return res.data; // { success, data, message }
         } catch (error) {
-            throw error.response?.data || "Failed to restore quizzes";
+            throw asError(error, "Failed to restore quizzes");
         }
     },
 
     /**
      * Get quiz count by topic_content_id
-     * @param {string} topicContentId
+     * GET /content/:topicContentId/count
      */
     getQuizCountByContentId: async (topicContentId) => {
         try {
-            const response = await axios.get(
+            const res = await axios.get(
                 `${BASE_URL}/content/${topicContentId}/count`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${getAuthToken()}`,
-                    },
-                }
+                { headers: authHeaders() }
             );
-            return response.data; // { success, count }
+            return res.data; // { success, count }
         } catch (error) {
-            throw error.response?.data || "Failed to get quiz count";
+            throw asError(error, "Failed to get quiz count");
         }
     },
-};
 
-/**
- * Helper to fetch the admin auth token
- */
-const getAuthToken = () => {
-    return localStorage.getItem("adminToken");
+    // ---------- GLOBAL / ID-SCOPED ROUTES ----------
+
+    /**
+     * Create a new quiz (expects topic_content_id & lesson_id in body)
+     * POST /
+     */
+    createQuiz: async (data) => {
+        try {
+            const res = await axios.post(`${BASE_URL}/`, data, {
+                headers: { ...authHeaders(), "Content-Type": "application/json" },
+            });
+            return res.data; // { success, data, message }
+        } catch (error) {
+            throw asError(error, "Failed to create quiz");
+        }
+    },
+
+    /**
+     * Get all quizzes (non-deleted)
+     * GET /
+     */
+    getAllQuizzes: async () => {
+        try {
+            const res = await axios.get(`${BASE_URL}/`, {
+                headers: authHeaders(),
+            });
+            return res.data; // { success, data, count }
+        } catch (error) {
+            throw asError(error, "Failed to retrieve quizzes");
+        }
+    },
+
+    /**
+     * Get quiz by ID
+     * GET /:id
+     */
+    getQuizById: async (id) => {
+        try {
+            const res = await axios.get(`${BASE_URL}/${id}`, {
+                headers: authHeaders(),
+            });
+            return res.data; // { success, data }
+        } catch (error) {
+            throw asError(error, "Failed to retrieve quiz");
+        }
+    },
+
+    /**
+     * Update quiz by ID
+     * PUT /:id
+     */
+    updateQuiz: async (id, data) => {
+        try {
+            const res = await axios.put(`${BASE_URL}/${id}`, data, {
+                headers: { ...authHeaders(), "Content-Type": "application/json" },
+            });
+            return res.data; // { success, data, message }
+        } catch (error) {
+            throw asError(error, "Failed to update quiz");
+        }
+    },
+
+    /**
+     * Soft delete quiz by ID
+     * PATCH /:id/soft-delete
+     */
+    softDeleteQuiz: async (id) => {
+        try {
+            const res = await axios.patch(
+                `${BASE_URL}/${id}/soft-delete`,
+                {},
+                { headers: authHeaders() }
+            );
+            return res.data; // { success, data, message }
+        } catch (error) {
+            throw asError(error, "Failed to move quiz to trash");
+        }
+    },
+
+    /**
+     * Restore a soft-deleted quiz by ID
+     * PATCH /:id/restore
+     */
+    restoreQuiz: async (id) => {
+        try {
+            const res = await axios.patch(
+                `${BASE_URL}/${id}/restore`,
+                {},
+                { headers: authHeaders() }
+            );
+            return res.data; // { success, data, message }
+        } catch (error) {
+            throw asError(error, "Failed to restore quiz");
+        }
+    },
+
+    /**
+     * Permanently delete quiz by ID
+     * DELETE /:id/permanent
+     */
+    permanentDeleteQuiz: async (id) => {
+        try {
+            const res = await axios.delete(`${BASE_URL}/${id}/permanent`, {
+                headers: authHeaders(),
+            });
+            return res.data; // { success, message }
+        } catch (error) {
+            throw asError(error, "Failed to permanently delete quiz");
+        }
+    },
+
+    /**
+     * Get all quizzes including deleted (admin only)
+     * GET /admin/all
+     */
+    getAllQuizzesWithDeleted: async () => {
+        try {
+            const res = await axios.get(`${BASE_URL}/admin/all`, {
+                headers: authHeaders(),
+            });
+            return res.data; // { success, data, count }
+        } catch (error) {
+            throw asError(error, "Failed to retrieve all quizzes");
+        }
+    },
+
+    /**
+     * Get only deleted (trashed) quizzes
+     * GET /trash/all
+     */
+    getDeletedQuizzes: async () => {
+        try {
+            const res = await axios.get(`${BASE_URL}/trash/all`, {
+                headers: authHeaders(),
+            });
+            return res.data; // { success, data, count }
+        } catch (error) {
+            throw asError(error, "Failed to retrieve deleted quizzes");
+        }
+    },
 };
 
 export default EndLessonQuestionService;

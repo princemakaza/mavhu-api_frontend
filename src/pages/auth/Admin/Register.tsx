@@ -1,3 +1,4 @@
+// Admin_Register.tsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
@@ -6,33 +7,47 @@ import logo from "@/assets/logo2.png";
 import backgroundImage from "@/assets/bg.jpg";
 
 // Import services
-import SignUpAdmin from "@/services/Admin_Service/Auth_service/sign_up_service";
+import SignUpAdmin, {
+  SignUpResult,
+} from "@/services/Admin_Service/Auth_service/sign_up_service";
 import { supabase } from "@/helper/SupabaseClient";
+
 // Import components
 import CustomSpin from "@/components/customised_spins/customised_sprin";
 import { showMessage } from "@/components/helper/feedback_message";
 
+type FormState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  contactNumber: string;
+  password: string;
+  profilePicture: string; // Supabase URL after upload
+  profilePictureFileName: string;
+  profilePictureType: string;
+};
+
 const Admin_Register = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   // Form state with the specified fields
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormState>({
     firstName: "",
     lastName: "",
     email: "",
     contactNumber: "",
     password: "",
-    profilePicture: "", // This will now store the Supabase URL
+    profilePicture: "", // This will store the Supabase URL
     profilePictureFileName: "",
     profilePictureType: "",
   });
 
   // State for file upload
-  const [profilePictureFile, setProfilePictureFile] = useState(null);
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,15 +59,19 @@ const Admin_Register = () => {
   };
 
   // Sanitize filename function
-  const sanitizeFilename = (filename) => {
+  const sanitizeFilename = (filename: string): string => {
     return filename
-      .replace(/[^a-zA-Z0-9._-]/g, '_')
-      .replace(/_{2,}/g, '_')
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .replace(/_{2,}/g, "_")
       .toLowerCase();
   };
 
   // Upload file to Supabase function
-  const uploadFileToSupabase = async (file, bucket, setProgress) => {
+  const uploadFileToSupabase = async (
+    file: File,
+    bucket: string,
+    setProgress: (n: number) => void
+  ): Promise<string> => {
     const sanitizedFileName = sanitizeFilename(file.name);
     const fileName = `${Date.now()}_${sanitizedFileName}`;
 
@@ -62,10 +81,11 @@ const Admin_Register = () => {
         cacheControl: "3600",
         upsert: false,
         contentType: file.type,
-        onProgress: (progressEvent) => {
-          const progress = Math.round(
-            (progressEvent.loaded / progressEvent.total) * 100
-          );
+        onProgress: (progressEvent: ProgressEvent) => {
+          // Some environments may not provide total; guard against divide-by-zero
+          const loaded = (progressEvent as any).loaded ?? 0;
+          const total = (progressEvent as any).total ?? 1;
+          const progress = Math.round((loaded / total) * 100);
           setProgress(progress);
         },
       });
@@ -80,67 +100,67 @@ const Admin_Register = () => {
       .from(bucket)
       .getPublicUrl(fileName);
 
-    if (!publicUrlData?.publicUrl) {
+    const publicUrl = publicUrlData?.publicUrl;
+    if (!publicUrl) {
       throw new Error("Failed to get file URL after upload");
     }
 
-    return publicUrlData.publicUrl;
+    return publicUrl;
   };
 
   // Handle file input for profile picture
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          showMessage("error", "Profile picture must be less than 5MB");
-          return;
-        }
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
 
-        // Validate file type
-        const allowedTypes = [
-          "image/jpeg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-        ];
-        if (!allowedTypes.includes(file.type)) {
-          showMessage(
-            "error",
-            "Profile picture must be a valid image (JPEG, PNG, GIF, or WebP)"
-          );
-          return;
-        }
-
-        setProfilePictureFile(file);
-        setIsUploading(true);
-        setUploadProgress(0);
-
-        // Upload to Supabase
-        const profilePictureUrl = await uploadFileToSupabase(
-          file, 
-          "topics", // bucket name - adjust as needed
-          setUploadProgress
-        );
-
-        // Update formData with profile picture URL
-        setFormData((prev) => ({
-          ...prev,
-          profilePicture: profilePictureUrl,
-          profilePictureFileName: file.name,
-          profilePictureType: file.type,
-        }));
-
-        showMessage("success", "Profile picture uploaded successfully!");
-
-      } catch (error) {
-        console.error("Error uploading profile picture:", error);
-        showMessage("error", error.message || "Error uploading image file");
-      } finally {
-        setIsUploading(false);
-        setUploadProgress(0);
+    try {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showMessage("error", "Profile picture must be less than 5MB");
+        return;
       }
+
+      // Validate file type
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        showMessage(
+          "error",
+          "Profile picture must be a valid image (JPEG, PNG, GIF, or WebP)"
+        );
+        return;
+      }
+
+      setProfilePictureFile(file);
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // Upload to Supabase
+      const profilePictureUrl = await uploadFileToSupabase(
+        file,
+        "topics", // bucket name - adjust as needed
+        setUploadProgress
+      );
+
+      // Update formData with profile picture URL
+      setFormData((prev) => ({
+        ...prev,
+        profilePicture: profilePictureUrl,
+        profilePictureFileName: file.name,
+        profilePictureType: file.type,
+      }));
+
+      showMessage("success", "Profile picture uploaded successfully!");
+    } catch (error: any) {
+      console.error("Error uploading profile picture:", error);
+      showMessage("error", error.message || "Error uploading image file");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -151,7 +171,7 @@ const Admin_Register = () => {
 
     try {
       // Enhanced validation with specific error messages
-      const errors = [];
+      const errors: string[] = [];
 
       if (!formData.firstName?.trim()) errors.push("First name is required");
       if (!formData.lastName?.trim()) errors.push("Last name is required");
@@ -194,26 +214,31 @@ const Admin_Register = () => {
         email: formData.email.trim().toLowerCase(),
         contactNumber: formData.contactNumber.trim(),
         password: formData.password,
-        profilePicture: formData.profilePicture, // This is now the Supabase URL
+        profilePicture: formData.profilePicture, // Supabase URL
       };
 
       // Debug logging
       console.log("Submitting form with JSON data:", adminData);
 
       // Call the service
-      const response = await SignUpAdmin(adminData);
+      const { admin, token, message }: SignUpResult = await SignUpAdmin(adminData);
 
-      // Handle successful response
-      showMessage("success", "Registration successful!");
+      // Guard against missing admin object to avoid reading undefined properties elsewhere
+      if (!admin || !admin._id) {
+        const fallbackMsg =
+          message || "Signup succeeded but no admin object with _id was returned.";
+        showMessage("warning", fallbackMsg);
+      } else {
+        console.log("Registration complete for admin:", admin._id);
+      }
 
-      // Navigate to login or dashboard
+      // Success message and navigate
+      showMessage("success", message || "Registration successful!");
       navigate("/admin_dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration error:", error);
-
-      // Display user-friendly error message
       const errorMessage =
-        error.message || "Registration failed. Please try again.";
+        error?.message || "Registration failed. Please try again.";
       showMessage("error", errorMessage);
     } finally {
       setIsLoading(false);
@@ -329,22 +354,22 @@ const Admin_Register = () => {
                 onChange={handleFileChange}
                 disabled={isUploading}
               />
-              
+
               {/* Upload progress and status */}
               {isUploading && (
                 <div className="mt-2">
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-yellow-600 h-2 rounded-full transition-all duration-300" 
+                    <div
+                      className="bg-yellow-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
-                    ></div>
+                    />
                   </div>
                   <p className="text-sm text-gray-600 mt-1">
                     Uploading... {uploadProgress}%
                   </p>
                 </div>
               )}
-              
+
               {profilePictureFile && !isUploading && formData.profilePicture && (
                 <p className="text-sm text-green-600 mt-1">
                   ✓ {profilePictureFile.name} uploaded successfully
