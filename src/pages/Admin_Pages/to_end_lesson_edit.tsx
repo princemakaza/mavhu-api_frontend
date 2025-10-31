@@ -440,12 +440,7 @@ const ToEditEndLesson: React.FC = () => {
               <div className="mt-0.5 text-blue-600"><HelpCircle size={18} /></div>
               <div className="text-sm text-gray-700">
                 <div className="font-medium">Edit end-lesson quiz</div>
-                <p className="mt-1 text-gray-600">
-                  Topic ID: <code>{topicId}</code> • Lesson ID: <code>{lessonId}</code>
-                </p>
-                <p className="mt-1 text-gray-600">
-                  Questions support LaTeX through <code>MathInput</code>. Switch between open-ended and multiple-choice below.
-                </p>
+         
               </div>
             </div>
           </div>

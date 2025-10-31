@@ -57,6 +57,16 @@ const truncateText = (text, length) => {
   return text.length > length ? `${text.substring(0, length)}…` : text;
 };
 
+// Utility: get initials from name
+const getInitials = (firstName?: string, lastName?: string) => {
+  const f = (firstName || "").trim();
+  const l = (lastName || "").trim();
+  const fi = f ? f[0].toUpperCase() : "";
+  const li = l ? l[0].toUpperCase() : "";
+  const both = `${fi}${li}`.trim();
+  return both || (f ? fi : "NA");
+};
+
 // Dropdown (lightweight, accessible-ish)
 const Dropdown = ({ options, value, onChange, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -104,9 +114,10 @@ const Dropdown = ({ options, value, onChange, placeholder }) => {
   );
 };
 
-// Student Detail Modal
+// Student Detail Modal (with initials fallback)
 const StudentDetailModal = ({ student, isOpen, onClose }) => {
   const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
   if (!student) return null;
 
   const handleViewMore = () => {
@@ -122,20 +133,26 @@ const StudentDetailModal = ({ student, isOpen, onClose }) => {
     student.avatarUrl ||
     "";
 
+  const showPhoto = !!photoUrl && !imgError;
+  const initials = getInitials(student.firstName, student.lastName);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-6">
           <DialogTitle className="text-2xl font-bold text-blue-900 flex items-center">
             <div className="w-16 h-16 bg-blue-100 rounded-full mr-4 flex items-center justify-center overflow-hidden">
-              {photoUrl ? (
+              {showPhoto ? (
                 <img
                   src={photoUrl}
                   alt={`${student.firstName} ${student.lastName}`}
                   className="w-16 h-16 object-cover rounded-full"
+                  onError={() => setImgError(true)}
                 />
               ) : (
-                <User className="h-8 w-8 text-blue-900" />
+                <div className="w-16 h-16 rounded-full bg-blue-200 text-blue-900 flex items-center justify-center font-bold">
+                  {initials}
+                </div>
               )}
             </div>
             Student Profile
@@ -673,6 +690,9 @@ const StudentDashboard = () => {
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(1);
 
+  // Track image load errors by student id
+  const [imgErrorIds, setImgErrorIds] = useState<Record<string, boolean>>({});
+
   const yearOptions = ["All years", "2022", "2023", "2024", "2025"];
   const levelOptions = ["All Levels", "O Level", "A Level", "Others"];
 
@@ -776,6 +796,7 @@ const StudentDashboard = () => {
 
         const dashboardResponse = await StudentService.getAllDashboardData();
         if (dashboardResponse && dashboardResponse.data) {
+        
           setDashboardData(dashboardResponse.data);
         } else {
           throw new Error("Invalid dashboard data received");
@@ -908,9 +929,7 @@ const StudentDashboard = () => {
 
       {/* Sidebar */}
       <div
-        className={`$${""} ${
-          sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
-        } transition-all duration-300 ease-in-out fixed lg:relative z-40 lg:z-auto w-72`}
+        className={`${sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"} transition-all duration-300 ease-in-out fixed lg:relative z-40 lg:z-auto w-72`}
       >
         <Sidebar />
       </div>
@@ -1127,43 +1146,53 @@ const StudentDashboard = () => {
                           student.avatarUrl ||
                           "";
                         const sid = student.id || student._id;
+                        const photoErrored = !!imgErrorIds[sid];
+                        const hasPhoto = !!photoUrl && !photoErrored;
+                        const initials = getInitials(student.firstName, student.lastName);
+
                         return (
                           <tr key={student._id} className="hover:bg-gray-50">
                             {/* Photo */}
                             <td className="px-3 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <div className="w-12 h-12 rounded-lg bg-gray-100 border overflow-hidden flex items-center justify-center">
-                                  {photoUrl ? (
+                                <div
+                                  className={`w-12 h-12 rounded-lg border overflow-hidden flex items-center justify-center bg-gray-100 ${
+                                    hasPhoto ? "cursor-pointer" : "cursor-default"
+                                  }`}
+                                  onClick={() => {
+                                    if (hasPhoto) {
+                                      setPreviewSrc(photoUrl);
+                                      setPreviewName(`${student.firstName} ${student.lastName}`);
+                                      setPreviewOpen(true);
+                                    }
+                                  }}
+                                  title={hasPhoto ? "Click to view" : undefined}
+                                >
+                                  {hasPhoto ? (
                                     <img
                                       src={photoUrl}
                                       alt={`${student.firstName} ${student.lastName}`}
                                       className="w-12 h-12 object-cover"
+                                      onError={() =>
+                                        setImgErrorIds((prev) => ({ ...prev, [sid]: true }))
+                                      }
                                     />
                                   ) : (
-                                    <User className="h-5 w-5 text-gray-400" />
+                                    <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-800 font-bold">
+                                      {initials}
+                                    </div>
                                   )}
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    setPreviewSrc(photoUrl || "");
-                                    setPreviewName(`${student.firstName} ${student.lastName}`);
-                                    setPreviewOpen(true);
-                                  }}
-                                  className="text-xs text-blue-700 hover:underline inline-flex items-center gap-1 disabled:text-gray-400"
-                                  disabled={!photoUrl}
-                                >
-                                  <ZoomIn className="h-3.5 w-3.5" />
-                                  View
-                                </button>
+                                {/* Removed the separate “View” button per requirement */}
                               </div>
                             </td>
 
                             {/* Name */}
                             <td className="px-3 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-xs font-bold">
+                                {/* <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center text-xs font-bold">
                                   {`${(student.firstName?.[0] || "").toUpperCase()}${(student.lastName?.[0] || "").toUpperCase()}`}
-                                </div>
+                                </div> */}
                                 <div>
                                   <div className="font-medium">
                                     {student.firstName} {student.lastName}

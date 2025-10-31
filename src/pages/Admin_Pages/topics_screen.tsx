@@ -277,7 +277,7 @@ function GridTopicCard({
           onClick={() => onTrash(id, title)}
           disabled={trashing}
         >
-          <Trash2 className="h-4 w-4 mr-2" /> Move to Trash
+          <Trash2 className="h-4 w-4 mr-2" /> 
         </Button>
       </CardFooter>
     </Card>
