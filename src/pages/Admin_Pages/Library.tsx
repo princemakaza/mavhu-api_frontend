@@ -92,13 +92,13 @@ const Library = () => {
 
   // Updated loading shimmer component to match current UI
   const BookCardShimmer = () => (
-    <Card className="min-w-[250px] max-w-[250px] flex flex-col animate-pulse">
+    <Card className="w-full flex flex-col animate-pulse">
       {/* Image placeholder */}
-      <div className="relative h-40 bg-gradient-to-br from-gray-200 to-gray-300">
+      <div className="relative h-48 sm:h-52 md:h-40 lg:h-44 xl:h-48 bg-gradient-to-br from-gray-200 to-gray-300">
         <div className="absolute top-2 left-2 bg-gray-400 px-2 py-1 rounded text-xs w-8 h-4"></div>
       </div>
 
-      <CardContent className="p-4 flex-grow flex flex-col">
+      <CardContent className="p-3 sm:p-4 flex-grow flex flex-col">
         {/* Subject tag */}
         <div className="flex items-center gap-1.5 mb-2">
           <div className="h-1.5 w-1.5 rounded-full bg-gray-300"></div>
@@ -134,8 +134,10 @@ const Library = () => {
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-screen text-red-500">
-        {error}
+      <div className="flex justify-center items-center min-h-screen text-red-500 p-4">
+        <div className="text-center">
+          <p className="text-lg font-semibold">{error}</p>
+        </div>
       </div>
     );
   }
@@ -144,8 +146,9 @@ const Library = () => {
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
       {/* Mobile Menu Toggle */}
       <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
+        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md shadow-lg"
         onClick={toggleSidebar}
+        aria-label="Toggle menu"
       >
         {sidebarOpen && !isLargeScreen ? <X size={20} /> : <Menu size={20} />}
       </button>
@@ -174,10 +177,10 @@ const Library = () => {
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-lg">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-lg">
             <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
-            <p className="mb-6">Are you sure you want to delete this book?</p>
+            <p className="mb-6 text-gray-600">Are you sure you want to delete this book?</p>
             <div className="flex justify-end space-x-3">
               <Button
                 className="bg-gray-200 hover:bg-gray-300 text-gray-800"
@@ -199,10 +202,10 @@ const Library = () => {
       {/* Book Details Modal */}
       {showBookModal && selectedBook && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-              <h2 className="text-2xl font-bold text-gray-900">Book Details</h2>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Book Details</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -214,15 +217,15 @@ const Library = () => {
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div className="flex flex-col lg:flex-row gap-8">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-80px)] sm:max-h-[calc(90vh-120px)]">
+              <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
                 {/* Book Cover */}
                 <div className="lg:w-1/3 flex-shrink-0">
                   <div className="relative">
                     <img
                       src={selectedBook.cover_image || libraryimage}
                       alt={selectedBook.title}
-                      className="w-full h-80 object-cover rounded-lg shadow-lg"
+                      className="w-full h-64 sm:h-80 object-cover rounded-lg shadow-lg"
                       onError={(e) => {
                         e.target.src = libraryimage;
                       }}
@@ -233,7 +236,7 @@ const Library = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-4 sm:mt-6 space-y-3">
                     <Button
                       className="w-full bg-blue-900 hover:bg-blue-800 text-white"
                       onClick={() => {
@@ -265,33 +268,33 @@ const Library = () => {
 
                 {/* Book Information */}
                 <div className="lg:w-2/3">
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {/* Title and Subject */}
                     <div>
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
                         <div className="h-2 w-2 rounded-full bg-blue-900"></div>
-                        <span className="text-sm font-medium text-blue-900 uppercase">
+                        <span className="text-xs sm:text-sm font-medium text-blue-900 uppercase">
                           {selectedBook.subject?.subjectName || selectedBook.subject || "N/A"}
                         </span>
                         {selectedBook.level && (
                           <>
                             <span className="text-gray-400">•</span>
-                            <span className="text-sm font-medium text-gray-600">
+                            <span className="text-xs sm:text-sm font-medium text-gray-600">
                               {selectedBook.level}
                             </span>
                           </>
                         )}
                       </div>
-                      <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                         {selectedBook.title || "Untitled"}
                       </h1>
-                      <p className="text-lg text-gray-600">
+                      <p className="text-base sm:text-lg text-gray-600">
                         By {selectedBook.authorFullName || "Unknown Author"}
                       </p>
                     </div>
 
                     {/* Stats */}
-                    <div className="flex items-center gap-6 py-4 border-y border-gray-200">
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-6 py-4 border-y border-gray-200">
                       <div className="flex items-center gap-2">
                         <Heart
                           className="h-5 w-5 text-red-500"
@@ -314,25 +317,25 @@ const Library = () => {
 
                     {/* Description */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
-                      <p className="text-gray-700 leading-relaxed">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Description</h3>
+                      <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
                         {selectedBook.description || "No description available for this book."}
                       </p>
                     </div>
 
                     {/* Additional Details */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-1">File Type</h4>
-                        <p className="text-gray-600 capitalize">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4">
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        <h4 className="font-medium text-gray-900 mb-1 text-sm sm:text-base">File Type</h4>
+                        <p className="text-gray-600 capitalize text-sm sm:text-base">
                           {selectedBook.file_type || "Document"}
                         </p>
                       </div>
 
                       {selectedBook.level && (
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-1">Level</h4>
-                          <p className="text-gray-600">{selectedBook.level}</p>
+                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-gray-900 mb-1 text-sm sm:text-base">Level</h4>
+                          <p className="text-gray-600 text-sm sm:text-base">{selectedBook.level}</p>
                         </div>
                       )}
                     </div>
@@ -345,22 +348,22 @@ const Library = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 w-full">
-        <div className="w-full min-h-screen p-4 md:p-6">
+      <div className="flex-1 w-full overflow-x-hidden">
+        <div className="w-full min-h-screen p-3 sm:p-4 md:p-6">
           {/* Header Section */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 space-y-4 md:space-y-0 mt-10 md:mt-0">
-            <h1 className="text-2xl font-bold text-blue-900">LIBRARY</h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-3 sm:space-y-0 mt-12 sm:mt-10 md:mt-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-blue-900">LIBRARY</h1>
 
-            {/* Upload Resources Button - Moved to top right corner */}
-            <Link to="/reserourceupload">
-              <Button className="border-2 border-blue-900 bg-white hover:bg-blue-50 text-blue-900 px-6 py-2 rounded-md font-medium">
+            {/* Upload Resources Button */}
+            <Link to="/reserourceupload" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto border-2 border-blue-900 bg-white hover:bg-blue-50 text-blue-900 px-4 sm:px-6 py-2 rounded-md font-medium text-sm sm:text-base">
                 UPLOAD RESOURCES
               </Button>
             </Link>
           </div>
 
-          {/* Books Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          {/* Books Grid - Improved responsiveness */}
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
             {loading ? (
               // Show shimmer loaders while loading
               Array.from({ length: 6 }).map((_, index) => (
@@ -371,10 +374,10 @@ const Library = () => {
               books.map((book) => (
                 <Card
                   key={book._id}
-                  className="min-w-[250px] max-w-[250px] flex flex-col transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer group relative"
+                  className="w-full flex flex-col transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer group relative"
                   onClick={() => handleViewDocument(book)}
                 >
-                  <div className="relative h-40 overflow-hidden bg-gradient-to-br from-blue-50 to-purple-50">
+                  <div className="relative h-48 sm:h-52 md:h-40 lg:h-44 xl:h-48 overflow-hidden bg-gradient-to-br from-blue-50 to-purple-50">
                     <img
                       src={book.cover_image || libraryimage}
                       alt={book.authorFullName || "Book cover"}
@@ -393,19 +396,19 @@ const Library = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-sm"
+                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white/80 hover:bg-white shadow-sm"
                         title="Delete book"
                         onClick={(e) => {
                           e.stopPropagation();
                           openDeleteConfirmation(book._id);
                         }}
                       >
-                        <Trash2 className="h-4 w-4 text-red-600" />
+                        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600" />
                       </Button>
                     </div>
                   </div>
 
-                  <CardContent className="p-4 flex-grow flex flex-col">
+                  <CardContent className="p-3 sm:p-4 flex-grow flex flex-col">
                     <div className="flex items-center gap-1.5 mb-2">
                       <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
                       <span className="text-xs font-medium text-primary uppercase truncate">
@@ -413,7 +416,7 @@ const Library = () => {
                       </span>
                     </div>
 
-                    <h3 className="font-semibold text-sm mb-1.5 line-clamp-2">
+                    <h3 className="font-semibold text-sm mb-1.5 line-clamp-2 min-h-[2.5rem]">
                       {book.title || "Untitled"}
                     </h3>
 
@@ -426,7 +429,7 @@ const Library = () => {
                     </p>
 
                     {/* Bottom section with like and download buttons */}
-                    <div className="flex justify-between items-center mt-auto pt-2">
+                    <div className="flex justify-between items-center mt-auto pt-2 border-t border-gray-100">
                       {/* Like button and count on the left */}
                       <div className="flex items-center gap-1">
                         <Button
@@ -476,10 +479,10 @@ const Library = () => {
 
           {/* Empty State */}
           {!loading && books.length === 0 && (
-            <div className="text-center py-12">
+            <div className="text-center py-12 px-4">
               <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-lg font-medium text-gray-900">No books found</h3>
-              <p className="mt-1 text-gray-500">Get started by uploading your first resource.</p>
+              <h3 className="mt-2 text-base sm:text-lg font-medium text-gray-900">No books found</h3>
+              <p className="mt-1 text-sm sm:text-base text-gray-500">Get started by uploading your first resource.</p>
             </div>
           )}
         </div>

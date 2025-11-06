@@ -15,7 +15,6 @@ const TopicContentService = {
   createTopicContent: async (contentData: any) => {
     try {
       console.log("Creating topic content with data:", contentData);
-
       // Convert contentData to JSON string
       const jsonData = JSON.stringify(contentData);
       console.log("JSON data to be sent:", jsonData);

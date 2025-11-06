@@ -8,7 +8,7 @@ const BASE_URL = "/api/v1/student_route";
 const StudentService = {
   /**
    * Fetches all students from the backend
-   * @returns {Promise} Promise containing student data
+   * @returns {Promise} Promise containing student d
    */
   getAllStudents: async () => {
     try {
