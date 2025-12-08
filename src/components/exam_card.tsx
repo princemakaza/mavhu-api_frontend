@@ -96,7 +96,7 @@ const ExamCard = ({
           </Button>
 
           <Button asChild variant="secondary" size="sm" className="h-8 text-xs">
-            <Link to={`/exams/${id}/results`}>
+            <Link to={`/exam/view/${id}/`}>
               <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
               Results
             </Link>

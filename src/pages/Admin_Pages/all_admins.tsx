@@ -14,8 +14,6 @@ const AdminManagement = () => {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [selectedAdmin, setSelectedAdmin] = useState(null);
     const [showAdminModal, setShowAdminModal] = useState(false);
-
-    // Toggle sidebar function
     const toggleSidebar = () => {
         setSidebarOpen(!sidebarOpen);
     };
