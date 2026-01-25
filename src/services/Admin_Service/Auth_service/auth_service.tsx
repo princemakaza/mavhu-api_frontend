@@ -1,11 +1,5 @@
 import api from "./api";
 
-/**
- * =====================
- * Types & Interfaces
- * =====================
- */
-
 export interface RegisterPayload {
     full_name: string;
     email: string;

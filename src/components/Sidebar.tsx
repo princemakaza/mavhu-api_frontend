@@ -39,7 +39,7 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
     {
       icon: Users,
       label: "Companies",
-      path: "/portal/companies",
+      path: "/admin_companies",
     },
     {
       icon: BarChart,
