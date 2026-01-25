@@ -61,6 +61,7 @@ import EditLesson from "./pages/Admin_Pages/edit_lesson";
 import CreateEndLessonQuiz from "./pages/Admin_Pages/CreateEndLessonQuiz";
 import ToEditEndLesson from "./pages/Admin_Pages/to_end_lesson_edit";
 import AdminHomeBanner from "./pages/Admin_Pages/admin_home_banner";
+import ConfirmOtpScreen from "./pages/auth/Admin/confirm_otp";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -72,6 +73,7 @@ const App = () => (
           <Routes>
             <Route path="/admin_register" element={<Admin_Register />} />
             <Route path="/admin_login" element={<Admin_login />} />
+            <Route path="/admin_confirm_otp" element={<ConfirmOtpScreen />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot_password" element={<Forgot_password />} />

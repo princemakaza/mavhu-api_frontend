@@ -1,641 +1,424 @@
-// src/pages/Admin_login/Login.tsx
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, KeyRound, Shield } from "lucide-react";
-import logo from "@/assets/logo2.png";
-import backgroundImage from "@/assets/bg.jpg";
-import logimage from "@/assets/log.jpg";
-
-// Services
-import loginAdmin, {
-  forgotPassword,
-  verifyResetOTP,
-  resetPassword,
-} from "@/services/Admin_Service/Auth_service/Admin_login_service";
-
-import CustomSpin from "@/components/customised_spins/customised_sprin";
-import { showMessage } from "@/components/helper/feedback_message";
-
-import {
-  Button,
-  Card,
-  CardHeader,
-  CardBody,
-  FormGroup,
-  Form,
-  Input,
-  Col,
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "reactstrap";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Lock, Mail, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { loginUser } from "@/services/Admin_Service/Auth_service/auth_service";
+import { useToast } from "@/components/ui/use-toast";
+import Logo from "@/assets/logo.png";
 
 const Admin_login: React.FC = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [logoAnimation, setLogoAnimation] = useState(true);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  // Forgot password state
-  const [forgotPasswordModal, setForgotPasswordModal] = useState(false);
-  const [forgotPasswordStep, setForgotPasswordStep] = useState(1); // 1: Email, 2: OTP, 3: New Password, 4: Success
-  const [forgotPasswordData, setForgotPasswordData] = useState({
-    email: "",
-    otp: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  // Light mode colors only
+  const logoGreen = "#008000";
+  const logoYellow = "#B8860B";
+  const lightBg = "#F5F5F5";
+  const lightCardBg = "#FFFFFF";
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleForgotPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForgotPasswordData((prev) => ({ ...prev, [name]: value }));
-  };
+  // Pause logo animation after 10 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLogoAnimation(false);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      // Call backend
-      const response = await loginAdmin(formData); // returns { message, token, admin }
-
-      // Optional: if you prefer to store here (and NOT in the service), uncomment below
-      // localStorage.setItem("adminToken", response.token);
-      // localStorage.setItem("adminData", JSON.stringify(response.admin));
-      // localStorage.setItem("adminId", response.admin._id);
-
-      showMessage("success", response.message || "Login successful!");
+      const response = await loginUser(formData);
+      toast({
+        title: "Success",
+        description: "Login successful!",
+      });
       navigate("/admin_dashboard");
     } catch (error: any) {
-      console.error("Login error:", error);
-      showMessage(
-        "error",
-        error?.response?.data?.message || "Login failed. Please try again."
-      );
+      toast({
+        title: "Error",
+        description: error.message || "Login failed. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (forgotPasswordStep === 1) {
-      if (!forgotPasswordData.email) {
-        showMessage("error", "Please enter your email address");
-        return;
-      }
-
-      setForgotPasswordLoading(true);
-      try {
-        const response = await forgotPassword(forgotPasswordData.email);
-        showMessage("success", response.message || "OTP sent to your email");
-        setForgotPasswordStep(2);
-
-        setCountdown(60);
-        const timer = setInterval(() => {
-          setCountdown((prev) => {
-            if (prev <= 1) {
-              clearInterval(timer);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      } catch (error: any) {
-        showMessage(
-          "error",
-          error?.response?.data?.message || "Failed to send OTP. Please try again."
-        );
-      } finally {
-        setForgotPasswordLoading(false);
-      }
-    } else if (forgotPasswordStep === 2) {
-      if (!forgotPasswordData.otp) {
-        showMessage("error", "Please enter the OTP");
-        return;
-      }
-
-      setForgotPasswordLoading(true);
-      try {
-        const response = await verifyResetOTP(
-          forgotPasswordData.email,
-          forgotPasswordData.otp
-        );
-        showMessage("success", response.message || "OTP verified successfully");
-        setForgotPasswordStep(3);
-      } catch (error: any) {
-        showMessage(
-          "error",
-          error?.response?.data?.message || "Invalid OTP. Please try again."
-        );
-      } finally {
-        setForgotPasswordLoading(false);
-      }
-    } else if (forgotPasswordStep === 3) {
-      if (!forgotPasswordData.newPassword) {
-        showMessage("error", "Please enter a new password");
-        return;
-      }
-      if (forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword) {
-        showMessage("error", "Passwords do not match");
-        return;
-      }
-
-      setForgotPasswordLoading(true);
-      try {
-        const response = await resetPassword(
-          forgotPasswordData.email,
-          forgotPasswordData.otp,
-          forgotPasswordData.newPassword
-        );
-        showMessage("success", response.message || "Password reset successfully");
-        setForgotPasswordStep(4);
-      } catch (error: any) {
-        showMessage(
-          "error",
-          error?.response?.data?.message || "Failed to reset password. Please try again."
-        );
-      } finally {
-        setForgotPasswordLoading(false);
-      }
-    }
-  };
-
-  const resendOTP = async () => {
-    if (countdown > 0) return;
-
-    setForgotPasswordLoading(true);
-    try {
-      const response = await forgotPassword(forgotPasswordData.email);
-      showMessage("success", response.message || "OTP resent to your email");
-      setCountdown(60);
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (error: any) {
-      showMessage(
-        "error",
-        error?.response?.data?.message || "Failed to resend OTP. Please try again."
-      );
-    } finally {
-      setForgotPasswordLoading(false);
-    }
-  };
-
-  const closeForgotPasswordModal = () => {
-    setForgotPasswordModal(false);
-    setForgotPasswordStep(1);
-    setForgotPasswordData({
-      email: "",
-      otp: "",
-      newPassword: "",
-      confirmPassword: "",
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
     });
-    setCountdown(0);
-  };
-
-  const getStepIcon = (step: number) => {
-    switch (step) {
-      case 1:
-        return <Mail className="h-4 w-4" />;
-      case 2:
-        return <Shield className="h-4 w-4" />;
-      case 3:
-        return <KeyRound className="h-4 w-4" />;
-      default:
-        return step;
-    }
-  };
-
-  const getStepTitle = (step: number) => {
-    switch (step) {
-      case 1:
-        return "Email";
-      case 2:
-        return "Verify";
-      case 3:
-        return "Reset";
-      default:
-        return "";
-    }
-  };
-
-  const renderForgotPasswordStep = () => {
-    switch (forgotPasswordStep) {
-      case 1:
-        return (
-          <>
-            <div className="mb-6 text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="h-8 w-8 text-blue-950" />
-              </div>
-              <h3 className="text-2xl font-bold text-blue-950 mb-2">
-                Forgot Password?
-              </h3>
-              <p className="text-blue-700 text-sm">
-                Enter your email address and we'll send you a verification code to reset your password
-              </p>
-            </div>
-            <FormGroup>
-              <label className="block mb-3 text-sm font-semibold text-blue-950">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Mail className="h-5 w-5 text-blue-600" />
-                </div>
-                <Input
-                  name="email"
-                  value={forgotPasswordData.email}
-                  onChange={handleForgotPasswordChange}
-                  className="bg-blue-50 border-2 border-blue-200 text-blue-950 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 pr-4 py-3 text-sm font-medium transition-all duration-200 hover:border-blue-300"
-                  type="email"
-                  placeholder="Enter your email address"
-                  required
-                />
-              </div>
-            </FormGroup>
-          </>
-        );
-      case 2:
-        return (
-          <>
-            <div className="mb-6 text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-8 w-8 text-blue-950" />
-              </div>
-              <h3 className="text-2xl font-bold text-blue-950 mb-2">
-                Verify Your Email
-              </h3>
-              <p className="text-blue-700 text-sm mb-1">
-                We've sent a 6-digit verification code to
-              </p>
-              <p className="text-blue-950 font-semibold text-sm">
-                {forgotPasswordData.email}
-              </p>
-            </div>
-            <FormGroup>
-              <label className="block mb-3 text-sm font-semibold text-blue-950">
-                Verification Code
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Shield className="h-5 w-5 text-blue-600" />
-                </div>
-                <Input
-                  name="otp"
-                  value={forgotPasswordData.otp}
-                  onChange={handleForgotPasswordChange}
-                  className="bg-blue-50 border-2 border-blue-200 text-blue-950 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 pr-4 py-3 text-sm font-medium text-center tracking-widest transition-all duration-200 hover:border-blue-300"
-                  type="text"
-                  placeholder="000000"
-                  maxLength={6}
-                  required
-                />
-              </div>
-            </FormGroup>
-            <div className="text-center mt-6">
-              <p className="text-blue-700 text-sm mb-2">Didn't receive the code?</p>
-              <button
-                type="button"
-                onClick={resendOTP}
-                disabled={countdown > 0}
-                className={`text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-200 ${countdown > 0
-                    ? "text-blue-400 bg-blue-50 cursor-not-allowed"
-                    : "text-blue-950 bg-blue-100 hover:bg-blue-200 hover:text-blue-950"
-                  }`}
-              >
-                {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
-              </button>
-            </div>
-          </>
-        );
-      case 3:
-        return (
-          <>
-            <div className="mb-6 text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <KeyRound className="h-8 w-8 text-blue-950" />
-              </div>
-              <h3 className="text-2xl font-bold text-blue-950 mb-2">
-                Create New Password
-              </h3>
-              <p className="text-blue-700 text-sm">
-                Your new password must be different from your previous password
-              </p>
-            </div>
-            <FormGroup className="mb-4">
-              <label className="block mb-3 text-sm font-semibold text-blue-950">
-                New Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Lock className="h-5 w-5 text-blue-600" />
-                </div>
-                <Input
-                  name="newPassword"
-                  value={forgotPasswordData.newPassword}
-                  onChange={handleForgotPasswordChange}
-                  className="bg-blue-50 border-2 border-blue-200 text-blue-950 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 pr-12 py-3 text-sm font-medium transition-all duration-200 hover:border-blue-300"
-                  type={showNewPassword ? "text" : "password"}
-                  placeholder="Enter new password"
-                  required
-                />
-                <div
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 cursor-pointer"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                >
-                  {showNewPassword ? (
-                    <EyeOff className="h-5 w-5 text-blue-600 hover:text-blue-800" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-blue-600 hover:text-blue-800" />
-                  )}
-                </div>
-              </div>
-            </FormGroup>
-            <FormGroup>
-              <label className="block mb-3 text-sm font-semibold text-blue-950">
-                Confirm New Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Lock className="h-5 w-5 text-blue-600" />
-                </div>
-                <Input
-                  name="confirmPassword"
-                  value={forgotPasswordData.confirmPassword}
-                  onChange={handleForgotPasswordChange}
-                  className="bg-blue-50 border-2 border-blue-200 text-blue-950 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 pr-4 py-3 text-sm font-medium transition-all duration-200 hover:border-blue-300"
-                  type="password"
-                  placeholder="Confirm new password"
-                  required
-                />
-              </div>
-            </FormGroup>
-          </>
-        );
-      case 4:
-        return (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-            </div>
-            <h3 className="text-2xl font-bold text-blue-950 mb-3">
-              Password Reset Successful!
-            </h3>
-            <p className="text-blue-700 text-sm mb-6">
-              Your password has been reset successfully. You can now login with your new password.
-            </p>
-            <Button
-              color="primary"
-              onClick={closeForgotPasswordModal}
-              className="bg-blue-950 hover:bg-blue-800 border-0 px-8 py-2 rounded-xl font-semibold"
-            >
-              Continue to Login
-            </Button>
-          </div>
-        );
-      default:
-        return null;
-    }
   };
 
   return (
     <div
-      className="w-full h-screen flex"
-      style={{
-        backgroundImage: `url(${backgroundImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
+      className="min-h-screen bg-gray-50 text-gray-900 transition-colors duration-500 flex items-center justify-center p-4"
+      style={{ backgroundColor: lightBg }}
     >
-      <div
-        className="grid grid-cols-1 md:grid-cols-2 m-auto h-[700px] shadow-[0_8px_32px_rgba(31,41,55,0.15)] sm:max-w-[1300px]
-     bg-white rounded-2xl overflow-hidden"
-      >
-        {/* Left side image */}
-        <div className="w-full h-[700px] hidden md:block">
-          <img
-            className="w-full h-full object-cover"
-            src={logimage}
-            alt="Login illustration"
+      {/* Animated background with particles */}
+      <div className="fixed inset-0 overflow-hidden">
+        <div className="absolute inset-0 transition-all duration-500 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200" />
+
+        {/* Animated gradient orbs */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64">
+          <div
+            className={`absolute inset-0 rounded-full blur-3xl transition-all duration-1000 ${logoAnimation ? "animate-pulse" : ""
+              }`}
+            style={{
+              background: `radial-gradient(circle, ${logoGreen}10, transparent 70%)`,
+            }}
           />
         </div>
-
-        {/* Right side login form */}
-        <div className="p-8 flex flex-col items-center justify-center w-full bg-gradient-to-br from-blue-50 to-blue-100">
-          <div className="flex items-center justify-center mb-6">
-            <img src={logo} alt="Company Logo" className="w-16 h-16 mr-3" />
-            <div>
-              <p className="text-3xl font-bold text-blue-950">
-                Welcome Back
-              </p>
-              <p className="text-blue-700 text-sm font-medium">
-                Admin Portal
-              </p>
-            </div>
-          </div>
-
-          <p className="text-lg mb-8 text-blue-950 font-semibold text-center">
-            Sign into your admin account
-          </p>
-
-          <Form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col mx-auto">
-            <FormGroup className="mb-6 w-full">
-              <label className="w-full block mb-3 text-sm font-semibold text-blue-950">
-                Email Address
-              </label>
-              <div className="relative mb-6">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Mail className="h-5 w-5 text-blue-600" />
-                </div>
-                <Input
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="bg-white border-2 border-blue-200 text-blue-950 pl-12 pr-4 py-3 rounded-xl w-full placeholder-blue-400 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300"
-                  type="email"
-                  placeholder="Enter your email address"
-                  required
-                />
-              </div>
-
-              <label className="block mb-3 text-sm font-semibold text-blue-950">
-                Password
-              </label>
-              <div className="relative mb-4">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Lock className="h-5 w-5 text-blue-600" />
-                </div>
-                <Input
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="bg-white border-2 border-blue-200 text-blue-950 pl-12 pr-12 py-3 rounded-xl w-full placeholder-blue-400 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  required
-                />
-                <div
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 cursor-pointer"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-blue-600 hover:text-blue-800 transition-colors" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-blue-600 hover:text-blue-800 transition-colors" />
-                  )}
-                </div>
-              </div>
-            </FormGroup>
-
-            <div className="text-right mb-6">
-              <button
-                type="button"
-                onClick={() => setForgotPasswordModal(true)}
-                className="text-blue-950 hover:text-blue-700 text-sm font-semibold hover:underline transition-colors"
-              >
-                Forgot Password?
-              </button>
-            </div>
-
-            <div className="text-center">
-              {isLoading ? (
-                <div className="flex justify-center py-3">
-                  <CustomSpin />
-                </div>
-              ) : (
-                <Button
-                  type="submit"
-                  className="font-bold text-white w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 rounded-xl border-0 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                  SIGN IN
-                </Button>
-              )}
-            </div>
-
-            <p className="text-center text-sm font-medium text-blue-700 mt-6">
-              Don't have an account?{" "}
-              <Link
-                to="/admin_register"
-                className="text-blue-950 font-semibold hover:underline transition-colors"
-              >
-                Sign Up
-              </Link>
-            </p>
-          </Form>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96">
+          <div
+            className={`absolute inset-0 rounded-full blur-3xl transition-all duration-1000 ${logoAnimation ? "animate-pulse delay-700" : ""
+              }`}
+            style={{
+              background: `radial-gradient(circle, ${logoYellow}05, transparent 70%)`,
+            }}
+          />
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      <Modal
-        isOpen={forgotPasswordModal}
-        toggle={closeForgotPasswordModal}
-        centered
-        className="max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl"
-        backdrop="static"
-      >
-        <ModalHeader toggle={closeForgotPasswordModal} className="border-0 pb-2">
-          <div className="flex items-center text-blue-950">
-            {forgotPasswordStep > 1 && forgotPasswordStep < 4 && (
-              <button
-                onClick={() => setForgotPasswordStep(forgotPasswordStep - 1)}
-                className="mr-3 p-2 hover:bg-blue-50 rounded-full transition-colors"
+      {/* Login Container */}
+      <div className="relative z-10 w-full max-w-md mx-auto">
+        {/* Animated Logo Centerpiece */}
+        <div className="relative mb-8">
+          <div className="flex justify-center">
+            <div className="relative group">
+              {/* Outer glow ring */}
+              <div
+                className={`absolute -inset-4 rounded-full blur-xl transition-all duration-1000 ${logoAnimation ? "animate-ping-slow" : ""
+                  }`}
+                style={{
+                  background: `radial-gradient(circle, ${logoGreen}40, transparent 70%)`,
+                }}
+              />
+
+              {/* Animated rings */}
+              <div
+                className={`absolute -inset-3 rounded-full border-2 transition-all duration-700 ${logoAnimation ? "animate-spin-slow" : ""
+                  }`}
+                style={{
+                  borderImage: `linear-gradient(45deg, ${logoGreen}, ${logoYellow}) 1`,
+                }}
+              />
+
+              {/* Logo container */}
+              <div
+                className={`relative w-24 h-24 rounded-2xl backdrop-blur-lg border transition-all duration-500 flex items-center justify-center mx-auto shadow-2xl bg-white/60 border-gray-300/50 hover:border-gray-400 ${logoAnimation ? "animate-float" : ""
+                  }`}
+                onMouseEnter={() => setLogoAnimation(true)}
+                onMouseLeave={() => setLogoAnimation(false)}
               >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-            )}
-            <span className="font-bold text-lg">Password Recovery</span>
-          </div>
-        </ModalHeader>
-        <ModalBody className="px-6 py-4">
-          {/* Stepper: replace Fragment with a real element to avoid invalid prop warnings */}
-          {forgotPasswordStep < 4 && (
-            <div className="flex justify-center mb-8">
-              <div className="flex items-center">
-                {[1, 2, 3].map((step) => (
-                  <span key={step} className="flex items-center">
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${step === forgotPasswordStep
-                            ? "bg-blue-950 border-blue-950 text-white shadow-lg scale-110"
-                            : step < forgotPasswordStep
-                              ? "bg-blue-100 border-blue-950 text-blue-950"
-                              : "bg-gray-100 border-gray-300 text-gray-400"
-                          }`}
-                      >
-                        {step < forgotPasswordStep ? (
-                          <CheckCircle className="h-6 w-6" />
-                        ) : (
-                          getStepIcon(step)
-                        )}
-                      </div>
-                      <div
-                        className={`mt-2 text-xs font-semibold ${step <= forgotPasswordStep ? "text-blue-950" : "text-gray-400"
-                          }`}
-                      >
-                        {getStepTitle(step)}
-                      </div>
-                    </div>
-                    {step < 3 && (
-                      <div
-                        className={`w-16 h-1 mx-3 mt-6 rounded-full transition-all duration-300 ${step < forgotPasswordStep ? "bg-blue-950" : "bg-gray-200"
-                          }`}
-                      />
-                    )}
-                  </span>
-                ))}
+                {/* Logo image with subtle pulse */}
+                <img
+                  src={Logo}
+                  alt="MAVHU Africa Logo"
+                  className={`w-16 h-16 transition-all duration-500 ${logoAnimation ? "animate-pulse-slow" : ""
+                    }`}
+                />
+
+                {/* Floating particles */}
+                {logoAnimation && (
+                  <>
+                    <div
+                      className="absolute top-2 left-2 w-2 h-2 rounded-full animate-float-fast"
+                      style={{ backgroundColor: logoGreen }}
+                    />
+                    <div
+                      className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full animate-float-fast delay-300"
+                      style={{ backgroundColor: logoYellow }}
+                    />
+                    <div
+                      className="absolute top-2 right-2 w-1 h-1 rounded-full animate-float-fast delay-500"
+                      style={{ backgroundColor: logoGreen }}
+                    />
+                    <div
+                      className="absolute bottom-2 left-2 w-1.5 h-1.5 rounded-full animate-float-fast delay-700"
+                      style={{ backgroundColor: logoYellow }}
+                    />
+                  </>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
-          {renderForgotPasswordStep()}
-        </ModalBody>
-        {forgotPasswordStep < 4 && (
-          <ModalFooter className="border-0 pt-2">
-            <Button
-              color="light"
-              onClick={closeForgotPasswordModal}
-              className="border-2 border-gray-300 text-gray-600 hover:bg-gray-50 mr-3 px-6 py-2 rounded-xl font-semibold"
+          {/* Logo text with gradient */}
+          <div className="text-center mt-6">
+            <h1 className="text-4xl font-bold tracking-tight">
+              <span
+                className="bg-clip-text text-transparent bg-gradient-to-r"
+                style={{
+                  backgroundImage: `linear-gradient(to right, ${logoGreen}, ${logoYellow})`,
+                }}
+              >
+                MAVHU
+              </span>
+              <span className="ml-2 text-gray-900">Africa</span>
+            </h1>
+            <p className="text-sm font-medium tracking-wider uppercase mt-2 text-gray-600">
+              Measured • Verified • Sovereign
+            </p>
+          </div>
+        </div>
+
+        {/* Login Card */}
+        <div
+          className="backdrop-blur-xl rounded-2xl border transition-all duration-500 shadow-2xl overflow-hidden"
+          style={{
+            backgroundColor: `${lightCardBg}95`,
+            borderColor: "rgba(0,0,0,0.1)",
+            boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 30px ${logoGreen}05`,
+          }}
+        >
+          {/* Card header gradient */}
+          <div
+            className="h-1 w-full"
+            style={{
+              background: `linear-gradient(to right, ${logoGreen}, ${logoYellow})`,
+            }}
+          />
+
+          <div className="p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold mb-2">Welcome Back</h2>
+              <p className="text-gray-700">
+                Sign in to access your climate intelligence dashboard
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email Field */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Email Address
+                </label>
+                <div className="relative group">
+                  <div className="absolute left-0 top-0 bottom-0 flex items-center pl-3">
+                    <Mail className="w-5 h-5 text-gray-500 transition-colors duration-300" />
+                  </div>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border bg-white/80 border-gray-300 focus:border-green-600 focus:ring-green-600/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium">Password</label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-medium hover:underline transition-all duration-300"
+                    style={{ color: logoGreen }}
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative group">
+                  <div className="absolute left-0 top-0 bottom-0 flex items-center pl-3">
+                    <Lock className="w-5 h-5 text-gray-500 transition-colors duration-300" />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full pl-11 pr-12 py-3 rounded-xl border bg-white/80 border-gray-300 focus:border-green-600 focus:ring-green-600/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-0 top-0 bottom-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 transition-colors duration-300"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember me checkbox */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  className="w-4 h-4 rounded bg-gray-100 border-gray-300 checked:bg-green-600 focus:ring-green-600/20 transition-all duration-300 focus:ring-2 focus:ring-offset-2"
+                />
+                <label htmlFor="remember" className="ml-2 text-sm text-gray-700">
+                  Remember this device
+                </label>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full py-3.5 px-4 rounded-xl font-semibold text-white transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center shadow-lg overflow-hidden group ${isLoading ? "opacity-75 cursor-not-allowed" : ""
+                  }`}
+                style={{
+                  background: `linear-gradient(135deg, ${logoGreen}, ${logoYellow})`,
+                  boxShadow: `0 10px 30px -5px ${logoGreen}30`,
+                }}
+              >
+                <span className="relative z-10 flex items-center">
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      Sign In
+                      <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+                    </>
+                  )}
+                </span>
+                {/* Button hover effect */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{
+                    background: `linear-gradient(135deg, ${logoYellow}, ${logoGreen})`,
+                  }}
+                />
+              </button>
+            </form>
+
+            {/* Sign up link */}
+            <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+              <p className="text-gray-600">
+                Don't have an account?{" "}
+                <Link
+                  to="/admin_register"
+                  className="font-semibold hover:underline transition-all duration-300"
+                  style={{ color: logoGreen }}
+                >
+                  Create account
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-600">
+            By signing in, you agree to our{" "}
+            <Link
+              to="/terms"
+              className="font-medium hover:underline transition-all duration-300"
+              style={{ color: logoGreen }}
             >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleForgotPassword}
-              disabled={forgotPasswordLoading}
-              className="bg-blue-950 hover:bg-blue-800 border-0 px-8 py-2 rounded-xl font-semibold text-white"
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/privacy"
+              className="font-medium hover:underline transition-all duration-300"
+              style={{ color: logoGreen }}
             >
-              {forgotPasswordLoading ? (
-                <CustomSpin />
-              ) : forgotPasswordStep === 1 ? (
-                "Send Code"
-              ) : forgotPasswordStep === 2 ? (
-                "Verify Code"
-              ) : (
-                "Reset Password"
-              )}
-            </Button>
-          </ModalFooter>
-        )}
-      </Modal>
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* Custom CSS for animations */}
+      <style>
+        {`
+          @keyframes float {
+            0%, 100% {
+              transform: translateY(0px);
+            }
+            50% {
+              transform: translateY(-10px);
+            }
+          }
+          
+          @keyframes float-fast {
+            0%, 100% {
+              transform: translateY(0px) translateX(0px);
+            }
+            25% {
+              transform: translateY(-5px) translateX(3px);
+            }
+            50% {
+              transform: translateY(0px) translateX(6px);
+            }
+            75% {
+              transform: translateY(5px) translateX(3px);
+            }
+          }
+          
+          @keyframes ping-slow {
+            0% {
+              transform: scale(0.8);
+              opacity: 0.8;
+            }
+            70%, 100% {
+              transform: scale(1.5);
+              opacity: 0;
+            }
+          }
+          
+          @keyframes spin-slow {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+          
+          @keyframes pulse-slow {
+            0%, 100% {
+              transform: scale(1);
+            }
+            50% {
+              transform: scale(1.05);
+            }
+          }
+          
+          .animate-float {
+            animation: float 3s ease-in-out infinite;
+          }
+          
+          .animate-float-fast {
+            animation: float-fast 4s ease-in-out infinite;
+          }
+          
+          .animate-ping-slow {
+            animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          }
+          
+          .animate-spin-slow {
+            animation: spin-slow 20s linear infinite;
+          }
+          
+          .animate-pulse-slow {
+            animation: pulse-slow 2s ease-in-out infinite;
+          }
+        `}
+      </style>
     </div>
   );
 };

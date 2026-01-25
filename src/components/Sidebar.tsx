@@ -1,68 +1,290 @@
-import logo from "@/assets/logo2.png";
-import { NavLink } from "react-router-dom";
+import React from "react";
+import {
+  LayoutDashboard,
+  Users,
+  TrendingUp,
+  Settings,
+  Database,
+  BarChart,
+  Leaf,
+  Cloud,
+  Droplet,
+  Shield,
+  Zap,
+  Recycle,
+  Heart,
+  Building,
+  Globe,
+  ChevronRight,
+  X,
+} from "lucide-react";
+import { useNavigate, useLocation, type To } from "react-router-dom";
+import Logo from "../assets/logo.png";
 
-const Sidebar = () => {
-  // Get admin data from localStorage (stored after login)
-  const adminData = JSON.parse(localStorage.getItem("adminData"));
-  const role = adminData?.role;
+const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Define nav items
-  let navItems = [
-    { label: "DASHBOARD", path: "/admin_dashboard" },
-    { label: "SUBJECTS", path: "/courses" },
-    { label: "STUDENTS", path: "/students_dashboard" },
-    { label: "CHAT", path: "/chat" },
-    { label: "LIBRARY", path: "/library" },
-    { label: "WALLET", path: "/reserourcewalle" },
-    { label: "EXAMS", path: "/exams" },
-    { label: "HELP DESK", path: "/help_desk" },
-    { label: "ADMINSTRATION", path: "/all_admins_page" },
-    { label: "TRASH", path: "/content_trash" },
-    { label: "PROFILE", path: "/admin_profile" },
-    { label: "HOME BANNER", path: "/admin_home_banner" },
+  // Light mode colors only
+  const logoGreen = "#008000";
+  const logoYellow = "#B8860B";
+
+  // Dashboard navigation items - simplified
+  const dashboardItems = [
+    {
+      icon: LayoutDashboard,
+      label: "ESG Dashboard",
+      path: "/esg-dashboard",
+    },
+    {
+      icon: Users,
+      label: "Companies",
+      path: "/portal/companies",
+    },
+    {
+      icon: BarChart,
+      label: "Reports",
+      path: "/reports",
+    },
+    {
+      icon: Settings,
+      label: "Settings",
+      path: "/settings",
+    },
   ];
 
-  // Filter items if role is teacher
-  if (role === "teacher") {
-    navItems = navItems.filter(
-      (item) =>
-        item.label !== "ADMINSTRATION" &&
-        item.label !== "TRASH"&& 
-        item.label !== "HOME BANNER"
-    );
-  }
+  // Simplified API items without descriptions
+  const apiItems = [
+    { icon: Leaf, label: "Soil Health", path: "/portal/esg-dashboard/soil-health-carbon" },
+    { icon: TrendingUp, label: "Crop Yield", path: "/portal/esg-dashboard/crop-yield" },
+    { icon: Cloud, label: "GHG Emissions", path: "/portal/esg-dashboard/ghg-emissions" },
+    { icon: Globe, label: "Biodiversity", path: "/apis/biodiversity" },
+    { icon: Droplet, label: "Water Risk", path: "/apis/water-risk" },
+    { icon: Shield, label: "Compliance", path: "/apis/compliance" },
+    { icon: Zap, label: "Energy", path: "/apis/energy" },
+    { icon: Recycle, label: "Waste", path: "/apis/waste" },
+    { icon: Users, label: "Workforce", path: "/apis/workforce" },
+    { icon: Heart, label: "Health & Safety", path: "/apis/health-safety" },
+    { icon: Building, label: "Governance", path: "/apis/governance" },
+    { icon: BarChart, label: "ESG Score", path: "/apis/esg-score" },
+  ];
+
+  const handleNavigation = (path: To) => {
+    navigate(path);
+    if (window.innerWidth < 1024) {
+      onClose();
+    }
+  };
 
   return (
-    <aside className="w-48 min-h-screen flex flex-col shadow-md">
-      {/* Logo Section */}
-      <div className="flex justify-center py-6">
-        <div className="relative">
-          <div className="w-24 h-24 flex items-center justify-center overflow-hidden">
-            <img src={logo} className="w-full" alt="TOTO" />
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        } transition-all duration-300 ease-out lg:translate-x-0 lg:static lg:inset-0 overflow-hidden flex flex-col bg-white border-r border-gray-200`}
+      >
+        {/* Header */}
+        <div className="relative flex items-center justify-between h-20 px-4 border-b border-gray-200 bg-white flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <img src={Logo} alt="MAVHU ESG Dashboard" className="h-10 w-auto" />
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">
+                ESG Dashboard
+              </h1>
+              <p
+                className="text-xs font-medium tracking-wide"
+                style={{ color: logoGreen }}
+              >
+                MAVHU Africa
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-all duration-200"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 px-3 py-4">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `block px-4 py-2 mb-2 rounded-[5px] font-medium text-sm transition-all duration-200 ${isActive
-                ? "bg-blue-800 text-white shadow-sm"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-6 scrollbar-hide">
+          {/* Dashboard Section */}
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-3 text-gray-500">
+              Dashboard
+            </h2>
+            {dashboardItems.map((item, index) => {
+              const IconComponent = item.icon;
+              const isActive = location.pathname === item.path;
 
+              return (
+                <div
+                  key={index}
+                  className={`group flex items-center px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer mb-2 ${
+                    isActive
+                      ? "text-white"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                  onClick={() => handleNavigation(item.path)}
+                  style={
+                    isActive
+                      ? {
+                          background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                          boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
+                        }
+                      : {}
+                  }
+                >
+                  <div
+                    className={`p-2 rounded-lg mr-3 transition-all duration-300 ${
+                      isActive ? "bg-white/20" : "bg-gray-100"
+                    }`}
+                  >
+                    <IconComponent
+                      className={`w-5 h-5 transition-all duration-300 ${
+                        isActive
+                          ? "text-white"
+                          : "text-gray-600 group-hover:text-gray-800"
+                      }`}
+                    />
+                  </div>
+                  <div className="flex-1 font-medium text-sm">{item.label}</div>
+                  <ChevronRight
+                    className={`w-4 h-4 transition-all duration-300 ${
+                      isActive
+                        ? "text-white opacity-100 translate-x-0.5"
+                        : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
+                    }`}
+                  />
+                </div>
+              );
+            })}
+          </div>
 
-        ))}
-      </nav>
-    </aside>
+          {/* APIs Section */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                ESG APIs
+              </h2>
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800">
+                13
+              </span>
+            </div>
+            <div className="space-y-2">
+              {apiItems.map((item, index) => {
+                const IconComponent = item.icon;
+                const isActive = location.pathname === item.path;
+
+                return (
+                  <div
+                    key={index}
+                    className={`group flex items-center px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer ${
+                      isActive
+                        ? "text-white"
+                        : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                    onClick={() => handleNavigation(item.path)}
+                    style={
+                      isActive
+                        ? {
+                            background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                            boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
+                          }
+                        : {}
+                    }
+                  >
+                    <div
+                      className={`p-2 rounded-lg mr-3 transition-all duration-300 ${
+                        isActive ? "bg-white/20" : "bg-gray-100"
+                      }`}
+                    >
+                      <IconComponent
+                        className={`w-4 h-4 transition-all duration-300 ${
+                          isActive
+                            ? "text-white"
+                            : "text-gray-600 group-hover:text-gray-800"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 font-medium text-sm">{item.label}</div>
+                    <ChevronRight
+                      className={`w-3 h-3 transition-all duration-300 ${
+                        isActive
+                          ? "text-white opacity-100 translate-x-0.5"
+                          : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
+                      }`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* API Documentation Link */}
+          <div className="mt-8">
+            <div
+              className="group flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-700"
+              onClick={() => handleNavigation("/api-documentation")}
+            >
+              <Database className="w-5 h-5 mr-2 text-gray-600" />
+              <span className="font-medium text-sm">View API Docs</span>
+            </div>
+          </div>
+        </nav>
+
+        {/* Footer */}
+        <div className="px-4 pb-6 pt-4 border-t border-gray-200 flex-shrink-0">
+          {/* Logout Button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  background: `linear-gradient(to right, ${logoGreen}10, ${logoYellow}10)`,
+                  border: `1px solid ${logoGreen}20`,
+                  color: logoGreen,
+                }}
+              >
+                MAVHU Platform
+              </div>
+              <span className="text-xs text-gray-400">
+                v1.0.0
+              </span>
+            </div>
+            <button
+              onClick={() => handleNavigation("/admin-logout")}
+              className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Custom scrollbar styles */}
+      <style>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+    </>
   );
 };
 

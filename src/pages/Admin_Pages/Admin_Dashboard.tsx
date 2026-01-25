@@ -1,575 +1,605 @@
-import React, { useState, useEffect } from "react";
-import { BookOpen, Calendar, Menu, Search, User, X, TrendingUp, Users, Bookmark, GraduationCap, BarChart3, PieChart, Activity, Target, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
-import Sidebar from "@/components/Sidebar";
-import student from "@/assets/home1.png";
-import { useNavigate } from "react-router-dom";
-
-import StudentService from "../../services/Admin_Service/Student_service";
-import CourseService from "@/services/Admin_Service/Subject_service";
-import SubjectService from "@/services/Admin_Service/Subject_service";
-import { Link } from "react-router-dom";
-import AdminService from "../../services/Admin_Service/admin_service";
+import React, { useState } from "react";
+import Sidebar from "../../components/Sidebar";
+import {
+    TrendingUp,
+    Users,
+    Leaf,
+    Droplet,
+    Zap,
+    Shield,
+    Globe,
+    Building,
+    Recycle,
+    Heart,
+    BarChart,
+    Activity,
+    Award,
+    Target,
+    CheckCircle,
+    XCircle,
+    AlertCircle,
+    Database,
+    ArrowRight,
+} from "lucide-react";
 
 const Admin_Dashboard = () => {
-  // Set initial sidebar state based on screen size
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLargeScreen, setIsLargeScreen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [activeCompany, setActiveCompany] = useState<string | null>(null);
 
-  // Student data state
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
+    // Light mode colors only
+    const logoGreen = "#008000";
+    const logoYellow = "#B8860B";
+    const lightBg = "#F5F5F5";
+    const lightCardBg = "#FFFFFF";
 
-  //course data
-  const [course, setCourse] = useState([]);
-
-  // Dashboard data state
-  const [dashboardData, setDashboardData] = useState(null);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
-  const [dashboardError, setDashboardError] = useState(null);
-
-  // Toggle sidebar function
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  const [adminData, setAdminData] = useState(null);
-  const [adminLoading, setAdminLoading] = useState(true);
-
-  // Color palette for charts
-  const chartColors = ['#1e3a8a', '#3b82f6', '#60a5fa', '#93c5fd', '#dbeafe', '#f3f4f6'];
-
-  // Helper function to truncate long strings
-  const truncateString = (str, maxLength = 13) => {
-    if (!str) return '';
-    return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
-  };
-
-  // Fetch dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await AdminService.getAdminDashboard();
-        setDashboardData(response.data || response);
-        setDashboardLoading(false);
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-        setDashboardError(err.message || "Failed to load dashboard data");
-        setDashboardLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
-
-  // Add this useEffect to fetch admin data
-  useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        const adminEmail = localStorage.getItem("adminEmail");
-        if (adminEmail) {
-          const response = await AdminService.getAdminByEmail(adminEmail);
-          setAdminData(response.data || response);
+    // Hardcoded company data
+    const companies = [
+        {
+            "name": "CBZ Holdings Limited",
+            "registrationNumber": "CBZ-200001",
+            "email": "info@cbz.co.zw",
+            "phone": "+263242700000",
+            "address": "CBZ House, 5th Street, Harare, Zimbabwe",
+            "website": "https://www.cbz.co.zw",
+            "country": "Zimbabwe",
+            "industry": "Banking & Financial Services",
+            "description": "A leading financial services group in Zimbabwe offering banking, insurance, and investment services.",
+            "esgScores": {
+                "overall": 82,
+                "environmental": 78,
+                "social": 85,
+                "governance": 83
+            },
+            "apiUsage": {
+                "totalCalls": 12500,
+                "activeApis": 9,
+                "lastUpdated": "2024-01-15"
+            }
+        },
+        {
+            "name": "Tongaat Hulett Zimbabwe Limited",
+            "registrationNumber": "THZ-190055",
+            "email": "info@tongaat.co.zw",
+            "phone": "+263242700111",
+            "address": "Tongaat Hulett House, Cleveland Road, Harare, Zimbabwe",
+            "website": "https://www.tongaat.co.zw",
+            "country": "Zimbabwe",
+            "industry": "Agriculture & Sugar Production",
+            "description": "A leading sugar producer in Zimbabwe with extensive sugar cane plantations and milling operations.",
+            "esgScores": {
+                "overall": 75,
+                "environmental": 82,
+                "social": 71,
+                "governance": 72
+            },
+            "apiUsage": {
+                "totalCalls": 9800,
+                "activeApis": 11,
+                "lastUpdated": "2024-01-14"
+            }
         }
-        setAdminLoading(false);
-      } catch (err) {
-        console.error("Error fetching admin data:", err);
-        setAdminLoading(false);
-      }
+    ];
+
+    // Overall dashboard stats
+    const dashboardStats = [
+        {
+            title: "Total Companies",
+            value: companies.length.toString(),
+            change: "+2 this month",
+            icon: Building,
+            trending: true
+        },
+        {
+            title: "Avg ESG Score",
+            value: Math.round(companies.reduce((acc, company) => acc + company.esgScores.overall, 0) / companies.length).toString(),
+            change: "+2.5% from last month",
+            icon: TrendingUp,
+            trending: true
+        },
+        {
+            title: "Total API Calls",
+            value: companies.reduce((acc, company) => acc + company.apiUsage.totalCalls, 0).toLocaleString(),
+            change: "+15% this month",
+            icon: Activity,
+            trending: true
+        },
+        {
+            title: "Active APIs",
+            value: "13",
+            change: "All systems operational",
+            icon: CheckCircle,
+            trending: false
+        }
+    ];
+
+    // ESG metrics breakdown
+    const esgMetrics = [
+        {
+            category: "Environmental",
+            score: Math.round(companies.reduce((acc, company) => acc + company.esgScores.environmental, 0) / companies.length),
+            icon: Leaf,
+            description: "Carbon emissions, energy use, water management"
+        },
+        {
+            category: "Social",
+            score: Math.round(companies.reduce((acc, company) => acc + company.esgScores.social, 0) / companies.length),
+            icon: Users,
+            description: "Employee welfare, community impact, diversity"
+        },
+        {
+            category: "Governance",
+            score: Math.round(companies.reduce((acc, company) => acc + company.esgScores.governance, 0) / companies.length),
+            icon: Shield,
+            description: "Board diversity, ethics, transparency"
+        }
+    ];
+
+    // API usage by category
+    const apiCategories = [
+        { name: "Soil Health", usage: 1240, icon: Leaf },
+        { name: "Water Risk", usage: 980, icon: Droplet },
+        { name: "Energy", usage: 1560, icon: Zap },
+        { name: "Compliance", usage: 890, icon: Shield },
+        { name: "Biodiversity", usage: 670, icon: Globe },
+        { name: "Waste", usage: 430, icon: Recycle },
+        { name: "Safety", usage: 1120, icon: Heart }
+    ];
+
+    // All available APIs
+    const allApis = [
+        { name: "Soil Health API", icon: Leaf },
+        { name: "Crop Yield API", icon: TrendingUp },
+        { name: "GHG Emissions API", icon: Database },
+        { name: "Biodiversity API", icon: Globe },
+        { name: "Water Risk API", icon: Droplet },
+        { name: "Compliance API", icon: Shield },
+        { name: "Energy API", icon: Zap },
+        { name: "Waste API", icon: Recycle },
+        { name: "Workforce API", icon: Users },
+        { name: "Health & Safety API", icon: Heart },
+        { name: "Governance API", icon: Building },
+        { name: "Community API", icon: Users },
+        { name: "ESG Score API", icon: BarChart }
+    ];
+
+    const getScoreColor = (score: number) => {
+        if (score >= 80) return { text: "text-green-600", bg: "bg-green-100" };
+        if (score >= 60) return { text: "text-amber-600", bg: "bg-amber-100" };
+        return { text: "text-red-600", bg: "bg-red-100" };
     };
 
-    fetchAdminData();
-  }, []);
-
-  const handleLogout = () => {
-    navigate("/admin_login");
-  };
-
-  // Fetch students from backend
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const response = await StudentService.getAllStudents();
-        setStudents(response.data || []);
-        setLoading(false);
-      } catch (err) {
-        setError(err.message || "Error fetching students");
-        setLoading(false);
-      }
+    const getScoreIcon = (score: number) => {
+        if (score >= 80) return <CheckCircle className="w-5 h-5 text-green-500" />;
+        if (score >= 60) return <AlertCircle className="w-5 h-5 text-amber-500" />;
+        return <XCircle className="w-5 h-5 text-red-500" />;
     };
 
-    fetchStudents();
-  }, []);
-
-  useEffect(() => {
-    const fetchSubjects = async () => {
-      try {
-        const response = await SubjectService.getAllSubjects();
-        setCourse(response.data || []);
-        setLoading(false);
-      } catch (err) {
-        setError(err.message || "Error fetching courses");
-        setLoading(false);
-      }
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
     };
 
-    fetchSubjects();
-  }, []);
+    return (
+        <div className="flex min-h-screen bg-gray-50 text-gray-900 transition-colors duration-300">
+            <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
-  // Update screen size state and handle sidebar visibility
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const isLarge = window.innerWidth >= 768;
-      setIsLargeScreen(isLarge);
-      setSidebarOpen(isLarge);
-    };
-
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
-
-  // Prepare chart data
-  const getBarChartData = (chartData) => {
-    if (!chartData) return [];
-    return chartData.labels?.map((label, index) => ({
-      name: truncateString(label),
-      value: chartData.data?.[index] || 0,
-      fullName: label
-    })) || [];
-  };
-
-  const getPieChartData = (chartData) => {
-    if (!chartData?.data) return [];
-    return chartData.data.map(item => ({
-      name: truncateString(item.name),
-      value: item.value,
-      fullName: item.name
-    }));
-  };
-
-  // Custom tooltip for charts
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800">{payload[0].payload?.fullName || label}</p>
-          <p className="text-blue-600">
-            <span className="font-medium">Value: </span>
-            {payload[0].value}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Stats card definitions
-  const statsCards = [
-    {
-      key: 'students',
-      title: 'Total Students',
-      count: dashboardData?.counts?.students || 0,
-      secondary: `${dashboardData?.stats?.activeStudents || 0} active`,
-      icon: Users,
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      borderColor: 'border-l-blue-500'
-    },
-    {
-      key: 'subjects',
-      title: 'Subjects',
-      count: dashboardData?.counts?.subjects || 0,
-      secondary: `${dashboardData?.stats?.visibleSubjects || 0} visible`,
-      icon: BookOpen,
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600',
-      borderColor: 'border-l-green-500'
-    },
-    {
-      key: 'exams',
-      title: 'Exams',
-      count: dashboardData?.counts?.exams || 0,
-      secondary: `${dashboardData?.stats?.publishedExams || 0} published`,
-      icon: GraduationCap,
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      borderColor: 'border-l-purple-500'
-    },
-    {
-      key: 'books',
-      title: 'Library Books',
-      count: dashboardData?.counts?.books || 0,
-      secondary: `${dashboardData?.stats?.visibleBooks || 0} visible`,
-      icon: Bookmark,
-      iconBg: 'bg-orange-100',
-      iconColor: 'text-orange-600',
-      borderColor: 'border-l-orange-500'
-    },
-    {
-      key: 'admins',
-      title: 'Admins',
-      count: dashboardData?.counts?.admins || 0,
-      icon: User,
-      iconBg: 'bg-red-100',
-      iconColor: 'text-red-600',
-      borderColor: 'border-l-red-500'
-    },
-    {
-      key: 'topics',
-      title: 'Topics',
-      count: dashboardData?.counts?.topics || 0,
-      icon: Activity,
-      iconBg: 'bg-indigo-100',
-      iconColor: 'text-indigo-600',
-      borderColor: 'border-l-indigo-500'
-    },
-    {
-      key: 'recordedExams',
-      title: 'Recorded Exams',
-      count: dashboardData?.counts?.recordedExams || 0,
-      icon: Calendar,
-      iconBg: 'bg-teal-100',
-      iconColor: 'text-teal-600',
-      borderColor: 'border-l-teal-500'
-    },
-    {
-      key: 'communities',
-      title: 'Communities',
-      count: dashboardData?.counts?.communities || 0,
-      icon: Users,
-      iconBg: 'bg-amber-100',
-      iconColor: 'text-amber-600',
-      borderColor: 'border-l-amber-500'
-    }
-  ];
-
-  return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 relative">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" className="absolute top-0 left-0">
-          <defs>
-            <pattern id="pattern" width="100" height="100" patternUnits="userSpaceOnUse">
-              <path d="M0 0 L25 25 M25 25 L50 0 M50 0 L75 25 M75 25 L100 0" strokeWidth="1" stroke="rgba(30, 58, 138, 0.1)" fill="transparent" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#pattern)" />
-        </svg>
-      </div>
-
-      {/* Mobile Menu Toggle */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-full shadow-lg hover:bg-blue-800 transition-colors"
-        onClick={toggleSidebar}
-      >
-        {sidebarOpen && !isLargeScreen ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"} transition-all duration-300 ease-in-out fixed md:relative z-40 md:z-auto w-64`}>
-        <Sidebar />
-      </div>
-
-      {/* Backdrop Overlay for Mobile */}
-      {sidebarOpen && !isLargeScreen && (
-        <div className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30" onClick={toggleSidebar} />
-      )}
-
-      {/* Main Content */}
-      <div className="flex-1 w-full relative z-10">
-        <div className="w-full min-h-screen p-4 md:p-6">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 space-y-4 md:space-y-0 mt-10 md:mt-0">
-            <div>
-              <h1 className="text-4xl font-bold text-blue-900 drop-shadow-sm">Dashboard</h1>
-              <p className="text-gray-600 mt-2">Here's what's happening today.</p>
-            </div>
-
-            <div onClick={handleLogout} className="bg-blue-900 text-white rounded-lg py-3 px-6 flex items-center shadow-md hover:shadow-lg transition-all hover:bg-blue-800 cursor-pointer">
-              <User className="h-5 w-5 mr-2" />
-              <span className="font-medium">Logout</span>
-            </div>
-          </div>
-
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {dashboardLoading ? (
-              [...Array(8)].map((_, i) => (
-                <Card key={i} className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-                  <CardContent className="p-6">
-                    <div className="animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                      <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : dashboardError ? (
-              <Card className="col-span-full bg-yellow-50 border-yellow-200">
-                <CardContent className="p-6 text-center">
-                  <p className="text-yellow-700">
-                    Oops! Something went wrong while loading your dashboard. Please try again.
-                  </p>
-                </CardContent>
-              </Card>
-
-            ) : (
-              statsCards.map((card) => (
-                <Card key={card.key} className={`bg-white shadow-lg hover:shadow-xl transition-shadow border-0 border-l-4 ${card.borderColor}`}>
-                  <CardContent className="p-6">
+            {/* Main Content */}
+            <main className="flex-1 lg:ml-0 transition-all duration-300 bg-gray-50">
+                {/* Header */}
+                <header 
+                    className="sticky top-0 z-30 border-b border-gray-300/70 px-6 py-4 backdrop-blur-sm"
+                    style={{ background: `${lightBg}/95` }}
+                >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-600 text-sm font-medium">{card.title}</p>
-                        <p className="text-3xl font-bold text-blue-900">{card.count}</p>
-                        {card.secondary && (
-                          <p className="text-green-600 text-sm mt-1">
-                            {card.secondary}
-                          </p>
-                        )}
-                      </div>
-                      <div className={`${card.iconBg} p-3 rounded-full`}>
-                        <card.icon className={`h-8 w-8 ${card.iconColor}`} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-            {/* Bar Chart 1 */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-blue-900 flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  {dashboardData?.charts?.barGraph1?.title || "Students by Education Level"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={getBarChartData(dashboardData?.charts?.barGraph1)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#1e3a8a" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Bar Chart 2 */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-blue-900 flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  {dashboardData?.charts?.barGraph2?.title || "Exams by Subject"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={getBarChartData(dashboardData?.charts?.barGraph2)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pie Chart 1 */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-blue-900 flex items-center">
-                  <PieChart className="h-5 w-5 mr-2" />
-                  {dashboardData?.charts?.pieChart1?.title || "Topics Distribution"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={getPieChartData(dashboardData?.charts?.pieChart1)}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
-                      >
-                        {getPieChartData(dashboardData?.charts?.pieChart1).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pie Chart 2 */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-blue-900 flex items-center">
-                  <PieChart className="h-5 w-5 mr-2" />
-                  {dashboardData?.charts?.pieChart2?.title || "Library Books Distribution"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={getPieChartData(dashboardData?.charts?.pieChart2)}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
-                      >
-                        {getPieChartData(dashboardData?.charts?.pieChart2).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Content Grid - Students and Courses */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* All Students */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-blue-900 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Users className="h-5 w-5 mr-2" />
-                    Recent Students
-                  </div>
-                  <Link to="/students" className="text-sm text-blue-600 hover:text-blue-800 transition-colors">
-                    View All
-                  </Link>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {loading ? (
-                    <div className="text-center p-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
-                    </div>
-                  ) : error ? (
-                    <div className="text-center p-8 text-red-500">
-                      <p>Error: {error}</p>
-                    </div>
-                  ) : students.length > 0 ? (
-                    students.slice(0, 8).map((student) => (
-                      <div key={student._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors">
-                        <div className="flex items-center">
-                          <div className="bg-blue-900 rounded-full h-10 w-10 flex items-center justify-center mr-3">
-                            <User className="h-6 w-6 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800">
-                              {truncateString(`${student.firstName} ${student.lastName}`, 20)}
+                        <div>
+                            <h1 className="text-2xl font-bold" style={{ color: logoGreen }}>
+                                ESG Dashboard
+                            </h1>
+                            <p className="text-sm text-gray-700">
+                                Monitoring Environmental, Social & Governance metrics across all companies
                             </p>
-                            <p className="text-sm text-gray-500">{student.email}</p>
-                          </div>
                         </div>
-                        <div className="text-xs text-gray-400">
-                          {student.educationLevel || 'N/A'}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center p-8 text-gray-500">
-                      <Users className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                      <p>No students found</p>
+                        <button
+                            onClick={toggleSidebar}
+                            className="lg:hidden p-2 rounded-lg transition-colors bg-gray-100 hover:bg-gray-200"
+                        >
+                            <div className="w-6 h-6 flex items-center justify-center">
+                                <div className="w-4 h-0.5 bg-gray-600 mb-1"></div>
+                                <div className="w-4 h-0.5 bg-gray-600 mb-1"></div>
+                                <div className="w-4 h-0.5 bg-gray-600"></div>
+                            </div>
+                        </button>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                </header>
 
-            {/* All Courses */}
-            <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow border-0">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-blue-900 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <BookOpen className="h-5 w-5 mr-2" />
-                    Available Subjects
-                  </div>
-                  <Link to="/courses" className="text-sm text-blue-600 hover:text-blue-800 transition-colors">
-                    View All
-                  </Link>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {loading ? (
-                    <div className="text-center p-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900 mx-auto"></div>
-                      <p className="text-gray-600 mt-2">Loading courses...</p>
+                {/* Dashboard Content */}
+                <div className="p-6">
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {dashboardStats.map((stat, index) => {
+                            const IconComponent = stat.icon;
+                            const color = index === 1 ? logoGreen : index === 3 ? logoYellow : logoGreen;
+
+                            return (
+                                <div
+                                    key={index}
+                                    className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 transition-all duration-300 hover:border-gray-400 shadow-lg shadow-gray-200/50"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div
+                                            className="p-3 rounded-xl"
+                                            style={{
+                                                background: `linear-gradient(to right, ${color}10, ${color}05)`,
+                                                border: `1px solid ${color}20`
+                                            }}
+                                        >
+                                            <IconComponent className="w-6 h-6" style={{ color }} />
+                                        </div>
+                                        <span className={`text-sm font-medium ${stat.trending ? 'text-green-600' : 'text-gray-600'}`}>
+                                            {stat.change}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-3xl font-bold mb-2" style={{ color }}>
+                                        {stat.value}
+                                    </h3>
+                                    <p className="text-sm text-gray-700">
+                                        {stat.title}
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
-                  ) : error ? (
-                    <div className="text-center p-8 text-red-500">
-                      <p>Error: {error}</p>
-                    </div>
-                  ) : course.length > 0 ? (
-                    course.slice(0, 8).map((courseItem, index) => (
-                      <div key={courseItem._id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg mr-3 flex items-center justify-center">
-                            <BookOpen className="h-5 w-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800">
-                              {truncateString(courseItem.subjectName || courseItem.name, 20)}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {courseItem.topics || "Topics available"}
-                            </p>
-                          </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        {/* ESG Scores Overview */}
+                        <div className="lg:col-span-2 bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
+                                    ESG Scores Overview
+                                </h2>
+                                <div className="flex items-center space-x-2">
+                                    <Award className="w-5 h-5" style={{ color: logoYellow }} />
+                                    <span className="text-sm text-gray-700">
+                                        Industry Average: 78.5
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                {esgMetrics.map((metric, index) => {
+                                    const scoreColor = getScoreColor(metric.score);
+                                    return (
+                                        <div
+                                            key={index}
+                                            className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-5 transition-all duration-300 hover:border-gray-400"
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div
+                                                    className="p-2 rounded-lg"
+                                                    style={{
+                                                        background: `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`,
+                                                        border: `1px solid ${logoGreen}20`
+                                                    }}
+                                                >
+                                                    <metric.icon className="w-5 h-5" style={{ color: logoGreen }} />
+                                                </div>
+                                                <div className={`px-3 py-1 rounded-full ${scoreColor.bg} ${scoreColor.text}`}>
+                                                    <span className="text-sm font-semibold">{metric.score}/100</span>
+                                                </div>
+                                            </div>
+                                            <h3 className="text-lg font-semibold mb-2">
+                                                {metric.category}
+                                            </h3>
+                                            <p className="text-sm text-gray-700">
+                                                {metric.description}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Companies List */}
+                            <div>
+                                <h3 className="text-lg font-semibold mb-4" style={{ color: logoGreen }}>
+                                    Registered Companies
+                                </h3>
+                                <div className="space-y-4">
+                                    {companies.map((company, index) => {
+                                        const scoreColor = getScoreColor(company.esgScores.overall);
+                                        const isActive = activeCompany === company.registrationNumber;
+
+                                        return (
+                                            <div
+                                                key={index}
+                                                className={`flex items-center justify-between p-4 rounded-xl border transition-colors duration-300 cursor-pointer ${
+                                                    isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300/70 hover:bg-gray-100'
+                                                }`}
+                                                onClick={() => setActiveCompany(company.registrationNumber)}
+                                            >
+                                                <div className="flex items-center space-x-4">
+                                                    <div
+                                                        className="p-3 rounded-lg"
+                                                        style={{
+                                                            background: `linear-gradient(to right, ${
+                                                                index % 2 === 0 ? logoGreen : logoYellow
+                                                            }10, ${index % 2 === 0 ? logoGreen : logoYellow}05)`,
+                                                            border: `1px solid ${
+                                                                index % 2 === 0 ? logoGreen : logoYellow
+                                                            }20`
+                                                        }}
+                                                    >
+                                                        <Building 
+                                                            className="w-6 h-6" 
+                                                            style={{ color: index % 2 === 0 ? logoGreen : logoYellow }} 
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-medium">
+                                                            {company.name}
+                                                        </h4>
+                                                        <p className="text-sm text-gray-700">
+                                                            {company.industry}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="text-right">
+                                                        <div className="text-2xl font-bold" style={{ color: scoreColor.text }}>
+                                                            {company.esgScores.overall}
+                                                        </div>
+                                                        <div className="text-sm text-gray-700">
+                                                            ESG Score
+                                                        </div>
+                                                    </div>
+                                                    {getScoreIcon(company.esgScores.overall)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                        <Link to="/courses">
-                          <Button size="sm" className="bg-blue-900 hover:bg-blue-800 text-white text-xs">
-                            View
-                          </Button>
-                        </Link>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center p-8 text-gray-500">
-                      <BookOpen className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                      <p>No courses found</p>
+
+                        {/* API Usage & Company Details */}
+                        <div className="space-y-6">
+                            {/* API Usage */}
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
+                                        API Usage
+                                    </h2>
+                                    <Target className="w-5 h-5" style={{ color: logoGreen }} />
+                                </div>
+                                <div className="space-y-4">
+                                    {apiCategories.map((api, index) => (
+                                        <div key={index} className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-3">
+                                                <div
+                                                    className="p-2 rounded-lg"
+                                                    style={{
+                                                        background: `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`,
+                                                        border: `1px solid ${logoGreen}20`
+                                                    }}
+                                                >
+                                                    <api.icon className="w-4 h-4" style={{ color: logoGreen }} />
+                                                </div>
+                                                <span className="text-sm font-medium">
+                                                    {api.name}
+                                                </span>
+                                            </div>
+                                            <span className="text-sm text-gray-700">
+                                                {api.usage.toLocaleString()} calls
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-6 pt-6 border-t border-gray-300/70">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-700">Total This Month</span>
+                                        <span className="font-semibold">
+                                            {apiCategories.reduce((acc, api) => acc + api.usage, 0).toLocaleString()} calls
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Available APIs */}
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
+                                        Available APIs
+                                    </h2>
+                                    <Database className="w-5 h-5" style={{ color: logoGreen }} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {allApis.map((api, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-center space-x-2 p-3 rounded-lg border border-gray-300/70 transition-colors duration-300 hover:bg-gray-100"
+                                        >
+                                            <div
+                                                className="p-1.5 rounded-md"
+                                                style={{
+                                                    background: `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`,
+                                                    border: `1px solid ${logoGreen}20`
+                                                }}
+                                            >
+                                                <api.icon className="w-3.5 h-3.5" style={{ color: logoGreen }} />
+                                            </div>
+                                            <span className="text-xs font-medium truncate">{api.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-6">
+                                    <button
+                                        className="w-full py-2.5 rounded-lg font-medium transition-all hover:opacity-90 flex items-center justify-center space-x-2"
+                                        style={{
+                                            background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                                            color: '#FFFFFF',
+                                        }}
+                                    >
+                                        <span>View All APIs</span>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Company Details */}
+                            {activeCompany && (
+                                <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
+                                            Company Details
+                                        </h2>
+                                        <button
+                                            onClick={() => setActiveCompany(null)}
+                                            className="p-1 rounded hover:bg-gray-100"
+                                        >
+                                            <XCircle className="w-5 h-5" style={{ color: logoGreen }} />
+                                        </button>
+                                    </div>
+
+                                    {(() => {
+                                        const company = companies.find(c => c.registrationNumber === activeCompany);
+                                        if (!company) return null;
+
+                                        return (
+                                            <>
+                                                <div className="mb-6">
+                                                    <h3 className="text-xl font-bold mb-2">
+                                                        {company.name}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-700 mb-4">
+                                                        {company.description}
+                                                    </p>
+
+                                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                                        <div>
+                                                            <p className="text-xs text-gray-600 mb-1">Industry</p>
+                                                            <p className="text-sm font-medium">
+                                                                {company.industry}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-600 mb-1">Country</p>
+                                                            <p className="text-sm font-medium">
+                                                                {company.country}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* ESG Scores Breakdown */}
+                                                <div className="mb-6">
+                                                    <h4 className="text-sm font-semibold mb-3">
+                                                        ESG Scores Breakdown
+                                                    </h4>
+                                                    <div className="space-y-3">
+                                                        {Object.entries(company.esgScores).map(([key, value]) => (
+                                                            <div key={key} className="flex items-center justify-between">
+                                                                <span className="text-sm text-gray-700 capitalize">
+                                                                    {key}
+                                                                </span>
+                                                                <div className="flex items-center space-x-2">
+                                                                    <div className="w-24 h-2 rounded-full overflow-hidden bg-gray-200">
+                                                                        <div
+                                                                            className="h-full"
+                                                                            style={{
+                                                                                background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                                                                                width: `${value}%`
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className="text-sm font-medium w-8">
+                                                                        {value}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* API Usage Stats */}
+                                                <div>
+                                                    <h4 className="text-sm font-semibold mb-3">
+                                                        API Usage
+                                                    </h4>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="rounded-lg p-3 bg-gray-50">
+                                                            <p className="text-xs text-gray-600 mb-1">
+                                                                Total API Calls
+                                                            </p>
+                                                            <p className="text-lg font-bold" style={{ color: logoGreen }}>
+                                                                {company.apiUsage.totalCalls.toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                        <div className="rounded-lg p-3 bg-gray-50">
+                                                            <p className="text-xs text-gray-600 mb-1">
+                                                                Active APIs
+                                                            </p>
+                                                            <p className="text-lg font-bold" style={{ color: logoGreen }}>
+                                                                {company.apiUsage.activeApis}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                  )}
+
+                    {/* Recent Activity */}
+                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                        <h2 className="text-lg font-semibold mb-6" style={{ color: logoGreen }}>
+                            Recent Activity
+                        </h2>
+                        <div className="space-y-4">
+                            {[
+                                { company: "CBZ Holdings", action: "Updated ESG scores", time: "2 hours ago", type: "update" },
+                                { company: "Tongaat Hulett", action: "Added new compliance data", time: "5 hours ago", type: "add" },
+                                { company: "System", action: "Scheduled data sync completed", time: "1 day ago", type: "system" },
+                                { company: "CBZ Holdings", action: "Generated quarterly report", time: "2 days ago", type: "report" },
+                            ].map((activity, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 rounded-lg transition-colors hover:bg-gray-100">
+                                    <div className="flex items-center space-x-3">
+                                        <div
+                                            className="p-2 rounded-lg"
+                                            style={{
+                                                background: activity.type === 'update' ? `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)` :
+                                                    activity.type === 'add' ? `linear-gradient(to right, ${logoYellow}10, ${logoYellow}05)` :
+                                                        "bg-gray-100",
+                                                border: `1px solid ${activity.type === 'update' ? `${logoGreen}20` :
+                                                        activity.type === 'add' ? `${logoYellow}20` : "transparent"
+                                                    }`
+                                            }}
+                                        >
+                                            {activity.type === 'update' && <TrendingUp className="w-4 h-4" style={{ color: logoGreen }} />}
+                                            {activity.type === 'add' && <CheckCircle className="w-4 h-4" style={{ color: logoYellow }} />}
+                                            {activity.type === 'system' && <Activity className="w-4 h-4 text-gray-600" />}
+                                            {activity.type === 'report' && <BarChart className="w-4 h-4" style={{ color: logoGreen }} />}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium">
+                                                {activity.company} - {activity.action}
+                                            </p>
+                                            <p className="text-xs text-gray-700">
+                                                {activity.time}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+            </main>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default Admin_Dashboard;
