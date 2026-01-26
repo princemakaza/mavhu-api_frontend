@@ -63,6 +63,7 @@ import ToEditEndLesson from "./pages/Admin_Pages/to_end_lesson_edit";
 import AdminHomeBanner from "./pages/Admin_Pages/admin_home_banner";
 import ConfirmOtpScreen from "./pages/auth/Admin/confirm_otp";
 import CompanyManagementScreen from "./pages/Admin_Pages/companies_screen";
+import SoilHealthCarbonEmissionScreen from "./pages/Admin_Pages/esg_api_screen/soil_carbon_screen";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -90,6 +91,8 @@ const App = () => (
             <Route path="/reserourcewalle" element={<ReserourceWalle />} />
             <Route path="/admin_dashboard" element={<Admin_Dashboard />} />
             <Route path="/admin_companies" element={<CompanyManagementScreen />} />
+            <Route path="/admin_soil_health_carbon" element={<SoilHealthCarbonEmissionScreen />} />
+            <Route path="/admin_soil_health_carbon/:companyId" element={<SoilHealthCarbonEmissionScreen />} />
             <Route path="/students_dashboard" element={<StudentDashboard />} />
             <Route path="/chat" element={<ChatApp />} />
             <Route path="/library" element={<Library />} />

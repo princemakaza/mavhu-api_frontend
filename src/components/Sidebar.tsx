@@ -55,7 +55,7 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
 
   // Simplified API items without descriptions
   const apiItems = [
-    { icon: Leaf, label: "Soil Health", path: "/portal/esg-dashboard/soil-health-carbon" },
+    { icon: Leaf, label: "Soil Health", path: "/admin_soil_health_carbon" },
     { icon: TrendingUp, label: "Crop Yield", path: "/portal/esg-dashboard/crop-yield" },
     { icon: Cloud, label: "GHG Emissions", path: "/portal/esg-dashboard/ghg-emissions" },
     { icon: Globe, label: "Biodiversity", path: "/apis/biodiversity" },
