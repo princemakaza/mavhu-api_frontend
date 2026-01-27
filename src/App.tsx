@@ -64,6 +64,10 @@ import AdminHomeBanner from "./pages/Admin_Pages/admin_home_banner";
 import ConfirmOtpScreen from "./pages/auth/Admin/confirm_otp";
 import CompanyManagementScreen from "./pages/Admin_Pages/companies_screen";
 import SoilHealthCarbonEmissionScreen from "./pages/Admin_Pages/esg_api_screen/soil_carbon_screen";
+import GhgEmissionScreen from "./pages/Admin_Pages/esg_api_screen/ghg_emmision_screen";
+import CropYieldCarbonEmissionScreen from "./pages/Admin_Pages/esg_api_screen/crop_yield_screen";
+import EsgMetricsScreen from "./pages/Admin_Pages/esg_api_screen/esg_metric_screen";
+import BiodiversityLandUseScreen from "./pages/Admin_Pages/esg_api_screen/BiodiversityLandUseScreen";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -93,6 +97,14 @@ const App = () => (
             <Route path="/admin_companies" element={<CompanyManagementScreen />} />
             <Route path="/admin_soil_health_carbon" element={<SoilHealthCarbonEmissionScreen />} />
             <Route path="/admin_soil_health_carbon/:companyId" element={<SoilHealthCarbonEmissionScreen />} />
+            <Route path="/admin_ghg_emission" element={<GhgEmissionScreen />} />
+            <Route path="/admin_ghg_emission/:companyId" element={<GhgEmissionScreen />} />  //
+            <Route path="/admin_crop_yield_carbon" element={<CropYieldCarbonEmissionScreen />} />
+            <Route path="/admin_crop_yield_carbon/:companyId" element={<CropYieldCarbonEmissionScreen />} />  //
+            <Route path="/admin_esg_metrics" element={<EsgMetricsScreen />} />
+            <Route path="/admin_esg_metric/:companyId" element={<EsgMetricsScreen />} />
+            <Route path="/admin_biodiversity_land_use" element={<BiodiversityLandUseScreen />} />
+            <Route path="/admin_biodiversity_land_use/:companyId" element={<BiodiversityLandUseScreen />} />
             <Route path="/students_dashboard" element={<StudentDashboard />} />
             <Route path="/chat" element={<ChatApp />} />
             <Route path="/library" element={<Library />} />

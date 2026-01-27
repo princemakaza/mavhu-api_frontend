@@ -44,6 +44,7 @@ import {
     ArrowRight,
     Link,
     Map as MapIcon,
+    BarChart3
 } from "lucide-react";
 import {
     getCompanies,
@@ -1622,6 +1623,7 @@ const CompanyManagementScreen = () => {
                                 {/* Quick Actions */}
                                 <div className={`p-4 rounded-xl border ${themeClasses.border} ${themeClasses.cardBg}`}>
                                     <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
+
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
                                             onClick={() => {
@@ -1633,6 +1635,7 @@ const CompanyManagementScreen = () => {
                                             <Edit className="w-4 h-4" />
                                             <span className="text-sm font-medium">Edit Company</span>
                                         </button>
+
                                         <button
                                             onClick={() => {
                                                 setShowViewModal(false);
@@ -1643,8 +1646,18 @@ const CompanyManagementScreen = () => {
                                             <Trash2 className="w-4 h-4" />
                                             <span className="text-sm font-medium">Delete Company</span>
                                         </button>
+
+                                        {/* View ESG Metrics */}
+                                        <button
+                                            onClick={() => { navigate(`/admin_esg_metric/${selectedCompany._id}`); setShowViewModal(false); }}
+                                            className={`flex items-center gap-2 p-3 rounded-lg border ${themeClasses.border} ${themeClasses.hoverBg} transition-colors col-span-2`}
+                                        >
+                                            <BarChart3 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                            <span className="text-sm font-medium">View ESG Metrics</span>
+                                        </button>
                                     </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>

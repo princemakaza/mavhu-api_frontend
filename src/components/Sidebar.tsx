@@ -34,7 +34,7 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
     {
       icon: LayoutDashboard,
       label: "ESG Dashboard",
-      path: "/esg-dashboard",
+      path: "/admin_dashboard",
     },
     {
       icon: Users,
@@ -56,9 +56,9 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
   // Simplified API items without descriptions
   const apiItems = [
     { icon: Leaf, label: "Soil Health", path: "/admin_soil_health_carbon" },
-    { icon: TrendingUp, label: "Crop Yield", path: "/portal/esg-dashboard/crop-yield" },
-    { icon: Cloud, label: "GHG Emissions", path: "/portal/esg-dashboard/ghg-emissions" },
-    { icon: Globe, label: "Biodiversity", path: "/apis/biodiversity" },
+    { icon: TrendingUp, label: "Crop Yield", path: "/admin_crop_yield_carbon" },
+    { icon: Cloud, label: "GHG Emissions", path: "/admin_ghg_emission" },
+    { icon: Globe, label: "Biodiversity", path: "/admin_biodiversity_land_use" },
     { icon: Droplet, label: "Water Risk", path: "/apis/water-risk" },
     { icon: Shield, label: "Compliance", path: "/apis/compliance" },
     { icon: Zap, label: "Energy", path: "/apis/energy" },
@@ -68,7 +68,6 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
     { icon: Building, label: "Governance", path: "/apis/governance" },
     { icon: BarChart, label: "ESG Score", path: "/apis/esg-score" },
   ];
-
   const handleNavigation = (path: To) => {
     navigate(path);
     if (window.innerWidth < 1024) {

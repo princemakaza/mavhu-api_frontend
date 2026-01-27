@@ -45,14 +45,14 @@ const Admin_Dashboard = () => {
             "industry": "Banking & Financial Services",
             "description": "A leading financial services group in Zimbabwe offering banking, insurance, and investment services.",
             "esgScores": {
-                "overall": 82,
-                "environmental": 78,
-                "social": 85,
-                "governance": 83
+                "overall": 0,
+                "environmental": 0,
+                "social": 0,
+                "governance": 0
             },
             "apiUsage": {
-                "totalCalls": 12500,
-                "activeApis": 9,
+                "totalCalls": 0,
+                "activeApis": 0,
                 "lastUpdated": "2024-01-15"
             }
         },
@@ -67,14 +67,14 @@ const Admin_Dashboard = () => {
             "industry": "Agriculture & Sugar Production",
             "description": "A leading sugar producer in Zimbabwe with extensive sugar cane plantations and milling operations.",
             "esgScores": {
-                "overall": 75,
-                "environmental": 82,
-                "social": 71,
-                "governance": 72
+                "overall": 0,
+                "environmental": 0,
+                "social": 0,
+                "governance": 0
             },
             "apiUsage": {
-                "totalCalls": 9800,
-                "activeApis": 11,
+                "totalCalls": 0,
+                "activeApis": 0,
                 "lastUpdated": "2024-01-14"
             }
         }
@@ -85,27 +85,27 @@ const Admin_Dashboard = () => {
         {
             title: "Total Companies",
             value: companies.length.toString(),
-            change: "+2 this month",
+            change: "0+ this month",
             icon: Building,
             trending: true
         },
         {
             title: "Avg ESG Score",
             value: Math.round(companies.reduce((acc, company) => acc + company.esgScores.overall, 0) / companies.length).toString(),
-            change: "+2.5% from last month",
+            change: "0% from last month",
             icon: TrendingUp,
             trending: true
         },
         {
             title: "Total API Calls",
             value: companies.reduce((acc, company) => acc + company.apiUsage.totalCalls, 0).toLocaleString(),
-            change: "+15% this month",
+            change: "0% this month",
             icon: Activity,
             trending: true
         },
         {
             title: "Active APIs",
-            value: "13",
+            value: "0",
             change: "All systems operational",
             icon: CheckCircle,
             trending: false
@@ -136,13 +136,13 @@ const Admin_Dashboard = () => {
 
     // API usage by category
     const apiCategories = [
-        { name: "Soil Health", usage: 1240, icon: Leaf },
-        { name: "Water Risk", usage: 980, icon: Droplet },
-        { name: "Energy", usage: 1560, icon: Zap },
-        { name: "Compliance", usage: 890, icon: Shield },
-        { name: "Biodiversity", usage: 670, icon: Globe },
-        { name: "Waste", usage: 430, icon: Recycle },
-        { name: "Safety", usage: 1120, icon: Heart }
+        { name: "Soil Health", usage: 0, icon: Leaf },
+        { name: "Water Risk", usage: 0, icon: Droplet },
+        { name: "Energy", usage: 0, icon: Zap },
+        { name: "Compliance", usage: 0, icon: Shield },
+        { name: "Biodiversity", usage: 0, icon: Globe },
+        { name: "Waste", usage: 0, icon: Recycle },
+        { name: "Safety", usage: 0, icon: Heart }
     ];
 
     // All available APIs
