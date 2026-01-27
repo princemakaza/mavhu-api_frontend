@@ -115,7 +115,7 @@ const ConfirmOtpScreen: React.FC = () => {
                 description: "Email verified successfully!",
             });
             localStorage.removeItem("pendingEmail");
-            navigate("/login");
+            navigate("/admin_login");
         } catch (error: any) {
             toast({
                 variant: "destructive",
