@@ -1,31 +1,4 @@
 import { useState } from "react";
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    ArcElement,
-} from 'chart.js';
-import {
-    ResponsiveContainer,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip as RechartsTooltip,
-    Legend as RechartsLegend,
-    PieChart,
-    Pie,
-    Cell,
-    LineChart,
-    Line,
-    ComposedChart,
-    Area,
-} from "recharts";
 
 // Icons
 import {
@@ -39,50 +12,33 @@ import {
     Calendar,
     Clock,
     Database,
-    BarChart3,
-    PieChart as PieChartIcon,
     FileCheck,
-    TrendingUp,
-    TrendingDown,
-    Activity,
     Eye,
-    Filter,
-    Search,
-    ChevronDown,
-    ChevronRight,
     Info,
-    ExternalLink,
     Copy,
-    Share2,
     Mail,
-    Bell,
-    Settings,
     MoreVertical,
-    Users,
-    Globe,
     Building,
     MapPin,
     Phone,
     Link,
-    Hash,
-    Percent,
     DollarSign,
-    Thermometer,
     Leaf,
-    Wind,
-    Waves,
     Mountain,
     Target,
     Award,
     AlertTriangle,
     X,
     BadgeCheck,
-    ClipboardCheck,
-    FileSignature,
-    Stamp,
-    ScrollText,
+    Sprout,
     Shield,
     BarChartHorizontal,
+    BookOpen,
+    Cpu,
+    Server,
+    Layers,
+    GitBranch,
+    Activity,
 } from "lucide-react";
 
 // Service functions
@@ -96,42 +52,29 @@ import {
     getVerificationStatus,
     getCarbonEmissionDetails,
     getEnvironmentalMetricsSummary,
-    getAllESGMetricsSummary,
     getRecommendations,
     getConfidenceScoreBreakdown,
     getDashboardIndicators,
+    getSoilOrganicCarbonDetails,
+    getCarbonStockAnalysisDetails,
+    getVegetationHealthDetails,
 } from "../../../../services/Admin_Service/esg_apis/soil_carbon_service";
 
 // Components
 import DataTable from "../soil_components/DataTable";
-import GraphDisplay from "../soil_components/GraphDisplay";
-
-// Register ChartJS components
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    ArcElement
-);
 
 // Enhanced Color Palette with Green Theme
 const COLORS = {
-    primary: '#22c55e',      // Green-500
-    primaryDark: '#16a34a',  // Green-600
-    primaryLight: '#86efac', // Green-300
-    secondary: '#10b981',    // Emerald-500
-    accent: '#84cc16',       // Lime-500
+    primary: '#22c55e',
+    primaryDark: '#16a34a',
+    primaryLight: '#86efac',
+    secondary: '#10b981',
+    accent: '#84cc16',
     success: '#22c55e',
-    warning: '#eab308',      // Yellow-500
-    danger: '#ef4444',       // Red-500
-    info: '#3b82f6',         // Blue-500
-    purple: '#8b5cf6',       // Purple-500
-    gradient1: '#22c55e',
-    gradient2: '#10b981',
-    gradient3: '#84cc16',
+    warning: '#eab308',
+    danger: '#ef4444',
+    info: '#3b82f6',
+    purple: '#8b5cf6',
 };
 
 interface ReportsTabProps {
@@ -159,12 +102,10 @@ const ReportsTab = ({
     availableYears,
     onMetricClick,
 }: ReportsTabProps) => {
-    const [selectedGraph, setSelectedGraph] = useState<any>(null);
     const [selectedReport, setSelectedReport] = useState<string>('summary');
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportFormat, setExportFormat] = useState<'pdf' | 'excel' | 'csv'>('pdf');
     const [selectedAuditLog, setSelectedAuditLog] = useState<any>(null);
-    const [showReportModal, setShowReportModal] = useState(false);
 
     // Get data using helper functions
     const dataQualityAssessment = soilHealthData ? getDataQualityAssessment(soilHealthData) : null;
@@ -176,138 +117,106 @@ const ReportsTab = ({
     const verificationStatus = soilHealthData ? getVerificationStatus(soilHealthData) : null;
     const carbonEmissionDetails = soilHealthData ? getCarbonEmissionDetails(soilHealthData) : null;
     const environmentalMetrics = soilHealthData ? getEnvironmentalMetricsSummary(soilHealthData) : null;
-    const allEsgMetrics = soilHealthData ? getAllESGMetricsSummary(soilHealthData) : null;
     const recommendations = soilHealthData ? getRecommendations(soilHealthData) : null;
     const confidenceScore = soilHealthData ? getConfidenceScoreBreakdown(soilHealthData) : null;
     const dashboardIndicators = soilHealthData ? getDashboardIndicators(soilHealthData) : null;
+    const soilOrganicCarbon = soilHealthData ? getSoilOrganicCarbonDetails(soilHealthData) : null;
+    const carbonStockAnalysis = soilHealthData ? getCarbonStockAnalysisDetails(soilHealthData) : null;
+    const vegetationHealth = soilHealthData ? getVegetationHealthDetails(soilHealthData) : null;
 
     // Prepare report data
     const prepareReportData = () => {
-        // Data Quality Graph Data
-        const dataQualityData = [
-            { category: 'Completeness', score: dataQualityAssessment?.confidenceLevel === 'High' ? 95 : 
-                dataQualityAssessment?.confidenceLevel === 'Medium' ? 75 : 50, color: COLORS.primary },
-            { category: 'Verification', score: verificationStatus?.verificationRate || 0, color: COLORS.secondary },
-            { category: 'Timeliness', score: 88, color: COLORS.info },
-            { category: 'Accuracy', score: 92, color: COLORS.accent },
-        ];
-
-        // Carbon Credit Readiness Graph Data
-        const readinessData = carbonCreditReadiness ? [
-            { requirement: 'Permanence', status: carbonCreditReadiness.requirements_met_percent >= 100 ? 100 : 75, color: COLORS.primary },
-            { requirement: 'Monitoring', status: carbonCreditReadiness.requirements_met_percent >= 70 ? 100 : 50, color: COLORS.secondary },
-            { requirement: 'Verification', status: verificationStatus?.verificationRate || 0, color: COLORS.info },
-            { requirement: 'Additionality', status: 65, color: COLORS.purple },
-            { requirement: 'Leakage', status: 80, color: COLORS.accent },
-        ] : [];
-
         // Compliance Checklist Data
         const complianceChecklist = [
-            { requirement: 'GHG Protocol Compliance', status: 'Completed', date: '2024-01-15', verifiedBy: 'Audit Team A' },
-            { requirement: 'ISO 14064-2:2019', status: 'In Progress', date: '2024-02-28', verifiedBy: 'Internal Audit' },
-            { requirement: 'Verified Carbon Standard (VCS)', status: 'Pending', date: '2024-03-15', verifiedBy: 'TBD' },
-            { requirement: 'Gold Standard', status: 'Not Started', date: '2024-04-30', verifiedBy: 'TBD' },
-            { requirement: 'Climate Action Reserve', status: 'Completed', date: '2023-12-10', verifiedBy: 'External Auditor' },
+            { 
+                requirement: 'GHG Protocol Compliance', 
+                status: verificationStatus?.status === 'Fully Verified' ? 'Completed' : 'Pending', 
+                date: metadata?.generatedAtFormatted || 'N/A', 
+                verifiedBy: verificationStatus?.verifiedBy || 'N/A' 
+            },
+            { 
+                requirement: 'ISO 14064-2:2019', 
+                status: verificationStatus?.verificationRate && verificationStatus.verificationRate > 50 ? 'In Progress' : 'Pending', 
+                date: reportingPeriod?.current_year?.toString() || 'N/A', 
+                verifiedBy: 'System' 
+            },
+            { 
+                requirement: 'Verified Carbon Standard (VCS)', 
+                status: carbonCreditReadiness?.status === 'Ready' ? 'Completed' : 'Pending', 
+                date: metadata?.generatedAtFormatted || 'N/A', 
+                verifiedBy: carbonCreditReadiness?.verifiedBy || 'N/A' 
+            },
         ];
 
         // Audit Trail Data
         const auditTrail = [
-            { id: 'AUD001', action: 'Data Collection', user: 'John Doe', timestamp: '2024-01-15 10:30:00', status: 'Completed', changes: 42 },
-            { id: 'AUD002', action: 'Quality Check', user: 'Jane Smith', timestamp: '2024-01-16 14:20:00', status: 'Completed', changes: 8 },
-            { id: 'AUD003', action: 'Verification', user: 'Bob Wilson', timestamp: '2024-01-18 09:15:00', status: 'Completed', changes: 3 },
-            { id: 'AUD004', action: 'Report Generation', user: 'Alice Brown', timestamp: '2024-01-19 16:45:00', status: 'In Progress', changes: 12 },
-            { id: 'AUD005', action: 'Review', user: 'Charlie Davis', timestamp: '2024-01-20 11:10:00', status: 'Pending', changes: 0 },
+            { 
+                id: 'AUD001', 
+                action: 'Data Collection', 
+                user: 'System', 
+                timestamp: metadata?.generatedAtFormatted || new Date().toLocaleDateString(), 
+                status: 'Completed', 
+                changes: metadata?.data_sources?.length || 0 
+            },
+            { 
+                id: 'AUD002', 
+                action: 'Quality Check', 
+                user: 'System', 
+                timestamp: metadata?.generatedAtFormatted || new Date().toLocaleDateString(), 
+                status: 'Completed', 
+                changes: dataQualityAssessment?.gaps_identified?.length || 0 
+            },
+            { 
+                id: 'AUD003', 
+                action: 'Report Generation', 
+                user: 'System', 
+                timestamp: metadata?.generatedAtFormatted || new Date().toLocaleDateString(), 
+                status: 'Completed', 
+                changes: environmentalMetrics?.totalMetrics || 0 
+            },
         ];
-
-        // Verification History
-        const verificationHistory = carbonEmissionDetails?.yearlyData?.map((year: any) => ({
-            year: year.year,
-            verificationStatus: year.data_quality.verification_status,
-            verifiedBy: year.data_quality.verified_by || 'N/A',
-            verifiedAt: year.data_quality.verified_at || 'N/A',
-            completenessScore: year.data_quality.completeness_score,
-            notes: year.data_quality.verification_notes || 'No notes',
-        })) || [];
 
         // Emission Factors Table Data
         const emissionFactorsData = emissionFactors?.all?.slice(0, 10).map((factor: any) => ({
-            id: factor._id,
-            source: factor.source,
-            value: factor.emission_factor_value,
-            unit: factor.emission_factor_unit,
-            gwp: factor.gwp_value,
-            gwpSource: factor.gwp_source,
-            lastUpdated: factor.last_updated_at,
-            isActive: factor.is_active,
+            id: factor._id || 'N/A',
+            source: factor.source || 'N/A',
+            value: factor.emission_factor_value || 0,
+            unit: factor.emission_factor_unit || 'N/A',
+            gwp: factor.gwp_value || 0,
+            gwpSource: factor.gwp_source || 'N/A',
+            lastUpdated: factor.last_updated_at || 'N/A',
+            isActive: factor.is_active !== undefined ? factor.is_active : false,
         })) || [];
 
+        // Methodology Data
+        const methodologyData = {
+            selectedYear: selectedYear || metadata?.yearRequested || new Date().getFullYear(),
+            calculationMethods: metadata?.calculation_methods || [],
+            dataSources: metadata?.data_sources || [],
+            apiVersion: metadata?.api_version || 'N/A',
+            calculationVersion: metadata?.calculation_version || 'N/A',
+            geeAdapterVersion: metadata?.gee_adapter_version || 'N/A',
+            esgFrameworks: selectedCompany?.esg_reporting_framework || [],
+            carbonFramework: carbonEmissionDetails?.framework || {},
+            carbonMethodology: carbonEmissionDetails?.methodology || 'N/A',
+            scopeInfo: {
+                scope1: carbonEmissionDetails?.currentYearData?.emissions?.scope1_total_tco2e || 0,
+                scope2: carbonEmissionDetails?.currentYearData?.emissions?.scope2_total_tco2e || 0,
+                scope3: carbonEmissionDetails?.currentYearData?.emissions?.scope3_total_tco2e || 0,
+            },
+            environmentalMetricsCount: environmentalMetrics?.totalMetrics || 0,
+            environmentalCategories: environmentalMetrics?.metrics_by_category || {},
+        };
+
         return {
-            dataQualityData,
-            readinessData,
             complianceChecklist,
             auditTrail,
-            verificationHistory,
             emissionFactorsData,
+            methodologyData,
         };
     };
 
     const reportData = prepareReportData();
-
-    // Report Graphs
-    const reportGraphs = [
-        {
-            id: 'data-quality-dashboard',
-            title: 'Data Quality Dashboard',
-            description: 'Overall data quality metrics and compliance scores',
-            type: 'bar',
-            data: reportData.dataQualityData,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData.dataQualityData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="category" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                        <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }} />
-                        <RechartsTooltip
-                            contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
-                            formatter={(value: any) => `${value}%`}
-                        />
-                        <Bar dataKey="score" radius={[8, 8, 0, 0]}>
-                            {reportData.dataQualityData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                        </Bar>
-                        <Line type="monotone" dataKey="score" stroke="#374151" strokeWidth={2} dot={false} />
-                    </BarChart>
-                </ResponsiveContainer>
-            )
-        },
-        {
-            id: 'carbon-credit-readiness',
-            title: 'Carbon Credit Readiness',
-            description: 'Progress towards carbon credit eligibility requirements',
-            type: 'composed',
-            data: reportData.readinessData,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={reportData.readinessData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="requirement" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                        <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} label={{ value: 'Progress (%)', angle: -90, position: 'insideLeft' }} />
-                        <RechartsTooltip
-                            contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
-                            formatter={(value: any) => `${value}%`}
-                        />
-                        <Bar dataKey="status" radius={[8, 8, 0, 0]} barSize={40}>
-                            {reportData.readinessData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                        </Bar>
-                        <Area type="monotone" dataKey="status" fill={COLORS.primary} fillOpacity={0.1} stroke={COLORS.primary} strokeWidth={2} />
-                    </ComposedChart>
-                </ResponsiveContainer>
-            )
-        },
-    ];
 
     // Table columns configuration
     const tableColumns = {
@@ -329,20 +238,6 @@ const ReportsTab = ({
             },
             { key: 'date', header: 'Target Date' },
             { key: 'verifiedBy', header: 'Verified By' },
-            {
-                key: 'actions',
-                header: 'Actions',
-                accessor: (row: any) => (
-                    <div className="flex space-x-2">
-                        <button className="p-1 text-blue-600 hover:text-blue-800">
-                            <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 text-green-600 hover:text-green-800">
-                            <Download className="w-4 h-4" />
-                        </button>
-                    </div>
-                )
-            },
         ],
         audit: [
             { key: 'id', header: 'ID' },
@@ -363,52 +258,6 @@ const ReportsTab = ({
                 )
             },
             { key: 'changes', header: 'Changes' },
-            {
-                key: 'view',
-                header: '',
-                accessor: (row: any) => (
-                    <button 
-                        onClick={() => setSelectedAuditLog(row)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                        View Details
-                    </button>
-                )
-            },
-        ],
-        verification: [
-            { key: 'year', header: 'Year' },
-            { 
-                key: 'verificationStatus', 
-                header: 'Status', 
-                accessor: (row: any) => (
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                        row.verificationStatus === 'verified' ? 'bg-green-100 text-green-800' :
-                        row.verificationStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                    }`}>
-                        {row.verificationStatus}
-                    </span>
-                )
-            },
-            { key: 'verifiedBy', header: 'Verified By' },
-            { key: 'verifiedAt', header: 'Verified At' },
-            { 
-                key: 'completenessScore', 
-                header: 'Completeness', 
-                accessor: (row: any) => (
-                    <div className="flex items-center space-x-2">
-                        <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full rounded-full bg-green-500"
-                                style={{ width: `${row.completenessScore}%` }}
-                            ></div>
-                        </div>
-                        <span className="text-sm">{row.completenessScore}%</span>
-                    </div>
-                )
-            },
-            { key: 'notes', header: 'Notes', className: 'max-w-xs truncate' },
         ],
         emissionFactors: [
             { key: 'source', header: 'Source' },
@@ -419,7 +268,7 @@ const ReportsTab = ({
             { 
                 key: 'lastUpdated', 
                 header: 'Last Updated', 
-                accessor: (row: any) => new Date(row.lastUpdated).toLocaleDateString() 
+                accessor: (row: any) => row.lastUpdated !== 'N/A' ? new Date(row.lastUpdated).toLocaleDateString() : 'N/A'
             },
             { 
                 key: 'isActive', 
@@ -435,12 +284,6 @@ const ReportsTab = ({
         ],
     };
 
-    // Report generation function
-    const generateReport = (type: string) => {
-        console.log(`Generating ${type} report...`);
-        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} report generation started. You will be notified when ready.`);
-    };
-
     // Export function
     const handleExport = () => {
         console.log(`Exporting in ${exportFormat.toUpperCase()} format...`);
@@ -448,91 +291,41 @@ const ReportsTab = ({
         setIsExportModalOpen(false);
     };
 
+    // Report Summary Cards
+    const summaryCards = [
+        {
+            title: 'Verification Status',
+            value: verificationStatus?.status || 'N/A',
+            description: `${verificationStatus?.verifiedYears || 0} of ${verificationStatus?.totalYears || 0} years verified`,
+            icon: <ShieldCheck className="w-8 h-8 text-white" />,
+            color: 'from-green-500 to-emerald-600',
+        },
+        {
+            title: 'Carbon Credit Readiness',
+            value: `${carbonCreditReadiness?.requirements_met_percent || 0}%`,
+            description: `${carbonCreditReadiness?.requirements_met || 0} of ${carbonCreditReadiness?.total_requirements || 0} requirements met`,
+            icon: <Target className="w-8 h-8 text-white" />,
+            color: 'from-yellow-500 to-amber-600',
+        },
+        {
+            title: 'Data Quality',
+            value: dataQualityAssessment?.confidence_level || 'N/A',
+            description: `${dataQualityAssessment?.gaps_identified?.length || 0} gaps identified`,
+            icon: <Award className="w-8 h-8 text-white" />,
+            color: 'from-blue-500 to-cyan-600',
+        },
+        {
+            title: 'Confidence Score',
+            value: confidenceScore?.overallFormatted || 'N/A',
+            description: 'Overall data confidence',
+            icon: <BadgeCheck className="w-8 h-8 text-white" />,
+            color: 'from-purple-500 to-pink-600',
+        },
+    ];
+
     return (
         <div className="space-y-8 pb-8">
-            {/* Hero Section with Report Overview */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 p-8 text-white shadow-2xl">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
-                
-                <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h2 className="text-3xl font-bold mb-2">Reports & Compliance</h2>
-                            <p className="text-cyan-100 text-lg">Comprehensive documentation and audit trails</p>
-                        </div>
-                        <button 
-                            onClick={() => setIsExportModalOpen(true)}
-                            className="px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2"
-                        >
-                            <Download className="w-5 h-5" />
-                            Export Report
-                        </button>
-                    </div>
-
-                    {/* Report Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <ShieldCheck className="w-6 h-6 text-white" />
-                                </div>
-                                <span className="text-xs font-medium px-3 py-1 bg-green-400 text-green-900 rounded-full">
-                                    {verificationStatus?.verificationRate?.toFixed(0) || 0}%
-                                </span>
-                            </div>
-                            <h3 className="text-4xl font-bold mb-2">{verificationStatus?.verifiedYears || 0}</h3>
-                            <p className="text-cyan-100">Verified Years</p>
-                        </div>
-
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <Target className="w-6 h-6 text-white" />
-                                </div>
-                                <span className="text-xs font-medium px-3 py-1 bg-yellow-400 text-yellow-900 rounded-full">
-                                    {carbonCreditReadiness?.requirements_met_percent || 0}%
-                                </span>
-                            </div>
-                            <h3 className="text-4xl font-bold mb-2">
-                                {carbonCreditReadiness?.requirements_met || 0}/{carbonCreditReadiness?.total_requirements || 0}
-                            </h3>
-                            <p className="text-cyan-100">Credit Readiness</p>
-                        </div>
-
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <ClipboardCheck className="w-6 h-6 text-white" />
-                                </div>
-                                <span className="text-xs font-medium px-3 py-1 bg-blue-400 text-blue-900 rounded-full">
-                                    Active
-                                </span>
-                            </div>
-                            <h3 className="text-4xl font-bold mb-2">
-                                {reportData.complianceChecklist.filter((c: any) => c.status === 'Completed').length}
-                            </h3>
-                            <p className="text-cyan-100">Completed Audits</p>
-                        </div>
-
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <Award className="w-6 h-6 text-white" />
-                                </div>
-                                <span className="text-xs font-medium px-3 py-1 bg-purple-400 text-purple-900 rounded-full">
-                                    {dataQualityAssessment?.confidence_level || 'Medium'}
-                                </span>
-                            </div>
-                            <h3 className="text-4xl font-bold mb-2">
-                                {confidenceScore?.overall || 0}%
-                            </h3>
-                            <p className="text-cyan-100">Data Quality</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+   
             {/* Report Type Navigation */}
             <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -554,9 +347,9 @@ const ReportsTab = ({
                 <div className="flex gap-3 overflow-x-auto pb-2">
                     {[
                         { id: 'summary', label: 'Executive Summary', icon: <FileText className="w-4 h-4" /> },
+                        { id: 'methodology', label: 'Methodology & Data', icon: <BookOpen className="w-4 h-4" /> },
                         { id: 'compliance', label: 'Compliance', icon: <ShieldCheck className="w-4 h-4" /> },
                         { id: 'audit', label: 'Audit Trail', icon: <Clock className="w-4 h-4" /> },
-                        { id: 'verification', label: 'Verification', icon: <FileCheck className="w-4 h-4" /> },
                         { id: 'technical', label: 'Technical Data', icon: <Database className="w-4 h-4" /> },
                         { id: 'export', label: 'Export Data', icon: <Download className="w-4 h-4" /> },
                     ].map((tab) => (
@@ -579,75 +372,6 @@ const ReportsTab = ({
             {/* Report Content */}
             {selectedReport === 'summary' && (
                 <div className="space-y-8">
-                    {/* Report Graphs */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <GraphDisplay
-                            title="Data Quality Dashboard"
-                            description="Overall data quality metrics and compliance scores"
-                            icon={<BarChart3 className="w-5 h-5 text-green-600" />}
-                            onClick={() => setSelectedGraph(reportGraphs[0])}
-                        >
-                            {reportGraphs[0].component}
-                        </GraphDisplay>
-
-                        <GraphDisplay
-                            title="Carbon Credit Readiness"
-                            description="Progress towards carbon credit eligibility requirements"
-                            icon={<PieChartIcon className="w-5 h-5 text-green-600" />}
-                            onClick={() => setSelectedGraph(reportGraphs[1])}
-                        >
-                            {reportGraphs[1].component}
-                        </GraphDisplay>
-                    </div>
-
-                    {/* Executive Summary Cards */}
-                    <div className="grid md:grid-cols-3 gap-6">
-                        <div className="group p-6 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 hover:border-green-300 transition-all">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="p-3 rounded-xl bg-green-100 group-hover:bg-green-200 transition-colors">
-                                    <ShieldCheck className="w-6 h-6 text-green-600" />
-                                </div>
-                                <h4 className="font-bold text-lg text-gray-900">Verification Status</h4>
-                            </div>
-                            <p className="text-3xl font-bold mb-2 text-green-600">
-                                {verificationStatus?.status || 'Not Verified'}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                                {verificationStatus?.verifiedYears || 0} of {verificationStatus?.totalYears || 0} years verified
-                            </p>
-                        </div>
-
-                        <div className="group p-6 rounded-2xl border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 hover:border-yellow-300 transition-all">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="p-3 rounded-xl bg-yellow-100 group-hover:bg-yellow-200 transition-colors">
-                                    <Target className="w-6 h-6 text-yellow-600" />
-                                </div>
-                                <h4 className="font-bold text-lg text-gray-900">Carbon Credit Readiness</h4>
-                            </div>
-                            <p className="text-3xl font-bold mb-2 text-yellow-600">
-                                {carbonCreditReadiness?.requirements_met_percent || 0}%
-                            </p>
-                            <p className="text-sm text-gray-600">
-                                {carbonCreditReadiness?.requirements_met || 0} of {carbonCreditReadiness?.total_requirements || 0} requirements met
-                            </p>
-                        </div>
-
-                        <div className="group p-6 rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 hover:border-blue-300 transition-all">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="p-3 rounded-xl bg-blue-100 group-hover:bg-blue-200 transition-colors">
-                                    <Award className="w-6 h-6 text-blue-600" />
-                                </div>
-                                <h4 className="font-bold text-lg text-gray-900">Data Quality</h4>
-                            </div>
-                            <p className="text-3xl font-bold mb-2 text-blue-600">
-                                {dataQualityAssessment?.confidence_level || 'Medium'}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                                {dataQualityAssessment?.gaps_identified?.length || 0} gaps identified
-                            </p>
-                        </div>
-                    </div>
-
                     {/* Key Findings */}
                     <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
                         <div className="flex items-center justify-between mb-6">
@@ -663,8 +387,11 @@ const ReportsTab = ({
                                 <div className="flex items-start gap-3">
                                     <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <h4 className="font-semibold text-gray-900 mb-1">Emissions Reduction Achievement</h4>
-                                        <p className="text-gray-700">Carbon emissions reduced by 15% compared to baseline year</p>
+                                        <h4 className="font-semibold text-gray-900 mb-1">Emissions Reduction Status</h4>
+                                        <p className="text-gray-700">
+                                            Carbon emissions: {carbonEmissionDetails?.summary?.net_carbon_balance_tco2e ? 
+                                            (carbonEmissionDetails.summary.net_carbon_balance_tco2e < 0 ? 'Carbon Negative' : 'Carbon Positive') : 'N/A'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -674,7 +401,11 @@ const ReportsTab = ({
                                     <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                                     <div>
                                         <h4 className="font-semibold text-gray-900 mb-1">Soil Carbon Improvement</h4>
-                                        <p className="text-gray-700">Soil organic carbon increased by 8.2% annually</p>
+                                        <p className="text-gray-700">
+                                            Soil organic carbon {soilOrganicCarbon?.annual_change_percent ? 
+                                            (soilOrganicCarbon.annual_change_percent > 0 ? 'increased' : 'decreased') : 'changed'} by{' '}
+                                            {soilOrganicCarbon?.annual_change_percent ? Math.abs(soilOrganicCarbon.annual_change_percent).toFixed(1) : '0'}% annually
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -683,8 +414,10 @@ const ReportsTab = ({
                                 <div className="flex items-start gap-3">
                                     <AlertTriangle className="w-6 h-6 text-yellow-600 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <h4 className="font-semibold text-gray-900 mb-1">Pending Verification</h4>
-                                        <p className="text-gray-700">Verification process for 2023 data is pending completion</p>
+                                        <h4 className="font-semibold text-gray-900 mb-1">Verification Status</h4>
+                                        <p className="text-gray-700">
+                                            {verificationStatus?.status || 'N/A'} verification status for {verificationStatus?.totalYears || 0} years
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -694,66 +427,221 @@ const ReportsTab = ({
                                     <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                                     <div>
                                         <h4 className="font-semibold text-gray-900 mb-1">Compliance Status</h4>
-                                        <p className="text-gray-700">All mandatory compliance requirements have been met</p>
+                                        <p className="text-gray-700">
+                                            {carbonCreditReadiness?.requirements_met || 0} of {carbonCreditReadiness?.total_requirements || 0} compliance requirements met
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Company Information */}
+                </div>
+            )}
+
+            {selectedReport === 'methodology' && (
+                <div className="space-y-8">
+                    {/* Methodology Overview Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="p-6 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 rounded-xl bg-green-100">
+                                    <Calendar className="w-6 h-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-lg text-gray-900">Reporting Year</h4>
+                                    <p className="text-sm text-gray-600">Selected Analysis Period</p>
+                                </div>
+                            </div>
+                            <p className="text-3xl font-bold text-green-600 mb-2">
+                                {reportData.methodologyData.selectedYear}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                                Data analyzed for this reporting period
+                            </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 rounded-xl bg-blue-100">
+                                    <Cpu className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-lg text-gray-900">Calculation Methods</h4>
+                                    <p className="text-sm text-gray-600">Applied methodologies</p>
+                                </div>
+                            </div>
+                            <p className="text-3xl font-bold text-blue-600 mb-2">
+                                {reportData.methodologyData.calculationMethods.length}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                                Different calculation approaches used
+                            </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 rounded-xl bg-purple-100">
+                                    <Server className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-lg text-gray-900">Data Sources</h4>
+                                    <p className="text-sm text-gray-600">Information origins</p>
+                                </div>
+                            </div>
+                            <p className="text-3xl font-bold text-purple-600 mb-2">
+                                {reportData.methodologyData.dataSources.length}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                                Primary and secondary data sources
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Version Information */}
                     <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-1">Company Information</h3>
-                                <p className="text-gray-600">Organization details and contact information</p>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-1">System Versions</h3>
+                                <p className="text-gray-600">Software and calculation framework versions</p>
                             </div>
-                            <Building className="w-8 h-8 text-green-600" />
+                            <Layers className="w-8 h-8 text-green-600" />
                         </div>
                         
-                        <div className="grid md:grid-cols-2 gap-8">
-                            <div className="space-y-5">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">Basic Information</h4>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center p-4 rounded-xl bg-gray-50">
-                                        <span className="text-gray-600 font-medium">Company Name</span>
-                                        <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="p-6 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="p-2 rounded-lg bg-gray-200">
+                                        <CodeIcon className="w-5 h-5 text-gray-600" />
                                     </div>
-                                    <div className="flex justify-between items-center p-4 rounded-xl bg-gray-50">
-                                        <span className="text-gray-600 font-medium">Industry</span>
-                                        <span className="font-semibold text-gray-900">{selectedCompany?.industry}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-4 rounded-xl bg-gray-50">
-                                        <span className="text-gray-600 font-medium">Registration Number</span>
-                                        <span className="font-semibold text-gray-900">{selectedCompany?.registrationNumber}</span>
-                                    </div>
+                                    <h4 className="font-bold text-gray-900">API Version</h4>
                                 </div>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {reportData.methodologyData.apiVersion}
+                                </p>
+                                <p className="text-sm text-gray-600 mt-2">REST API specification version</p>
                             </div>
 
-                            <div className="space-y-5">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">Contact Information</h4>
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
-                                        <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                        <span className="text-gray-700">{selectedCompany?.email}</span>
+                            <div className="p-6 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="p-2 rounded-lg bg-gray-200">
+                                        <CalculatorIcon className="w-5 h-5 text-gray-600" />
                                     </div>
-                                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
-                                        <Phone className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                        <span className="text-gray-700">{selectedCompany?.phone}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
-                                        <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                        <span className="text-gray-700">{selectedCompany?.address}</span>
-                                    </div>
-                                    {selectedCompany?.website && (
-                                        <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
-                                            <Link className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                            <a href={selectedCompany.website} className="text-blue-600 hover:underline">
-                                                {selectedCompany.website}
-                                            </a>
-                                        </div>
-                                    )}
+                                    <h4 className="font-bold text-gray-900">Calculation Version</h4>
                                 </div>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {reportData.methodologyData.calculationVersion}
+                                </p>
+                                <p className="text-sm text-gray-600 mt-2">Algorithm and formula version</p>
+                            </div>
+
+                            <div className="p-6 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="p-2 rounded-lg bg-gray-200">
+                                        <Database className="w-5 h-5 text-gray-600" />
+                                    </div>
+                                    <h4 className="font-bold text-gray-900">GEE Adapter Version</h4>
+                                </div>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {reportData.methodologyData.geeAdapterVersion}
+                                </p>
+                                <p className="text-sm text-gray-600 mt-2">Google Earth Engine integration</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ESG Frameworks and Methodologies */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1">ESG Reporting Frameworks</h3>
+                                    <p className="text-gray-600">Compliance and reporting standards</p>
+                                </div>
+                                <Shield className="w-6 h-6 text-green-600" />
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {reportData.methodologyData.esgFrameworks.length > 0 ? (
+                                    reportData.methodologyData.esgFrameworks.map((framework: string, index: number) => (
+                                        <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded-lg bg-green-100">
+                                                    <FileText className="w-4 h-4 text-green-600" />
+                                                </div>
+                                                <span className="font-medium text-gray-900">{framework}</span>
+                                            </div>
+                                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                Active
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-4 rounded-xl bg-gray-50 text-center text-gray-500">
+                                        No ESG frameworks configured
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1">Carbon Accounting Framework</h3>
+                                    <p className="text-gray-600">Emission calculation methodology</p>
+                                </div>
+                                <GitBranch className="w-6 h-6 text-green-600" />
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200">
+                                    <h4 className="font-bold text-gray-900 mb-2">Methodology</h4>
+                                    <p className="text-gray-700">{reportData.methodologyData.carbonMethodology}</p>
+                                </div>
+                                
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+                                    <h4 className="font-bold text-gray-900 mb-2">Sequestration Approach</h4>
+                                    <p className="text-gray-700">
+                                        {reportData.methodologyData.carbonFramework.sequestration_methodology || 'N/A'}
+                                    </p>
+                                </div>
+                                
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200">
+                                    <h4 className="font-bold text-gray-900 mb-2">Emission Approach</h4>
+                                    <p className="text-gray-700">
+                                        {reportData.methodologyData.carbonFramework.emission_methodology || 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+              
+
+                    {/* Environmental Metrics Summary */}
+                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-1">Environmental Metrics</h3>
+                                <p className="text-gray-600">Tracked sustainability indicators</p>
+                            </div>
+                            <BarChartHorizontal className="w-8 h-8 text-green-600" />
+                        </div>
+        
+                        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Data Sources</h4>
+                            <div className="flex flex-wrap gap-3">
+                                {reportData.methodologyData.dataSources.length > 0 ? (
+                                    reportData.methodologyData.dataSources.map((source: string, index: number) => (
+                                        <span key={index} className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                            {source}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                                        No data sources available
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -776,47 +664,6 @@ const ReportsTab = ({
                             data={reportData.complianceChecklist}
                             onRowClick={(row) => onMetricClick(row, 'compliance')}
                         />
-
-                        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <h4 className="font-bold text-lg text-gray-900 mb-6">Compliance Status Summary</h4>
-                            <div className="grid grid-cols-3 gap-6">
-                                <div className="text-center p-5 rounded-xl bg-white shadow-sm">
-                                    <div className="text-4xl font-bold text-green-600 mb-2">2</div>
-                                    <div className="text-sm text-gray-600 font-medium">Completed</div>
-                                </div>
-                                <div className="text-center p-5 rounded-xl bg-white shadow-sm">
-                                    <div className="text-4xl font-bold text-yellow-600 mb-2">1</div>
-                                    <div className="text-sm text-gray-600 font-medium">In Progress</div>
-                                </div>
-                                <div className="text-center p-5 rounded-xl bg-white shadow-sm">
-                                    <div className="text-4xl font-bold text-gray-600 mb-2">2</div>
-                                    <div className="text-sm text-gray-600 font-medium">Pending</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-gray-900 mb-1">Reporting Frameworks</h3>
-                            <p className="text-gray-600">Active compliance frameworks and standards</p>
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-6">
-                            {selectedCompany?.reportingFrameworks?.map((framework: string, index: number) => (
-                                <div key={index} className="group p-6 rounded-2xl border-2 border-gray-200 hover:border-green-300 hover:bg-gradient-to-br hover:from-green-50 hover:to-emerald-50 transition-all">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="p-3 rounded-xl bg-gray-100 group-hover:bg-green-100 transition-colors">
-                                            <FileText className="w-5 h-5 text-green-600" />
-                                        </div>
-                                        <h4 className="font-bold text-gray-900">{framework}</h4>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-600">Status: <span className="font-medium text-green-600">Active</span></span>
-                                        <span className="text-gray-500">2024-01-15</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 </div>
             )}
@@ -837,116 +684,6 @@ const ReportsTab = ({
                             data={reportData.auditTrail}
                             onRowClick={(row) => setSelectedAuditLog(row)}
                         />
-
-                        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h4 className="font-bold text-lg text-gray-900 mb-1">Audit Summary</h4>
-                                    <p className="text-sm text-gray-600">65 actions logged, 42 changes detected</p>
-                                </div>
-                                <button className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-medium flex items-center gap-2">
-                                    <Download className="w-4 h-4" />
-                                    Download Audit Log
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-gray-900 mb-1">Recent Activities</h3>
-                            <p className="text-gray-600">Latest system actions and updates</p>
-                        </div>
-                        <div className="space-y-4">
-                            {reportData.auditTrail.slice(0, 3).map((log: any, index: number) => (
-                                <div key={index} className="flex items-start gap-4 p-6 rounded-2xl border-2 border-gray-200 hover:border-green-300 hover:bg-gradient-to-br hover:from-green-50 hover:to-emerald-50 transition-all">
-                                    <div className="p-3 rounded-xl bg-gray-100">
-                                        <Activity className="w-5 h-5 text-green-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h4 className="font-bold text-lg text-gray-900">{log.action}</h4>
-                                            <span className="text-sm text-gray-500">{log.timestamp}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-600 mb-3">By {log.user} • {log.changes} changes made</p>
-                                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                                            log.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                            log.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {log.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {selectedReport === 'verification' && (
-                <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-1">Verification History</h3>
-                                <p className="text-gray-600">Complete verification records and status</p>
-                            </div>
-                            <FileCheck className="w-8 h-8 text-green-600" />
-                        </div>
-                        
-                        <DataTable
-                            columns={tableColumns.verification}
-                            data={reportData.verificationHistory}
-                            onRowClick={(row) => onMetricClick(row, 'verification')}
-                        />
-
-                        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="p-6 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
-                                <div className="text-4xl font-bold mb-2 text-green-600">
-                                    {verificationStatus?.verificationRate?.toFixed(1) || 0}%
-                                </div>
-                                <div className="text-sm text-gray-600 font-medium">Verification Rate</div>
-                            </div>
-                            <div className="p-6 rounded-2xl border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50">
-                                <div className="text-4xl font-bold mb-2 text-yellow-600">
-                                    {verificationStatus?.verifiedYears || 0}
-                                </div>
-                                <div className="text-sm text-gray-600 font-medium">Verified Years</div>
-                            </div>
-                            <div className="p-6 rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
-                                <div className="text-4xl font-bold mb-2 text-blue-600">
-                                    {verificationStatus?.totalYears || 0}
-                                </div>
-                                <div className="text-sm text-gray-600 font-medium">Total Years</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-gray-900 mb-1">Verification Details</h3>
-                            <p className="text-gray-600">Process and methodology information</p>
-                        </div>
-                        <div className="space-y-6">
-                            <div>
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">Verification Process</h4>
-                                <p className="text-gray-600 leading-relaxed mb-6">
-                                    All data undergoes a rigorous verification process following ISO 14064-2 standards. 
-                                    The process includes data collection validation, methodological review, and independent third-party verification.
-                                </p>
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div className="p-5 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100">
-                                        <p className="text-sm text-gray-600 mb-2 font-medium">Verification Body</p>
-                                        <p className="font-bold text-lg text-gray-900">Carbon Trust Certification Ltd.</p>
-                                    </div>
-                                    <div className="p-5 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100">
-                                        <p className="text-sm text-gray-600 mb-2 font-medium">Verification Period</p>
-                                        <p className="font-bold text-lg text-gray-900">{reportingPeriod?.periodFormatted}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}
@@ -967,134 +704,6 @@ const ReportsTab = ({
                             data={reportData.emissionFactorsData}
                             onRowClick={(row) => onMetricClick(row, 'emissionFactor')}
                         />
-
-                        <div className="mt-6 flex items-center justify-between">
-                            <p className="text-sm text-gray-600">
-                                Showing {reportData.emissionFactorsData.length} of {emissionFactors?.count || 0} emission factors
-                            </p>
-                            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition-all">
-                                <Download className="w-4 h-4" />
-                                Export Data
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-gray-900 mb-1">Technical Metadata</h3>
-                            <p className="text-gray-600">System and calculation information</p>
-                        </div>
-                        <div className="space-y-6">
-                            <div className="grid md:grid-cols-3 gap-6">
-                                <div className="p-6 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                                    <p className="text-sm text-gray-600 mb-2 font-medium">API Version</p>
-                                    <p className="font-bold text-xl text-gray-900">{metadata?.api_version}</p>
-                                </div>
-                                <div className="p-6 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                                    <p className="text-sm text-gray-600 mb-2 font-medium">Generated At</p>
-                                    <p className="font-bold text-xl text-gray-900">{metadata?.generatedAtFormatted}</p>
-                                </div>
-                                <div className="p-6 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                                    <p className="text-sm text-gray-600 mb-2 font-medium">Data Sources</p>
-                                    <p className="font-bold text-xl text-gray-900">{metadata?.dataSourcesCount}</p>
-                                </div>
-                            </div>
-                            
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                                    <BarChartHorizontal className="w-5 h-5 text-green-600" />
-                                    Calculation Methods
-                                </h4>
-                                <div className="flex flex-wrap gap-3">
-                                    {metadata?.calculation_methods?.map((method: string, index: number) => (
-                                        <span key={index} className="px-4 py-2 rounded-xl text-sm font-medium bg-green-100 text-green-800 border border-green-200">
-                                            {method}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {selectedReport === 'export' && (
-                <div className="space-y-8">
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-1">Export Data</h3>
-                                <p className="text-gray-600">Download reports in various formats</p>
-                            </div>
-                            <Download className="w-8 h-8 text-green-600" />
-                        </div>
-                        
-                        <div className="grid md:grid-cols-3 gap-6 mb-8">
-                            <div 
-                                className="group p-8 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 cursor-pointer hover:border-green-300 hover:shadow-lg transition-all text-center"
-                                onClick={() => generateReport('summary')}
-                            >
-                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-green-100 group-hover:bg-green-200 flex items-center justify-center transition-colors">
-                                    <FileText className="w-8 h-8 text-green-600" />
-                                </div>
-                                <h4 className="font-bold text-lg text-gray-900 mb-2">Executive Summary</h4>
-                                <p className="text-sm text-gray-600 mb-4">Comprehensive overview with key findings</p>
-                                <span className="inline-block px-4 py-2 rounded-xl text-sm font-medium bg-green-100 text-green-800 border border-green-200">
-                                    PDF, Excel, CSV
-                                </span>
-                            </div>
-
-                            <div 
-                                className="group p-8 rounded-2xl border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 cursor-pointer hover:border-yellow-300 hover:shadow-lg transition-all text-center"
-                                onClick={() => generateReport('compliance')}
-                            >
-                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-yellow-100 group-hover:bg-yellow-200 flex items-center justify-center transition-colors">
-                                    <ShieldCheck className="w-8 h-8 text-yellow-600" />
-                                </div>
-                                <h4 className="font-bold text-lg text-gray-900 mb-2">Compliance Report</h4>
-                                <p className="text-sm text-gray-600 mb-4">Regulatory and framework compliance</p>
-                                <span className="inline-block px-4 py-2 rounded-xl text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-                                    PDF, Excel
-                                </span>
-                            </div>
-
-                            <div 
-                                className="group p-8 rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all text-center"
-                                onClick={() => generateReport('technical')}
-                            >
-                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-colors">
-                                    <Database className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h4 className="font-bold text-lg text-gray-900 mb-2">Technical Data</h4>
-                                <p className="text-sm text-gray-600 mb-4">Raw data and calculations</p>
-                                <span className="inline-block px-4 py-2 rounded-xl text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                    Excel, CSV, JSON
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="p-8 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <h4 className="font-bold text-lg text-gray-900 mb-6">Export Settings</h4>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">Time Period</label>
-                                    <select className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all">
-                                        <option>All Available Years</option>
-                                        {availableYears.map(year => (
-                                            <option key={year}>{year}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">Data Granularity</label>
-                                    <select className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all">
-                                        <option>Summary Data</option>
-                                        <option>Detailed Monthly Data</option>
-                                        <option>Raw Data</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}
@@ -1154,28 +763,6 @@ const ReportsTab = ({
                                         <FileText className={`w-10 h-10 mx-auto mb-3 ${exportFormat === 'csv' ? 'text-green-600' : 'text-gray-400'}`} />
                                         <span className={`font-semibold ${exportFormat === 'csv' ? 'text-green-700' : 'text-gray-700'}`}>CSV</span>
                                     </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">Export Options</h4>
-                                <div className="space-y-3">
-                                    <label className="flex items-center p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
-                                        <input type="checkbox" className="rounded text-green-600 focus:ring-green-500 w-5 h-5" defaultChecked />
-                                        <span className="ml-3 text-gray-700 font-medium">Include executive summary</span>
-                                    </label>
-                                    <label className="flex items-center p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
-                                        <input type="checkbox" className="rounded text-green-600 focus:ring-green-500 w-5 h-5" defaultChecked />
-                                        <span className="ml-3 text-gray-700 font-medium">Include graphs and charts</span>
-                                    </label>
-                                    <label className="flex items-center p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
-                                        <input type="checkbox" className="rounded text-green-600 focus:ring-green-500 w-5 h-5" />
-                                        <span className="ml-3 text-gray-700 font-medium">Include raw data tables</span>
-                                    </label>
-                                    <label className="flex items-center p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
-                                        <input type="checkbox" className="rounded text-green-600 focus:ring-green-500 w-5 h-5" defaultChecked />
-                                        <span className="ml-3 text-gray-700 font-medium">Include audit trail</span>
-                                    </label>
                                 </div>
                             </div>
 
@@ -1242,33 +829,7 @@ const ReportsTab = ({
                                 </div>
                             </div>
 
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                                <h4 className="font-bold text-lg mb-3 text-gray-900">Action Details</h4>
-                                <p className="text-gray-700 leading-relaxed">{selectedAuditLog.action} was performed with {selectedAuditLog.changes} changes made to the system.</p>
-                            </div>
-
-                            <div>
-                                <h4 className="font-bold text-lg mb-4 text-gray-900">Related Changes</h4>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                                        <span className="text-gray-700 font-medium">Updated emission factors</span>
-                                        <span className="text-sm text-gray-500">+5 records</span>
-                                    </div>
-                                    <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                                        <span className="text-gray-700 font-medium">Modified calculation parameters</span>
-                                        <span className="text-sm text-gray-500">3 changes</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                                <button
-                                    onClick={() => navigator.clipboard.writeText(JSON.stringify(selectedAuditLog, null, 2))}
-                                    className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-medium flex items-center gap-2"
-                                >
-                                    <Copy className="w-4 h-4" />
-                                    Copy Details
-                                </button>
+                            <div className="flex justify-end pt-6 border-t border-gray-200">
                                 <button
                                     onClick={() => setSelectedAuditLog(null)}
                                     className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
@@ -1280,52 +841,27 @@ const ReportsTab = ({
                     </div>
                 </div>
             )}
-
-            {/* Graph Details Modal */}
-            {selectedGraph && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedGraph(null)}>
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-cyan-50">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{selectedGraph.title}</h3>
-                                    <p className="text-gray-600">{selectedGraph.description}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button className="p-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                        <Download className="w-5 h-5 text-gray-600" />
-                                    </button>
-                                    <button 
-                                        onClick={() => setSelectedGraph(null)}
-                                        className="p-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 transition-all"
-                                    >
-                                        <X className="w-5 h-5 text-gray-600" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="h-[500px]">
-                                {selectedGraph.component}
-                            </div>
-                            <div className="mt-8 p-6 rounded-2xl bg-gray-50 border border-gray-200">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="font-bold text-gray-900 mb-2">Description</h4>
-                                        <p className="text-gray-600">{selectedGraph.description}</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-900 mb-2">Data Points</h4>
-                                        <p className="text-gray-600">{selectedGraph.data.length} data points</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
+
+// Add missing icon components
+const CodeIcon = ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+    </svg>
+);
+
+const CalculatorIcon = ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+);
+
+const ZapIcon = ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+);
 
 export default ReportsTab;
