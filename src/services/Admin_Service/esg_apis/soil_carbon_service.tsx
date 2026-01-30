@@ -33,32 +33,29 @@ export interface CompanyMetadata {
 }
 
 export interface Company {
-    _id?: string;
     name: string;
     registrationNumber: string;
     email: string;
     phone: string;
     address: string;
-    website?: string;
+    website: string;
     country: string;
     industry: string;
-    description?: string;
-    purpose?: string;
-    scope?: string;
-    data_source?: string[];
-    area_of_interest_metadata?: AreaOfInterestMetadata;
-    data_range?: string;
-    data_processing_workflow?: string;
-    analytical_layer_metadata?: string;
-    esg_reporting_framework?: string[];
-    esg_contact_person?: EsgContactPerson;
-    latest_esg_report_year?: number;
-    esg_data_status?: "not_collected" | "partial" | "complete";
-    has_esg_linked_pay?: boolean;
-    created_at?: string;
-    updated_at?: string;
-    metadata?: CompanyMetadata;
-    area_of_interest_formatted?: string | null;
+    description: string;
+    purpose: string;
+    scope: string;
+    data_source: string[];
+    area_of_interest_metadata: AreaOfInterestMetadata;
+    data_range: string;
+    data_processing_workflow: string;
+    analytical_layer_metadata: string;
+    esg_reporting_framework: string[];
+    esg_contact_person: EsgContactPerson;
+    latest_esg_report_year: number;
+    esg_data_status: string;
+    has_esg_linked_pay: boolean;
+    metadata: CompanyMetadata;
+    area_of_interest_formatted: null;
 }
 
 export interface Metadata {
@@ -68,7 +65,9 @@ export interface Metadata {
     generated_at: string;
     endpoint: string;
     company_id: string;
-    year_requested: number | null;
+    year_requested: number;
+    year_used_for_current_values: number;
+    trend_period: string;
     data_sources: string[];
     calculation_methods: string[];
 }
@@ -80,6 +79,7 @@ export interface ReportingPeriod {
     data_available_years: number[];
     carbon_data_years: number[];
     esg_data_years: number[];
+    note: string;
 }
 
 export interface ConfidenceScoreBreakdown {
@@ -100,11 +100,12 @@ export interface SoilOrganicCarbonQuantification {
     current_value: number;
     unit: string;
     trend: string;
+    trend_period: string;
     annual_change_percent: number | null;
     confidence: string;
     calculation_method: string;
     monthly_data_available: boolean;
-    monthly_variation: number | null;
+    monthly_variation: number;
     interpretation: string;
 }
 
@@ -123,8 +124,11 @@ export interface SoilHealthTrends {
     carbon_stock_trend: string;
     sequestration_trend: string;
     vegetation_trend: string;
+    emissions_trend: string;
     overall_trend: string;
     monitoring_period: string;
+    trend_calculation_method: string;
+    note: string;
 }
 
 export interface CarbonStockAnalysis {
@@ -233,9 +237,6 @@ export interface EmissionsData {
 export interface DataQuality {
     completeness_score: number;
     verification_status: string;
-    verified_by?: string;
-    verified_at?: string;
-    verification_notes?: string;
 }
 
 export interface YearlyDataSummary {
@@ -263,15 +264,6 @@ export interface MonthlyData {
 
 export interface CarbonEmissionSummary {
     net_carbon_balance_tco2e: number;
-    total_reporting_area_ha?: number;
-    average_sequestration_tco2_per_year?: number;
-    average_emissions_tco2e_per_year?: number;
-    carbon_intensity_tco2e_per_ha?: number;
-    baseline_year?: number;
-    current_year?: number;
-    total_sequestration_tco2?: number;
-    total_emissions_tco2e?: number;
-    sequestration_per_ha?: number;
 }
 
 export interface CarbonEmissionAccounting {
@@ -356,6 +348,8 @@ export interface Graph {
     labels: string[] | number[];
     datasets: GraphDataset[];
     interpretation?: string;
+    data_period?: string;
+    note?: string;
 }
 
 export interface YearlyPrediction {
@@ -399,9 +393,10 @@ export interface SoilDegradationMonitoring {
 
 export interface RegenerativeAgricultureOutcomes {
     soil_health_score: number;
+    soil_health_trend: string;
     carbon_sequestration_potential: number;
-    permanence_score: number;
-    vegetation_health_score: number;
+    permanence_score: number | null;
+    vegetation_health_score: number | null;
     verification_status: string;
 }
 
@@ -459,11 +454,7 @@ export interface Graphs {
     emissions_breakdown: Graph;
     monthly_soc: Graph;
     ndvi_trend: Graph;
-    sequestration_rate?: Graph;
-    carbon_intensity?: Graph;
-    detailed_emissions?: Graph;
-    monthly_sequestration?: Graph;
-    [key: string]: Graph | undefined;
+    [key: string]: Graph;
 }
 
 /**
@@ -490,7 +481,7 @@ export interface SoilHealthCarbonResponse {
         all_esg_metrics: AllEsgMetrics;
         graphs: Graphs;
         regenerative_agriculture_outcomes: RegenerativeAgricultureOutcomes;
-        carbon_credit_predictions: CarbonCreditPredictions | null;
+        carbon_credit_predictions: CarbonCreditPredictions;
         soil_degradation_monitoring: SoilDegradationMonitoring;
         summary: Summary;
     };
@@ -589,7 +580,7 @@ export const getSoilHealthSummary = (data: SoilHealthCarbonResponse) => {
     return {
         soilOrganicCarbon: data.data.soil_organic_carbon_quantification.current_value,
         carbonStock: data.data.carbon_stock_analysis.total_carbon_stock,
-        netCarbonBalance: data.data.carbon_emission_accounting.summary.net_carbon_balance_tco2e,
+        netCarbonBalance: data.data.carbon_stock_analysis.net_balance,
         vegetationHealth: data.data.vegetation_health.average_ndvi,
         sequestrationRate: data.data.carbon_stock_analysis.sequestration_rate,
         permanenceRating: data.data.carbon_permanence_assessment.permanence_rating,
@@ -615,6 +606,7 @@ export const getSoilOrganicCarbonDetails = (data: SoilHealthCarbonResponse) => {
         annualChangePercent: data.data.soil_organic_carbon_quantification.annual_change_percent
             ? data.data.soil_organic_carbon_quantification.annual_change_percent.toFixed(2)
             : null,
+        trendPeriod: data.data.soil_organic_carbon_quantification.trend_period,
     };
 };
 
@@ -646,7 +638,11 @@ export const getSoilHealthTrends = (data: SoilHealthCarbonResponse) => {
             { label: "Carbon Stock Trend", value: data.data.soil_health_trends.carbon_stock_trend },
             { label: "Sequestration Trend", value: data.data.soil_health_trends.sequestration_trend },
             { label: "Vegetation Trend", value: data.data.soil_health_trends.vegetation_trend },
-        ]
+            { label: "Emissions Trend", value: data.data.soil_health_trends.emissions_trend },
+        ],
+        monitoringPeriod: data.data.soil_health_trends.monitoring_period,
+        trendCalculationMethod: data.data.soil_health_trends.trend_calculation_method,
+        note: data.data.soil_health_trends.note,
     };
 };
 
@@ -665,6 +661,7 @@ export const getCarbonStockAnalysisDetails = (data: SoilHealthCarbonResponse) =>
         netBalanceFormatted: data.data.carbon_stock_analysis.net_balance
             ? Math.round(data.data.carbon_stock_analysis.net_balance).toLocaleString()
             : "0",
+        sequestrationUnit: data.data.carbon_stock_analysis.sequestration_unit,
     };
 };
 
@@ -677,54 +674,71 @@ export const getVegetationHealthDetails = (data: SoilHealthCarbonResponse) => {
         averageNdviFormatted: data.data.vegetation_health.average_ndvi
             ? data.data.vegetation_health.average_ndvi.toFixed(3)
             : "0",
-        ndviQuality: data.data.vegetation_health.average_ndvi
-            ? data.data.vegetation_health.average_ndvi > 0.6
-                ? "Excellent"
-                : data.data.vegetation_health.average_ndvi > 0.4
-                    ? "Good"
-                    : data.data.vegetation_health.average_ndvi > 0.2
-                        ? "Moderate"
-                        : "Poor"
-            : "Unknown",
+        ndviQuality: data.data.vegetation_health.classification,
+        ndviTrend: data.data.vegetation_health.ndvi_trend,
+        interpretation: data.data.vegetation_health.interpretation,
     };
 };
 
 /**
  * Get environmental metrics summary
  */
-export const getEnvironmentalMetricsSummary = (data: SoilHealthCarbonResponse) => {
+// Also update other functions to handle null data:
+export const getEnvironmentalMetricsSummary = (data: SoilHealthCarbonResponse | null) => {
+    if (!data || !data.data || !data.data.environmental_metrics) {
+        return {
+            totalMetrics: 0,
+            metrics_by_category: {
+                climate_change: 0,
+                resource_use: 0,
+                biodiversity: 0,
+            },
+            detailed_metrics: [],
+            summary: {
+                total_ghg_emissions: null,
+                scope1_emissions: null,
+                scope2_emissions: null,
+                scope3_emissions: null,
+                water_usage: null,
+                energy_consumption: null,
+                waste_generated: null,
+            },
+        };
+    }
+    
     const metrics = data.data.environmental_metrics;
     return {
         totalMetrics: metrics.total_metrics,
-        metricsByCategory: metrics.metrics_by_category,
-        summary: {
-            totalGHG: metrics.summary.total_ghg_emissions,
-            scope1: metrics.summary.scope1_emissions,
-            scope2: metrics.summary.scope2_emissions,
-            scope3: metrics.summary.scope3_emissions,
-            waterUsage: metrics.summary.water_usage,
-            energyConsumption: metrics.summary.energy_consumption,
-            wasteGenerated: metrics.summary.waste_generated,
-        },
-        detailedMetrics: metrics.detailed_metrics.map(metric => ({
-            ...metric,
-            currentValueFormatted: metric.current_value ? metric.current_value.toLocaleString() : "N/A",
-            trendColor: metric.trend === "improving" ? "success" : metric.trend === "declining" ? "error" : "warning",
-        }))
+        metrics_by_category: metrics.metrics_by_category,
+        detailed_metrics: metrics.detailed_metrics,
+        summary: metrics.summary,
     };
 };
+
 
 /**
  * Get all ESG metrics summary
  */
-export const getAllESGMetricsSummary = (data: SoilHealthCarbonResponse) => {
+// In soil_carbon_service.tsx, update the getAllESGMetricsSummary function:
+export const getAllESGMetricsSummary = (data: SoilHealthCarbonResponse | null) => {
+    if (!data || !data.data || !data.data.all_esg_metrics) {
+        return {
+            environmental: { count: 0, metrics: [] },
+            social: { count: 0, metrics: [] },
+            governance: { count: 0, metrics: [] },
+            totalMetrics: 0,
+        };
+    }
+    
+    const allEsgMetrics = data.data.all_esg_metrics;
     return {
-        ...data.data.all_esg_metrics,
-        totalMetrics: data.data.all_esg_metrics.environmental.count +
-            data.data.all_esg_metrics.social.count +
-            data.data.all_esg_metrics.governance.count,
+        ...allEsgMetrics,
+        totalMetrics: (allEsgMetrics.environmental?.count || 0) +
+            (allEsgMetrics.social?.count || 0) +
+            (allEsgMetrics.governance?.count || 0),
     };
 };
+
 
 /**
  * Get carbon emission accounting details
@@ -739,9 +753,6 @@ export const getCarbonEmissionDetails = (data: SoilHealthCarbonResponse) => {
             ...data.data.carbon_emission_accounting.summary,
             netBalanceFormatted: data.data.carbon_emission_accounting.summary.net_carbon_balance_tco2e
                 ? Math.round(data.data.carbon_emission_accounting.summary.net_carbon_balance_tco2e).toLocaleString()
-                : "0",
-            carbonIntensityFormatted: data.data.carbon_emission_accounting.summary.carbon_intensity_tco2e_per_ha
-                ? data.data.carbon_emission_accounting.summary.carbon_intensity_tco2e_per_ha.toFixed(2)
                 : "0",
         },
         methodology: data.data.carbon_emission_accounting.methodology,
@@ -758,17 +769,25 @@ export const getCarbonEmissionDetails = (data: SoilHealthCarbonResponse) => {
                 sequestrationRateFormatted: yearData.sequestration.calculated_sequestration.sequestration_rate_tco2_per_ha_per_year
                     ? yearData.sequestration.calculated_sequestration.sequestration_rate_tco2_per_ha_per_year.toFixed(2)
                     : "0",
+                socAreaHaFormatted: yearData.sequestration.soc_area_ha.toLocaleString(),
             },
             emissions: {
                 ...yearData.emissions,
                 totalEmissionsFormatted: yearData.emissions.total_emissions_tco2e
                     ? Math.round(yearData.emissions.total_emissions_tco2e).toLocaleString()
                     : "0",
+                scope1Formatted: yearData.emissions.scope1_total_tco2e.toLocaleString(),
+                scope2Formatted: yearData.emissions.scope2_total_tco2e.toLocaleString(),
+                scope3Formatted: yearData.emissions.scope3_total_tco2e.toLocaleString(),
             }
         })),
         currentYearData: currentYearData,
-        areaCoverage: data.data.carbon_emission_accounting.area_coverage,
+        areaCoverage: {
+            ...data.data.carbon_emission_accounting.area_coverage,
+            socAreaHaFormatted: data.data.carbon_emission_accounting.area_coverage.soc_area_ha.toLocaleString(),
+        },
         monthlyDataAvailable: data.data.carbon_emission_accounting.detailed_monthly_data !== null,
+        monthlyData: data.data.carbon_emission_accounting.detailed_monthly_data,
     };
 };
 
@@ -785,6 +804,8 @@ export const getRegenerativeAgricultureOutcomes = (data: SoilHealthCarbonRespons
         sequestrationPotentialFormatted: outcomes.carbon_sequestration_potential
             ? Math.round(outcomes.carbon_sequestration_potential).toLocaleString()
             : "0",
+        soilHealthTrend: outcomes.soil_health_trend,
+        verificationStatus: outcomes.verification_status,
     };
 };
 
@@ -798,18 +819,13 @@ export const getCarbonCreditPredictions = (data: SoilHealthCarbonResponse) => {
 
     const predictions = data.data.carbon_credit_predictions;
     
-    // Calculate total requirements safely
-    const eligibilityValues = Object.values(predictions.eligibility_status);
-    const totalRequirements = eligibilityValues.length;
-    const requirementsMet = eligibilityValues.filter(Boolean).length;
-
     return {
         ...predictions,
         eligibilityStatus: {
             ...predictions.eligibility_status,
             statusColor: predictions.eligible ? "success" : "error",
-            requirementsMetPercent: totalRequirements > 0 
-                ? Math.round((requirementsMet / totalRequirements) * 100)
+            requirementsMetPercent: predictions.eligibility_status ? 
+                Math.round((Object.values(predictions.eligibility_status).filter(Boolean).length / Object.keys(predictions.eligibility_status).length) * 100)
                 : 0,
         },
         yearlyPredictions: predictions.yearly_predictions.map(prediction => ({
@@ -823,6 +839,7 @@ export const getCarbonCreditPredictions = (data: SoilHealthCarbonResponse) => {
         totalPotentialValueFormatted: `$${Math.round(predictions.total_potential_value_usd).toLocaleString()}`,
         baselineRateFormatted: predictions.baseline_rate_tco2_per_ha.toFixed(2),
         annualGrowthRateFormatted: predictions.annual_growth_rate_percent.toFixed(2) + "%",
+        totalPotentialCreditsFormatted: Math.round(predictions.total_potential_credits).toLocaleString(),
     };
 };
 
@@ -911,11 +928,11 @@ export const getAvailableGraphTypes = (data: SoilHealthCarbonResponse): string[]
 export const getConfidenceScoreBreakdown = (data: SoilHealthCarbonResponse) => {
     return {
         ...data.data.confidence_score,
-        overallFormatted: `${data.data.confidence_score.overall}/100`,
+        overallFormatted: `0/100`,
         breakdown: Object.entries(data.data.confidence_score.breakdown).map(([key, value]) => ({
             label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
             value: value,
-            formatted: `${value}/100`,
+            formatted: `0/100`,
         }))
     };
 };
@@ -929,6 +946,9 @@ export const getMetadata = (data: SoilHealthCarbonResponse) => {
         generatedAtFormatted: new Date(data.data.metadata.generated_at).toLocaleString(),
         dataSourcesCount: data.data.metadata.data_sources.length,
         calculationMethodsCount: data.data.metadata.calculation_methods.length,
+        yearRequested: data.data.metadata.year_requested,
+        yearUsedForCurrentValues: data.data.metadata.year_used_for_current_values,
+        trendPeriod: data.data.metadata.trend_period,
     };
 };
 
@@ -942,6 +962,7 @@ export const getCompanyDetails = (data: SoilHealthCarbonResponse) => {
         esgContact: data.data.company.esg_contact_person,
         reportingFrameworks: data.data.company.esg_reporting_framework,
         dataRange: data.data.company.data_range,
+        metadata: data.data.company.metadata,
     };
 };
 
@@ -955,6 +976,7 @@ export const getReportingPeriodDetails = (data: SoilHealthCarbonResponse) => {
         yearsCount: data.data.reporting_period.data_available_years.length,
         carbonDataYearsCount: data.data.reporting_period.carbon_data_years.length,
         esgDataYearsCount: data.data.reporting_period.esg_data_years.length,
+        note: data.data.reporting_period.note,
     };
 };
 
@@ -962,39 +984,41 @@ export const getReportingPeriodDetails = (data: SoilHealthCarbonResponse) => {
  * Get key indicators for dashboard
  */
 export const getDashboardIndicators = (data: SoilHealthCarbonResponse) => {
+    const indicators = data.data.summary.key_indicators;
     return {
         soilHealth: {
-            value: data.data.soil_organic_carbon_quantification.current_value,
-            unit: data.data.soil_organic_carbon_quantification.unit,
-            trend: data.data.soil_organic_carbon_quantification.trend,
-            status: data.data.soil_organic_carbon_quantification.current_value > 30 ? "Excellent" :
-                data.data.soil_organic_carbon_quantification.current_value > 20 ? "Good" :
-                    data.data.soil_organic_carbon_quantification.current_value > 10 ? "Fair" : "Poor",
+            value: indicators.soil_organic_carbon,
+            unit: "tC/ha",
+            trend: data.data.summary.trends.soil_health,
+            status: indicators.soil_organic_carbon > 30 ? "Excellent" :
+                indicators.soil_organic_carbon > 20 ? "Good" :
+                    indicators.soil_organic_carbon > 10 ? "Fair" : "Poor",
         },
         carbonStock: {
-            value: data.data.carbon_stock_analysis.total_carbon_stock,
-            unit: data.data.carbon_stock_analysis.unit,
-            trend: data.data.carbon_stock_analysis.trend,
+            value: indicators.carbon_stock,
+            unit: "tCO2/ha",
+            trend: data.data.summary.trends.carbon_stock,
         },
         sequestration: {
-            value: data.data.carbon_stock_analysis.sequestration_rate,
-            unit: data.data.carbon_stock_analysis.sequestration_unit,
-            trend: data.data.carbon_stock_analysis.sequestration_rate > 0 ? "improving" : "declining",
+            value: indicators.sequestration_rate,
+            unit: "tCO2/ha/year",
+            trend: data.data.summary.trends.sequestration,
         },
         vegetationHealth: {
-            value: data.data.vegetation_health.average_ndvi,
-            trend: data.data.vegetation_health.ndvi_trend,
+            value: indicators.vegetation_health,
+            trend: data.data.summary.trends.vegetation,
             classification: data.data.vegetation_health.classification,
         },
         carbonBalance: {
-            value: data.data.carbon_emission_accounting.summary.net_carbon_balance_tco2e,
+            value: indicators.net_carbon_balance,
             unit: "tCO₂e",
-            status: data.data.carbon_emission_accounting.summary.net_carbon_balance_tco2e > 0 ? "Source" : "Sink",
+            status: indicators.net_carbon_balance > 0 ? "Source" : "Sink",
         },
         confidenceScore: {
             value: data.data.confidence_score.overall,
             interpretation: data.data.confidence_score.interpretation,
-        }
+        },
+        permanenceRating: indicators.permanence_rating,
     };
 };
 
@@ -1090,6 +1114,37 @@ export const getVerificationStatus = (data: SoilHealthCarbonResponse) => {
     };
 };
 
+/**
+ * Get summary of all trends
+ */
+export const getAllTrends = (data: SoilHealthCarbonResponse) => {
+    return {
+        ...data.data.summary.trends,
+        socTrend: data.data.soil_organic_carbon_quantification.trend,
+        ndviTrend: data.data.vegetation_health.ndvi_trend,
+        sequestrationTrend: data.data.soil_health_trends.sequestration_trend,
+        emissionsTrend: data.data.soil_health_trends.emissions_trend,
+        carbonStockTrend: data.data.soil_health_trends.carbon_stock_trend,
+    };
+};
+
+/**
+ * Get carbon credit eligibility details
+ */
+export const getCarbonCreditEligibility = (data: SoilHealthCarbonResponse) => {
+    const predictions = data.data.carbon_credit_predictions;
+    if (!predictions) return null;
+
+    return {
+        isEligible: predictions.eligible,
+        eligibilityStatus: predictions.eligibility_status,
+        creditStandards: predictions.credit_standards_applicable,
+        totalPotentialValue: predictions.total_potential_value_usd,
+        yearlyPredictions: predictions.yearly_predictions,
+        methodology: predictions.methodology,
+    };
+};
+
 export default {
     getSoilHealthCarbonData,
     getAvailableSoilHealthYears,
@@ -1125,4 +1180,6 @@ export default {
     hasMonthlyData,
     isDataVerified,
     getVerificationStatus,
+    getAllTrends,
+    getCarbonCreditEligibility,
 };
