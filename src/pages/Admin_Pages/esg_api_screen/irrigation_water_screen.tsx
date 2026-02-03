@@ -5,7 +5,6 @@ import {
     RefreshCw,
     ChevronLeft,
     Download,
-    Building,
     ArrowRight,
     AlertCircle,
     Calendar,
@@ -15,31 +14,29 @@ import {
     BarChart3,
     PieChart,
     FileText,
-    Globe,
-    Target,
-    Shield,
-    Leaf,
+    Droplets,
 } from "lucide-react";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
-    getCropYieldForecastData,
-    type CropYieldForecastParams,
-    type CropYieldForecastResponse,
-} from "../../../services/Admin_Service/esg_apis/crop_yield_service";
+    getIrrigationWaterData,
+    type IrrigationWaterResponse,
+    type IrrigationWaterParams,
+    getAvailableIrrigationWaterYears,
+} from "../../../services/Admin_Service/esg_apis/water_risk_service";
 
 // Import tab components
-import OverviewTab from "./yield_tabs/OverviewTab";
-import AnalyticsTab from "./yield_tabs/AnalyticsTab";
-import ReportsTab from "./yield_tabs/ReportsTab";
+import OverviewTab from "./water_tabs/OverviewTab";
+import AnalyticsTab from "./water_tabs/AnalyticsTab";
+import ReportsTab from "./water_tabs/ReportsTab";
 
-// Color Palette (matched to GhgEmissionScreen)
-const PRIMARY_GREEN = '#22c55e';
-const SECONDARY_GREEN = '#16a34a';
-const LIGHT_GREEN = '#86efac';
-const DARK_GREEN = '#15803d';
-const EMERALD = '#10b981';
-const LIME = '#84cc16';
-const BACKGROUND_GRAY = '#f9fafb';
+// Color Palette (matching SoilHealthCarbonEmissionScreen)
+const PRIMARY_GREEN = '#22c55e';       // Green-500
+const SECONDARY_GREEN = '#16a34a';     // Green-600
+const LIGHT_GREEN = '#86efac';         // Green-300
+const DARK_GREEN = '#15803d';          // Green-700
+const EMERALD = '#10b981';             // Emerald-500
+const LIME = '#84cc16';                // Lime-500
+const BACKGROUND_GRAY = '#f9fafb';     // Gray-50
 
 // Loading Skeleton
 const SkeletonCard = () => (
@@ -50,7 +47,7 @@ const Shimmer = () => (
     <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-gray-100/50 to-transparent"></div>
 );
 
-// Helper function to parse data_range string (mirrors GhgEmissionScreen)
+// Helper function to parse data_range string
 const parseDataRange = (dataRange: string | undefined): number[] => {
     if (!dataRange) return [];
 
@@ -89,7 +86,7 @@ const getEndYearFromDataRange = (dataRange: string | undefined): number | null =
     return years.length > 0 ? Math.max(...years) : null;
 };
 
-const CropYieldCarbonEmissionScreen = () => {
+const IrrigationWaterScreen = () => {
     const { companyId: paramCompanyId } = useParams<{ companyId: string }>();
     const location = useLocation();
     const navigate = useNavigate();
@@ -97,7 +94,7 @@ const CropYieldCarbonEmissionScreen = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [cropYieldData, setCropYieldData] = useState<CropYieldForecastResponse | null>(null);
+    const [waterData, setWaterData] = useState<IrrigationWaterResponse | null>(null);
     const [companies, setCompanies] = useState<Company[]>([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>(paramCompanyId || "");
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -108,20 +105,38 @@ const CropYieldCarbonEmissionScreen = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Format helpers
-    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
-    const formatCurrency = (num: number) => new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(num);
-    const formatPercent = (num: number) => `${num.toFixed(1)}%`;
+    const formatNumber = (num: number | null) => {
+        if (num === null || num === undefined) return "N/A";
+        return new Intl.NumberFormat('en-US').format(num);
+    };
+
+    const formatCurrency = (num: number | null) => {
+        if (num === null || num === undefined) return "N/A";
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(num);
+    };
+
+    const formatPercent = (num: number | null) => {
+        if (num === null || num === undefined) return "N/A";
+        return `${num.toFixed(1)}%`;
+    };
 
     // Get trend icon
     const getTrendIcon = (trend: string) => {
-        if (trend.toLowerCase().includes('improving') || trend.toLowerCase().includes('increase') || trend.toLowerCase().includes('up')) {
+        if (trend.toLowerCase().includes('improving') ||
+            trend.toLowerCase().includes('increase') ||
+            trend.toLowerCase().includes('up') ||
+            trend.toLowerCase().includes('positive') ||
+            trend.toLowerCase().includes('stable')) {
             return <TrendingUp className="w-4 h-4 text-green-600" />;
-        } else if (trend.toLowerCase().includes('declining') || trend.toLowerCase().includes('decrease') || trend.toLowerCase().includes('down')) {
+        } else if (trend.toLowerCase().includes('declining') ||
+            trend.toLowerCase().includes('decrease') ||
+            trend.toLowerCase().includes('down') ||
+            trend.toLowerCase().includes('negative')) {
             return <TrendingDown className="w-4 h-4 text-red-600" />;
         }
         return <Activity className="w-4 h-4 text-yellow-600" />;
@@ -140,7 +155,7 @@ const CropYieldCarbonEmissionScreen = () => {
         }
     };
 
-    // Get available years from company's data_range (mirrors GhgEmissionScreen)
+    // Get available years from company's data_range
     const getAvailableYearsForCompany = (company: Company | undefined): number[] => {
         if (!company) return [];
 
@@ -164,8 +179,8 @@ const CropYieldCarbonEmissionScreen = () => {
         return [currentYear];
     };
 
-    // Fetch crop yield data
-    const fetchCropYieldData = async () => {
+    // Fetch irrigation water data
+    const fetchIrrigationWaterData = async () => {
         if (!selectedCompanyId) return;
 
         try {
@@ -184,24 +199,24 @@ const CropYieldCarbonEmissionScreen = () => {
 
                     const yearToFetch = selectedYear !== null ? selectedYear : latest;
 
-                    const params: CropYieldForecastParams = {
+                    const params: IrrigationWaterParams = {
                         companyId: selectedCompanyId,
                         year: yearToFetch,
                     };
 
-                    const data = await getCropYieldForecastData(params);
-                    setCropYieldData(data);
+                    const data = await getIrrigationWaterData(params);
+                    setWaterData(data);
 
                     if (selectedYear === null) {
                         setSelectedYear(latest);
                     }
                 } else {
                     const currentYear = new Date().getFullYear();
-                    const data = await getCropYieldForecastData({
+                    const data = await getIrrigationWaterData({
                         companyId: selectedCompanyId,
                         year: currentYear,
                     });
-                    setCropYieldData(data);
+                    setWaterData(data);
 
                     setAvailableYears([currentYear]);
                     setLatestYear(currentYear);
@@ -209,18 +224,18 @@ const CropYieldCarbonEmissionScreen = () => {
                 }
             } else {
                 const currentYear = new Date().getFullYear();
-                const data = await getCropYieldForecastData({
+                const data = await getIrrigationWaterData({
                     companyId: selectedCompanyId,
                     year: currentYear,
                 });
-                setCropYieldData(data);
+                setWaterData(data);
                 setAvailableYears([currentYear]);
                 setLatestYear(currentYear);
                 setSelectedYear(currentYear);
             }
         } catch (err: any) {
-            setError(err.message || "Failed to fetch crop yield forecast data");
-            console.error("Error fetching crop yield data:", err);
+            setError(err.message || "Failed to fetch irrigation water data");
+            console.error("Error fetching irrigation water data:", err);
         } finally {
             setLoading(false);
             setIsRefreshing(false);
@@ -229,14 +244,14 @@ const CropYieldCarbonEmissionScreen = () => {
 
     const handleRefresh = () => {
         setIsRefreshing(true);
-        fetchCropYieldData();
+        fetchIrrigationWaterData();
     };
 
     const handleCompanyChange = (companyId: string) => {
         setSelectedCompanyId(companyId);
         setSelectedYear(null); // Reset year when changing company
         setShowCompanySelector(false);
-        navigate(`/admin_crop_yield_carbon/${companyId}`);
+        navigate(`/admin_irrigation_water/${companyId}`);
     };
 
     const handleYearChange = (year: string) => {
@@ -254,32 +269,40 @@ const CropYieldCarbonEmissionScreen = () => {
         console.log("Calculation clicked:", calculationType, data);
     };
 
-    // Calculate summary metrics
+    // Calculate summary metrics for water data
     const summaryMetrics = useMemo(() => {
-        if (!cropYieldData) return null;
+        if (!waterData) return null;
+
+        const waterAnalysis = waterData.data.water_usage_analysis;
+        const envMetrics = waterData.data.environmental_metrics.summary;
 
         return {
-            totalYield: 1250000,
-            yieldChange: 8.5,
-            carbonSequestration: 45000,
-            sequestrationChange: 12.2,
-            waterUsage: 320000,
-            waterChange: -3.2,
-            cropDiversity: 4.2,
-            diversityChange: 2.1,
+            irrigationWater: waterAnalysis.irrigation_water.current_value,
+            treatmentWater: waterAnalysis.treatment_water.current_value,
+            totalWater: waterAnalysis.total_water_usage.current_value,
+            waterEfficiency: waterAnalysis.irrigation_water.efficiency_score,
+            waterSavings: waterAnalysis.water_savings_analysis.potential_savings,
+            shortageRisk: waterAnalysis.shortage_risk.level,
+            ghgEmissions: envMetrics.total_ghg_emissions,
+            scope1Emissions: envMetrics.scope1_emissions,
         };
-    }, [cropYieldData]);
+    }, [waterData]);
 
-    // Mock data for coordinates, area, etc.
-    const mockCoordinates = [
-        { lat: 40.7128, lon: -74.0060 },
-        { lat: 40.7129, lon: -74.0061 },
-        { lat: 40.7127, lon: -74.0059 },
-        { lat: 40.7128, lon: -74.0060 },
-    ];
+    // Get coordinates from water data
+    const getCoordinates = () => {
+        if (!waterData) return [];
+        return waterData.data.company.area_of_interest_metadata?.coordinates || [];
+    };
 
-    const areaName = "Primary Farm Fields";
-    const areaCovered = "1,200 acres";
+    // Get area name and coverage from water data
+    const getAreaInfo = () => {
+        if (!waterData) return { name: "", covered: "" };
+        const metadata = waterData.data.company.area_of_interest_metadata;
+        return {
+            name: metadata?.name || "Irrigation Area",
+            covered: metadata?.area_covered || "N/A"
+        };
+    };
 
     useEffect(() => {
         if (location.state?.companyId) {
@@ -291,16 +314,31 @@ const CropYieldCarbonEmissionScreen = () => {
 
     useEffect(() => {
         if (selectedCompanyId && companies.length > 0) {
-            fetchCropYieldData();
+            fetchIrrigationWaterData();
         }
     }, [selectedCompanyId, selectedYear]);
 
     // Get selected company
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
 
+    // Get area info
+    const areaInfo = getAreaInfo();
+    const coordinates = getCoordinates();
+
+    // Prepare colors for OverviewTab - matching what it expects
+    const overviewTabColors = {
+        primary: PRIMARY_GREEN,
+        secondary: SECONDARY_GREEN,
+        lightGreen: LIGHT_GREEN,
+        darkGreen: DARK_GREEN,
+        emerald: EMERALD,
+        lime: LIME,
+        background: BACKGROUND_GRAY,
+    };
+
     // Prepare shared data for tabs
     const sharedData = {
-        cropYieldData,
+        waterData,
         selectedCompany,
         formatNumber,
         formatCurrency,
@@ -313,18 +351,10 @@ const CropYieldCarbonEmissionScreen = () => {
         isRefreshing,
         onMetricClick: handleMetricClick,
         onCalculationClick: handleCalculationClick,
-        coordinates: mockCoordinates,
-        areaName,
-        areaCovered,
-        colors: {
-            primary: PRIMARY_GREEN,
-            secondary: SECONDARY_GREEN,
-            lightGreen: LIGHT_GREEN,
-            darkGreen: DARK_GREEN,
-            emerald: EMERALD,
-            lime: LIME,
-            background: BACKGROUND_GRAY,
-        },
+        coordinates: coordinates,
+        areaName: areaInfo.name,
+        areaCovered: areaInfo.covered,
+        colors: overviewTabColors,
     };
 
     // Loading State
@@ -348,7 +378,6 @@ const CropYieldCarbonEmissionScreen = () => {
                             </div>
                         ))}
                     </div>
-
                     {/* Shimmer Graphs */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                         {[1, 2].map(i => (
@@ -378,12 +407,12 @@ const CropYieldCarbonEmissionScreen = () => {
                     <div className="max-w-6xl mx-auto">
                         <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
                             <div className="flex items-center gap-3 mb-8">
-                                <Leaf className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
+                                <Droplets className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
                                 <div>
                                     <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
                                         Select Company
                                     </h1>
-                                    <p className="text-gray-600">Choose a company to view Crop Yield & Carbon Data</p>
+                                    <p className="text-gray-600">Choose a company to view Irrigation Water & Water Risk Data</p>
                                 </div>
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
@@ -398,7 +427,7 @@ const CropYieldCarbonEmissionScreen = () => {
                                             className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
                                         >
                                             <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
-                                                <Leaf className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                                <Droplets className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
                                             </div>
                                             <div className="flex-1">
                                                 <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
@@ -422,7 +451,7 @@ const CropYieldCarbonEmissionScreen = () => {
                                                         {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
                                                     </div>
                                                     {company.data_range && (
-                                                        <div className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                        <div className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 border border-green-200">
                                                             Data: {company.data_range}
                                                         </div>
                                                     )}
@@ -450,7 +479,7 @@ const CropYieldCarbonEmissionScreen = () => {
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="flex-1">
-                {/* Header — matches GhgEmissionScreen layout */}
+                {/* Header */}
                 <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
                     <div className="px-4 sm:px-6 py-3">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
@@ -464,13 +493,13 @@ const CropYieldCarbonEmissionScreen = () => {
                                 </button>
                                 <div>
                                     <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
-                                        Crop Yield & Carbon Dashboard
+                                        Irrigation Water & Water Risk Dashboard
                                     </h1>
                                     {selectedCompany && (
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="text-xs text-gray-600">{selectedCompany.name} • {selectedCompany.industry}</p>
                                             {selectedCompany.data_range && (
-                                                <div className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                <div className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
                                                     Data range: {selectedCompany.data_range}
                                                 </div>
                                             )}
@@ -480,7 +509,7 @@ const CropYieldCarbonEmissionScreen = () => {
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap">
-                                {/* Year Selector — same pattern as GhgEmissionScreen */}
+                                {/* Year Selector */}
                                 {availableYears.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-gray-500" />
@@ -518,8 +547,6 @@ const CropYieldCarbonEmissionScreen = () => {
                                 </button>
                             </div>
                         </div>
-
-                        {/* Tabs — same style as GhgEmissionScreen */}
                         <div className="flex space-x-2 overflow-x-auto pb-1">
                             {[
                                 { id: "overview", label: "Overview", icon: BarChart3 },
@@ -558,85 +585,6 @@ const CropYieldCarbonEmissionScreen = () => {
                     </div>
                 )}
 
-                {/* Quick Stats Bar */}
-                {summaryMetrics && !error && (
-                    <div className="mx-4 sm:mx-6 mt-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="p-4 rounded-lg bg-green-50 border border-green-100">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Total Yield</span>
-                                    <Target className="w-4 h-4 text-green-600" />
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.totalYield)}</span>
-                                    <span className="text-sm font-medium text-green-600">tons</span>
-                                </div>
-                                <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.yieldChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.yieldChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.yieldChange))}
-                                    </span>
-                                    <span className="text-gray-600">vs last year</span>
-                                </div>
-                            </div>
-
-                            <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Carbon Sequestration</span>
-                                    <Leaf className="w-4 h-4 text-blue-600" />
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.carbonSequestration)}</span>
-                                    <span className="text-sm font-medium text-blue-600">tCO₂</span>
-                                </div>
-                                <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.sequestrationChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.sequestrationChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.sequestrationChange))}
-                                    </span>
-                                    <span className="text-gray-600">vs last year</span>
-                                </div>
-                            </div>
-
-                            <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Water Usage</span>
-                                    <Activity className="w-4 h-4 text-purple-600" />
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.waterUsage)}</span>
-                                    <span className="text-sm font-medium text-purple-600">m³</span>
-                                </div>
-                                <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.waterChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.waterChange > 0 ? 'text-red-600' : 'text-green-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.waterChange))}
-                                    </span>
-                                    <span className="text-gray-600">vs last year</span>
-                                </div>
-                            </div>
-
-                            <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-100">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Crop Diversity</span>
-                                    <Shield className="w-4 h-4 text-yellow-600" />
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{summaryMetrics.cropDiversity.toFixed(1)}</span>
-                                    <span className="text-sm font-medium text-yellow-600">index</span>
-                                </div>
-                                <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.diversityChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.diversityChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.diversityChange))}
-                                    </span>
-                                    <span className="text-gray-600">vs last year</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Content */}
                 <div className="p-4 sm:p-6">
                     {activeTab === "overview" && (
@@ -660,4 +608,4 @@ const CropYieldCarbonEmissionScreen = () => {
     );
 };
 
-export default CropYieldCarbonEmissionScreen;
+export default IrrigationWaterScreen;

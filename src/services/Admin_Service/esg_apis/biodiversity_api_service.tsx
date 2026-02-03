@@ -1,5 +1,4 @@
 import api from "../Auth_service/api";
-
 export interface Coordinate {
     lat: number;
     lon: number;
@@ -17,9 +16,8 @@ export interface EsgContactPerson {
     email: string;
     phone: string;
 }
-
 export interface Company {
-    id: string;
+    _id: string;
     name: string;
     registrationNumber: string;
     email: string;
@@ -43,6 +41,7 @@ export interface Company {
     has_esg_linked_pay?: boolean;
     created_at?: string;
     updated_at?: string;
+    __v?: number;
 }
 
 export interface Metadata {
@@ -54,10 +53,7 @@ export interface Metadata {
     company_id: string;
     period_requested: string;
     data_sources: string[];
-    calculation_methods: string[];
-    compliance_frameworks: string[];
 }
-
 export interface ReportingPeriod {
     current_year: number;
     baseline_year: number;
@@ -65,181 +61,84 @@ export interface ReportingPeriod {
     period_covered: string;
     data_completeness: string;
     carbon_data_available: boolean;
-    monthly_data_available: boolean;
 }
-
-export interface BiodiversityComponent {
-    score: number;
-    weight: number;
-    factors: string[];
-}
-
-export interface BiodiversityComponents {
-    environmental: BiodiversityComponent;
-    social: BiodiversityComponent;
-    governance: BiodiversityComponent;
-    conservation: BiodiversityComponent;
-}
-
-export interface NDVIAnalysis {
-    score: number;
-    trend: string;
-}
-
-export interface SpeciesDiversity {
-    score: number;
-    category: string;
-    indicators: string[];
-    confidence: string;
-}
-
-export interface FragmentationRisk {
-    risk_score: number;
-    level: string;
-    contributing_factors: string[];
-    mitigation_needed: boolean;
-}
-
-export interface DetailedAssessment {
-    ndvi_analysis: NDVIAnalysis;
-    habitat_integrity: string;
-    species_diversity: SpeciesDiversity;
-    fragmentation_risk: FragmentationRisk;
-    water_impact: string;
-    waste_impact: string;
-    incident_impact: string;
-    social_engagement: string;
-    governance_strength: string;
-}
-
 export interface BiodiversityAssessment {
-    overall_score: number;
-    rating: string;
-    components: BiodiversityComponents;
-    detailed_assessment: DetailedAssessment;
+    environmental_metrics: {
+        "Carbon Emissions (Total GHG, tCO2e)": number;
+        "GHG Scope 1 (tCO2e)": number;
+        "GHG Scope 2 (tCO2e)": number;
+        "GHG Scope 3 (tCO2e)": number;
+    };
+    social_metrics: Record<string, any>;
+    governance_metrics: Record<string, any>;
+    current_year: number;
+}
+export interface ForestCoverage {
+    current: number;
+    previous: number;
+    change_percent: number;
+    coverage_percent: number;
+}
+export interface AgriculturalExpansion {
+    current: number;
+    previous: number;
+    change_percent: number;
 }
 
-export interface YearlyNDVISummary {
-    year: number;
-    avg_ndvi: number;
-    max_ndvi: number;
-    min_ndvi: number;
-    seasonal_variation: number;
-    biomass_co2_total: number;
-    soc_co2_total: number;
-}
-
-export interface NDVIAnalysisDetailed {
-    yearly_summaries: YearlyNDVISummary[];
-    detected_trends: string[];
-    overall_ndvi_trend: string;
-    deforestation_risk: string;
-    data_quality: string;
-}
-
-export interface YearlyRisk {
-    year: number;
-    forest_area: number;
-    agricultural_area: number;
-    ndvi_score: number;
-    risk_score: number;
-}
-
-export interface DeforestationAlert {
-    id?: string;
-    date?: string;
-    location?: string;
-    area_affected?: number;
-    confidence?: string;
+export interface ProtectedAreaCoverage {
+    area: number;
+    percentage: number;
 }
 
 export interface DeforestationAnalysis {
-    risk_score: number;
-    risk_level: string;
-    forest_coverage: {
-        current: number;
-        previous: number;
-        change_percent: string;
-        coverage_percent: string;
-    };
-    agricultural_expansion: {
-        current: number;
-        previous: number;
-        change_percent: string;
-        expansion_rate: string;
-    };
-    protected_area_coverage: string;
-    ndvi_analysis: NDVIAnalysisDetailed;
-    risk_factors: string[];
-    yearly_risk: YearlyRisk[];
-    deforestation_alerts: DeforestationAlert[];
-    compliance_status: string;
+    forest_coverage: ForestCoverage;
+    agricultural_expansion: AgriculturalExpansion;
+    protected_area_coverage: ProtectedAreaCoverage;
+}
+
+export interface CurrentYearLandUse {
+    total_area: number | null;
+    forest_area: number | null;
+    agricultural_area: number | null;
+    protected_area: number | null;
+}
+
+export interface LandUseTrends {
+    forest_area_trend: string;
+    agricultural_area_trend: string;
+}
+
+export interface ChangeAnalysis {
+    change_detected: boolean;
+    message: string;
 }
 
 export interface LandUseMetrics {
-    current_year: {
-        total_area: number;
-        forest_area: number;
-        agricultural_area: number;
-        protected_area: number;
-        forest_coverage_percent: string;
-        protected_area_percent: string;
-    };
-    trends: {
-        forest_area_trend: string;
-        agricultural_area_trend: string;
-        total_area_trend: string;
-    };
-    change_analysis: {
-        period?: string;
-        forest_area?: {
-            start: number;
-            end: number;
-            change: number;
-            trend: string;
-        };
-        agricultural_area?: {
-            start: number;
-            end: number;
-            change: number;
-            trend: string;
-        };
-        change_detected?: boolean;
-        primary_driver?: string;
-        implications?: string;
-        message?: string;
-    };
-}
-
-export interface WaterEfficiency {
-    water_per_ha: number;
-    efficiency_score: number;
-    rating: string;
+    current_year: CurrentYearLandUse;
+    trends: LandUseTrends;
+    change_analysis: ChangeAnalysis;
 }
 
 export interface WaterManagement {
-    current_usage: string;
+    current_usage: number | null;
     trend: string;
-    efficiency: WaterEfficiency;
-    risk_level: string;
+    efficiency: number | null;
 }
 
 export interface WasteManagement {
-    hazardous_waste: string;
-    recycled_waste: number;
+    hazardous_waste: number | null;
+    recycled_waste: number | null;
     trend: string;
-    risk_level: string;
 }
 
 export interface IncidentManagement {
-    total_incidents: number;
+    total_incidents: number | null;
     trend: string;
-    risk_level: string;
 }
 
 export interface SoilHealth {
-    erosion_rate: number;
-    organic_matter: number;
+    erosion_rate: number | null;
+    organic_matter: number | null;
     trend: string;
 }
 
@@ -251,36 +150,20 @@ export interface EnvironmentalImpact {
 }
 
 export interface CommunityEngagement {
-    programs_count: number;
-    local_employment: number;
-    land_rights_complaints: number;
-    engagement_level: string;
+    programs_count: number | null;
+    local_employment: number | null;
+    land_rights_complaints: number | null;
 }
 
 export interface GovernanceStrength {
-    land_use_policy: string;
-    biodiversity_policy: string;
-    compliance_audits: number;
-    strength_level: string;
+    land_use_policy: string | null;
+    biodiversity_policy: string | null;
+    compliance_audits: number | null;
 }
 
 export interface SocialGovernance {
     community_engagement: CommunityEngagement;
     governance_strength: GovernanceStrength;
-}
-
-export interface MonthlyTrend {
-    month: number;
-    month_name: string;
-    avg_ndvi: number;
-    data_points: number;
-}
-
-export interface NDVIAnalysisSummary {
-    monthly_trends: MonthlyTrend[];
-    overall_avg_ndvi: number;
-    best_month: MonthlyTrend;
-    worst_month: MonthlyTrend;
 }
 
 export interface CarbonFramework {
@@ -330,19 +213,10 @@ export interface YearlyCarbonData {
 export interface CarbonEmissionAccounting {
     framework: CarbonFramework;
     methodology: string;
-    summary: {
-        period: {
-            start_year: number;
-            end_year: number;
-            years_count: number;
-        };
-        ndvi_analysis: NDVIAnalysisSummary;
-    };
-    ndvi_analysis: NDVIAnalysisSummary;
     yearly_data: YearlyCarbonData[];
 }
 
-export interface EnvironmentalMetricValue {
+export interface EsgMetricValue {
     year: number;
     value: string;
     numeric_value: number;
@@ -351,214 +225,66 @@ export interface EnvironmentalMetricValue {
 
 export interface EnvironmentalMetric {
     name: string;
-    category: string;
     unit: string;
     description: string;
-    values: EnvironmentalMetricValue[];
-}
-
-export interface EsgMetricsSummary {
-    total_metrics: number;
-    environmental_metrics: number;
-    social_metrics: number;
-    governance_metrics: number;
-    data_coverage_years: number;
+    current_value: number;
+    values: EsgMetricValue[];
 }
 
 export interface EsgMetrics {
     environmental: EnvironmentalMetric[];
-    social: EnvironmentalMetric[];
-    governance: EnvironmentalMetric[];
-    summary: EsgMetricsSummary;
+    social: any[];
+    governance: any[];
 }
 
 export interface GraphDataset {
     label: string;
     data: number[];
     borderColor?: string;
-    backgroundColor?: string | string[];
+    backgroundColor?: string;
     fill?: boolean;
     borderDash?: number[];
-    tension?: number;
-    borderWidth?: number;
-    type?: string;
-}
-
-export interface GraphDataPoint {
-    x: number;
-    y: number;
-    r: number;
-}
-
-export interface ScatterDataset {
-    label: string;
-    data: GraphDataPoint[];
-    backgroundColor: string;
 }
 
 export interface Graph {
     type: string;
     title: string;
     description: string;
-    labels: (string | number)[];
-    datasets: (GraphDataset | ScatterDataset)[];
+    labels: string[];
+    datasets: GraphDataset[];
 }
 
-export interface EnvironmentalMetrics {
-    total_water_usage: string;
-    total_hazardous_waste: string;
-    total_incidents: number;
-    forest_coverage_percent: string;
-    protected_area_percent: string;
-}
-
-export interface BiodiversityMetrics {
-    overall_score: string;
-    ndvi_score: string;
-    endangered_species_count: number;
-    habitat_restoration_area: string;
-    restoration_progress: string;
-}
-
-export interface RiskMetrics {
-    deforestation_risk_score: number;
-    deforestation_alerts_count: number;
-    fragmentation_risk: string;
-    compliance_status: string;
-}
-
-export interface CarbonMetrics {
-    total_sequestration: number;
-    total_emissions: number;
-    net_carbon_balance: number;
-    ndvi_trend: string;
-}
-
-export interface SocialGovernanceMetrics {
-    community_programs: number;
-    land_use_policy: string;
-    biodiversity_policy: string;
+export interface Graphs {
+    ndvi_monthly_trends: {
+        [year: string]: Graph;
+    };
 }
 
 export interface KeyStatistics {
     total_metrics_analyzed: number;
     years_covered: number;
     current_year: number;
-    environmental_metrics: EnvironmentalMetrics;
-    biodiversity_metrics: BiodiversityMetrics;
-    risk_metrics: RiskMetrics;
-    carbon_metrics: CarbonMetrics;
-    social_governance_metrics: SocialGovernanceMetrics;
+    environmental_metrics: Record<string, any>;
+    biodiversity_metrics: Record<string, any>;
+    social_governance_metrics: Record<string, any>;
 }
 
-export interface HabitatRestorationPotential {
-    current_restoration: number;
-    restoration_target: number;
-    remaining_potential: number;
-    percent_of_target: string;
+export interface DataAvailability {
+    total_metrics: number;
+    years_covered: number;
+    carbon_data: boolean;
+    ndvi_data: boolean;
 }
 
-export interface ConservationMetrics {
-    habitat_restoration_potential: HabitatRestorationPotential;
-    carbon_sequestration_potential: string;
-    water_conservation_potential: string;
-    biodiversity_enhancement_target: string;
-    deforestation_prevention: string;
-}
-
-export interface SDGAlignment {
-    goal: string;
-    alignment: string;
-}
-
-export interface HVECompliance {
-    applicable: boolean;
-    requirements: string[];
-    current_status: string;
-    verification_required: boolean;
-    notes: string;
-}
-
-export interface SASBCompliance {
-    applicable: boolean;
-    standards: string[];
-    compliance_level: string;
-    metrics_coverage: string[];
-    gap_analysis: string;
-}
-
-export interface TCFDCompliance {
-    applicable: boolean;
-    climate_risk_assessment: string;
-    scenario_analysis: string;
-    physical_risks: string[];
-    transition_risks: string[];
-    reporting_status: string;
-}
-
-export interface GRICompliance {
-    standards: string[];
-    disclosure_level: string;
-    verification_status: string;
-    improvement_areas: string[];
-}
-
-export interface UNSDGCompliance {
-    goals: SDGAlignment[];
-    overall_alignment: string;
-    contribution_areas: string[];
-}
-
-export interface ISOCompliance {
-    standards: string[];
-    certification_status: string;
-    gap_analysis: string;
-}
-
-export interface StandardsCompliance {
-    hve: HVECompliance;
-    sasb: SASBCompliance;
-    tcfd: TCFDCompliance;
-    gri: GRICompliance;
-    unsdg: UNSDGCompliance;
-    iso: ISOCompliance;
-}
-
-export interface HVEComplianceDetails {
-    deforestation_status: string;
-    compliance_status: string;
-    verification_requirements: string[];
-    last_assessment_date: string;
-    next_assessment_due: string;
-}
-
-export interface Recommendation {
-    category: string;
-    priority: string;
-    recommendation: string;
-    impact: string;
-    timeframe: string;
-    cost_estimate: string;
-    compliance_benefit: string;
+export interface NotableMetrics {
+    forest_coverage: number | null;
+    water_usage: number | null;
+    incidents_count: number | null;
 }
 
 export interface Summary {
-    overall_assessment: string;
-    key_strengths: string[];
-    critical_areas: string[];
-    next_steps: string[];
-    outlook: string;
-}
-
-export interface Graphs {
-    biodiversity_trend?: Graph;
-    land_use_composition: Graph;
-    ndvi_monthly_trend: Graph;
-    deforestation_risk_timeline?: Graph;
-    environmental_correlation?: Graph;
-    biodiversity_components: Graph;
-    carbon_balance_trend?: Graph;
-    monthly_carbon_sequestration: Graph;
+    data_availability: DataAvailability;
+    notable_metrics: NotableMetrics;
 }
 
 /**
@@ -566,7 +292,6 @@ export interface Graphs {
  * Main Response Interface
  * =====================
  */
-
 export interface BiodiversityLandUseResponse {
     message: string;
     api: string;
@@ -583,10 +308,6 @@ export interface BiodiversityLandUseResponse {
         esg_metrics: EsgMetrics;
         graphs: Graphs;
         key_statistics: KeyStatistics;
-        conservation_metrics: ConservationMetrics;
-        standards_compliance: StandardsCompliance;
-        hve_compliance: HVEComplianceDetails;
-        recommendations: Recommendation[];
         summary: Summary;
     };
 }
@@ -596,10 +317,9 @@ export interface BiodiversityLandUseResponse {
  * Request Parameters
  * =====================
  */
-
 export interface BiodiversityLandUseParams {
     companyId: string;
-    year?: number; // Optional year parameter
+    year?: number;
 }
 
 /**
@@ -666,15 +386,15 @@ export const getAvailableBiodiversityYears = (data: BiodiversityLandUseResponse)
 };
 
 /**
- * Get current biodiversity summary
+ * Get biodiversity assessment summary
  */
 export const getBiodiversitySummary = (data: BiodiversityLandUseResponse) => {
     const assessment = data.data.biodiversity_assessment;
     return {
-        overallScore: assessment.overall_score,
-        rating: assessment.rating,
-        components: assessment.components,
-        detailedAssessment: assessment.detailed_assessment
+        environmental_metrics: assessment.environmental_metrics,
+        social_metrics: assessment.social_metrics,
+        governance_metrics: assessment.governance_metrics,
+        current_year: assessment.current_year
     };
 };
 
@@ -728,39 +448,12 @@ export const getKeyStatistics = (data: BiodiversityLandUseResponse) => {
 };
 
 /**
- * Get conservation metrics
- */
-export const getConservationMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.conservation_metrics;
-};
-
-/**
- * Get standards compliance data
- */
-export const getStandardsCompliance = (data: BiodiversityLandUseResponse) => {
-    return data.data.standards_compliance;
-};
-
-/**
- * Get HVE compliance details
- */
-export const getHveCompliance = (data: BiodiversityLandUseResponse) => {
-    return data.data.hve_compliance;
-};
-
-/**
- * Get recommendations
- */
-export const getRecommendations = (data: BiodiversityLandUseResponse) => {
-    return data.data.recommendations;
-};
-
-/**
  * Get graph data for visualization
  */
-export const getBiodiversityGraphData = (data: BiodiversityLandUseResponse, graphType: keyof Graphs): Graph | undefined => {
+export const getBiodiversityGraphData = (data: BiodiversityLandUseResponse, year?: number): Graph | undefined => {
     const graphs = data.data.graphs;
-    return graphs[graphType];
+    const yearKey = year ? year.toString() : data.data.reporting_period.current_year.toString();
+    return graphs.ndvi_monthly_trends[yearKey];
 };
 
 /**
@@ -775,13 +468,6 @@ export const getAllBiodiversityGraphData = (data: BiodiversityLandUseResponse) =
  */
 export const getBiodiversityMetadata = (data: BiodiversityLandUseResponse) => {
     return data.data.metadata;
-};
-
-/**
- * Get yearly NDVI summaries
- */
-export const getYearlyNDVISummaries = (data: BiodiversityLandUseResponse) => {
-    return data.data.deforestation_analysis.ndvi_analysis.yearly_summaries;
 };
 
 /**
@@ -801,17 +487,11 @@ export const getCarbonDataByYear = (data: BiodiversityLandUseResponse, year: num
 };
 
 /**
- * Get NDVI analysis summary
+ * Get monthly carbon data for a specific year
  */
-export const getNDVIAnalysisSummary = (data: BiodiversityLandUseResponse) => {
-    return data.data.carbon_emission_accounting.ndvi_analysis;
-};
-
-/**
- * Get monthly NDVI trends
- */
-export const getMonthlyNDVITrends = (data: BiodiversityLandUseResponse) => {
-    return data.data.carbon_emission_accounting.ndvi_analysis.monthly_trends;
+export const getMonthlyCarbonData = (data: BiodiversityLandUseResponse, year: number) => {
+    const yearlyData = getCarbonDataByYear(data, year);
+    return yearlyData?.sequestration.monthly_data || [];
 };
 
 /**
@@ -850,13 +530,6 @@ export const isBiodiversityCarbonDataAvailable = (data: BiodiversityLandUseRespo
 };
 
 /**
- * Check if monthly data is available
- */
-export const isMonthlyDataAvailable = (data: BiodiversityLandUseResponse) => {
-    return data.data.reporting_period.monthly_data_available;
-};
-
-/**
  * Get summary assessment
  */
 export const getBiodiversitySummaryAssessment = (data: BiodiversityLandUseResponse) => {
@@ -871,38 +544,17 @@ export const getAreaOfInterestMetadata = (data: BiodiversityLandUseResponse) => 
 };
 
 /**
- * Get deforestation risk score
- */
-export const getDeforestationRiskScore = (data: BiodiversityLandUseResponse) => {
-    return data.data.deforestation_analysis.risk_score;
-};
-
-/**
- * Get deforestation risk level
- */
-export const getDeforestationRiskLevel = (data: BiodiversityLandUseResponse) => {
-    return data.data.deforestation_analysis.risk_level;
-};
-
-/**
  * Get forest coverage percentage
  */
 export const getForestCoveragePercentage = (data: BiodiversityLandUseResponse) => {
-    return data.data.land_use_metrics.current_year.forest_coverage_percent;
+    return data.data.deforestation_analysis.forest_coverage.coverage_percent;
 };
 
 /**
  * Get protected area percentage
  */
 export const getProtectedAreaPercentage = (data: BiodiversityLandUseResponse) => {
-    return data.data.land_use_metrics.current_year.protected_area_percent;
-};
-
-/**
- * Get compliance frameworks
- */
-export const getComplianceFrameworks = (data: BiodiversityLandUseResponse) => {
-    return data.data.metadata.compliance_frameworks;
+    return data.data.deforestation_analysis.protected_area_coverage.percentage;
 };
 
 /**
@@ -948,20 +600,6 @@ export const getGovernanceStrength = (data: BiodiversityLandUseResponse) => {
 };
 
 /**
- * Filter recommendations by priority
- */
-export const getRecommendationsByPriority = (data: BiodiversityLandUseResponse, priority: string) => {
-    return data.data.recommendations.filter(rec => rec.priority === priority);
-};
-
-/**
- * Get recommendations by category
- */
-export const getRecommendationsByCategory = (data: BiodiversityLandUseResponse, category: string) => {
-    return data.data.recommendations.filter(rec => rec.category === category);
-};
-
-/**
  * Get environmental metrics
  */
 export const getEnvironmentalMetrics = (data: BiodiversityLandUseResponse) => {
@@ -983,35 +621,83 @@ export const getGovernanceMetrics = (data: BiodiversityLandUseResponse) => {
 };
 
 /**
- * Get ESG metrics summary
+ * Get NDVI monthly trends for a specific year
  */
-export const getEsgMetricsSummary = (data: BiodiversityLandUseResponse) => {
-    return data.data.esg_metrics.summary;
-};
-
-/**
- * Get overall biodiversity score trend
- */
-export const getBiodiversityScoreTrend = (data: BiodiversityLandUseResponse): number[] => {
-    // This would typically come from the biodiversity_trend graph or yearly data
-    // For now, we'll extract from the graph if available
-    const graph = data.data.graphs.biodiversity_trend;
-    if (graph && graph.datasets[0]) {
-        return graph.datasets[0].data as number[];
+export const getNDVIMonthlyTrends = (data: BiodiversityLandUseResponse, year?: number) => {
+    const graphData = getBiodiversityGraphData(data, year);
+    if (graphData && graphData.datasets[0]) {
+        return graphData.datasets[0].data;
     }
     return [];
 };
 
 /**
- * Get carbon balance trend
+ * Get carbon balance (net balance)
  */
-export const getCarbonBalanceTrend = (data: BiodiversityLandUseResponse) => {
-    const graph = data.data.graphs.carbon_balance_trend;
-    if (graph) {
+export const getCarbonBalance = (data: BiodiversityLandUseResponse, year?: number) => {
+    const targetYear = year || data.data.reporting_period.current_year;
+    const yearlyData = getCarbonDataByYear(data, targetYear);
+    return yearlyData?.emissions.net_balance || 0;
+};
+
+/**
+ * Get total carbon emissions
+ */
+export const getTotalCarbonEmissions = (data: BiodiversityLandUseResponse, year?: number) => {
+    const targetYear = year || data.data.reporting_period.current_year;
+    const yearlyData = getCarbonDataByYear(data, targetYear);
+    return yearlyData?.emissions.total_tco2e || 0;
+};
+
+/**
+ * Get carbon sequestration total
+ */
+export const getCarbonSequestration = (data: BiodiversityLandUseResponse, year?: number) => {
+    const targetYear = year || data.data.reporting_period.current_year;
+    const yearlyData = getCarbonDataByYear(data, targetYear);
+    return yearlyData?.sequestration.total_tco2 || 0;
+};
+
+/**
+ * Get scope breakdown for a specific year
+ */
+export const getScopeBreakdown = (data: BiodiversityLandUseResponse, year?: number) => {
+    const targetYear = year || data.data.reporting_period.current_year;
+    const yearlyData = getCarbonDataByYear(data, targetYear);
+    if (yearlyData) {
         return {
-            labels: graph.labels,
-            datasets: graph.datasets
+            scope1: yearlyData.emissions.scope1_tco2e,
+            scope2: yearlyData.emissions.scope2_tco2e,
+            scope3: yearlyData.emissions.scope3_tco2e
         };
     }
     return null;
+};
+
+/**
+ * Check if company has area of interest defined
+ */
+export const hasAreaOfInterest = (data: BiodiversityLandUseResponse): boolean => {
+    return !!data.data.company.area_of_interest_metadata?.coordinates?.length;
+};
+
+/**
+ * Get coordinates for mapping
+ */
+export const getCoordinatesForMapping = (data: BiodiversityLandUseResponse): Coordinate[] => {
+    return data.data.company.area_of_interest_metadata?.coordinates || [];
+};
+
+/**
+ * Get data availability summary
+ */
+export const getDataAvailabilitySummary = (data: BiodiversityLandUseResponse) => {
+    return data.data.summary.data_availability;
+};
+
+/**
+ * Get notable metrics
+ */
+export const getNotableMetrics = (data: BiodiversityLandUseResponse) => {
+    return data.data.summary.notable_metrics;
 };

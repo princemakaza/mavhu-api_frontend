@@ -9,43 +9,46 @@ import {
     Info,
     Lightbulb,
     ShieldCheck,
-    Leaf,
-    Trees,
-    Globe,
-    Users,
+    Droplet,
+    Waves,
+    CloudRain,
+    Gauge,
+    Factory,
     Shield,
     AlertCircle,
-    CheckCircle,
     X,
-    Download,
-    Share2,
-    ChevronRight,
-    ArrowUpRight,
-    ArrowDownRight,
-    Droplets,
-    Factory,
+ 
+    Zap,
+    Calculator,
+
     Sprout,
     TrendingUpDown,
 } from "lucide-react";
-import type { BiodiversityLandUseResponse } from '../../../../services/Admin_Service/esg_apis/biodiversity_api_service';
+import type { 
+    IrrigationWaterResponse,
+} from '../../../../services/Admin_Service/esg_apis/water_risk_service';
 
-// Enhanced Color Palette with Green Theme
+// Enhanced Color Palette with Water Theme
 const COLORS = {
-    primary: '#008000',
-    primaryDark: '#006400',
-    primaryLight: '#10B981',
-    primaryPale: '#D1FAE5',
-    accent: '#22C55E',
-    accentGold: '#F59E0B',
-    success: '#10B981',
-    warning: '#FBBF24',
-    danger: '#EF4444',
-    info: '#3B82F6',
+    primary: '#008000',           // Green for water theme
+    primaryDark: '#006400',       // Dark green
+    primaryLight: '#10B981',      // Emerald green
+    primaryPale: '#D1FAE5',       // Light green
+    accent: '#22C55E',            // Bright green
+    accentBlue: '#0D9488',        // Teal for water
+    accentTeal: '#14B8A6',        // Light teal
+    success: '#10B981',           // Success green
+    warning: '#F59E0B',           // Warning amber
+    danger: '#EF4444',            // Danger red
+    info: '#0D9488',              // Water info teal
+    waterBlue: '#0EA5E9',         // Sky blue for water
+    waterDark: '#0369A1',         // Dark blue for deep water
 };
 
 interface AnalyticsTabProps {
-    biodiversityData: BiodiversityLandUseResponse | null;
+    waterData: IrrigationWaterResponse | null;
     formatNumber: (num: number) => string;
+    formatCurrency: (num: number) => string;
     formatPercent: (num: number) => string;
     selectedYear: number | null;
     availableYears: number[];
@@ -53,8 +56,9 @@ interface AnalyticsTabProps {
 }
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
-    biodiversityData,
+    waterData,
     formatNumber,
+    formatCurrency,
     formatPercent,
 }) => {
     const [activeInsightTab, setActiveInsightTab] = useState('trends');
@@ -62,30 +66,30 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     const [selectedMetric, setSelectedMetric] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    if (!biodiversityData) {
+    if (!waterData) {
         return (
             <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl">
                 <div className="text-center max-w-md p-8">
                     <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
-                        <Activity className="w-12 h-12 text-green-600" />
+                        <Droplet className="w-12 h-12 text-green-600" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-3">No Analytics Data Available</h3>
-                    <p className="text-gray-600 leading-relaxed">Select a company to view detailed biodiversity analytics and insights.</p>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">No Water Analytics Data Available</h3>
+                    <p className="text-gray-600 leading-relaxed">Select a company to view detailed water analytics and insights.</p>
                 </div>
             </div>
         );
     }
 
     const {
-        deforestation_analysis,
-        land_use_metrics,
-        environmental_impact,
-        social_governance,
-        carbon_emission_accounting,
-        esg_metrics,
-        key_statistics,
+        water_usage_analysis,
+        environmental_metrics,
+        stakeholder_benefits,
+        summary,
+        confidence_score,
         reporting_period,
-    } = biodiversityData.data;
+        company,
+        all_esg_metrics,
+    } = waterData.data;
 
     // Helper function to get trend icon
     const getTrendIcon = (trend: string) => {
@@ -98,160 +102,183 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         return <TrendingUpDown className="w-4 h-4 text-gray-600" />;
     };
 
-    // Calculate derived metrics
-    const getCurrentYearCarbonData = () => {
-        const currentYear = reporting_period.current_year;
-        return carbon_emission_accounting.yearly_data.find(y => y.year === currentYear);
-    };
+    // Extract water metrics
+    const irrigationWater = water_usage_analysis?.irrigation_water;
+    const treatmentWater = water_usage_analysis?.treatment_water;
+    const totalWater = water_usage_analysis?.total_water_usage;
+    const shortageRisk = water_usage_analysis?.shortage_risk;
+    const waterSavings = water_usage_analysis?.water_savings_analysis;
 
-    const currentCarbonData = getCurrentYearCarbonData();
-    const forestCoverage = deforestation_analysis.forest_coverage.coverage_percent || 0;
-    const netCarbonBalance = currentCarbonData?.emissions.net_balance || 0;
-    const totalSequestration = currentCarbonData?.sequestration.total_tco2 || 0;
-    const totalEmissions = currentCarbonData?.emissions.total_tco2e || 0;
+    // Calculate key metrics
+    const irrigationValue = irrigationWater?.current_value || 0;
+    const treatmentValue = treatmentWater?.current_value || 0;
+    const totalValue = totalWater?.current_value || 0;
+    const efficiencyScore = irrigationWater?.efficiency_score || 0;
+    const savingsPotential = waterSavings?.potential_savings || 0;
+    const costSavings = waterSavings?.cost_savings || 0;
+    const shortageProbability = shortageRisk?.probability || 0;
+    const shortageLevel = shortageRisk?.level || 'unknown';
+
+    // Extract ESG metrics for water
+    const waterEsgMetrics = Object.values(all_esg_metrics?.environmental || {}).filter(metric => 
+        metric?.name?.toLowerCase().includes('water') ||
+        metric?.name?.toLowerCase().includes('irrigation') ||
+        metric?.name?.toLowerCase().includes('treatment') ||
+        metric?.name?.toLowerCase().includes('effluent')
+    );
 
     // Key insights data
     const insights = {
         trends: [
             {
-                title: 'Forest Coverage Trend',
-                description: `Current forest coverage is ${forestCoverage.toFixed(1)}% with ${land_use_metrics.trends.forest_area_trend} trend`,
-                icon: <Trees className="w-5 h-5 text-green-600" />,
-                impact: land_use_metrics.trends.forest_area_trend.toLowerCase().includes('increas') ? 'High' : 'Medium',
-                confidence: 0.85,
+                title: 'Water Usage Trend',
+                description: `Total water usage is ${formatNumber(totalValue)} m³ with ${totalWater?.trend || '---'} trend`,
+                icon: <Droplet className="w-5 h-5 text-green-600" />,
+                impact: irrigationWater?.trend?.toLowerCase().includes('decreas') ? 'High' : 'Medium',
+                confidence: confidence_score?.overall ? confidence_score.overall / 100 : 0.85,
             },
             {
-                title: 'Carbon Balance Status',
-                description: `Net carbon balance is ${formatNumber(netCarbonBalance)} tCO₂, indicating ${netCarbonBalance < 0 ? 'net carbon sequestration' : 'net carbon emissions'}`,
-                icon: <Leaf className="w-5 h-5 text-green-600" />,
-                impact: 'High',
-                confidence: 0.92,
-            },
-            {
-                title: 'Agricultural Area Trend',
-                description: `Agricultural expansion showing ${land_use_metrics.trends.agricultural_area_trend} pattern`,
-                icon: <Sprout className="w-5 h-5 text-green-600" />,
-                impact: 'Medium',
+                title: 'Irrigation Efficiency',
+                description: `Water efficiency score is ${formatPercent(efficiencyScore)} indicating ${efficiencyScore > 80 ? 'excellent' : efficiencyScore > 60 ? 'good' : 'needs improvement'} performance`,
+                icon: <Gauge className="w-5 h-5 text-green-600" />,
+                impact: efficiencyScore < 60 ? 'High' : 'Medium',
                 confidence: 0.78,
+            },
+            {
+                title: 'Treatment Water Usage',
+                description: `Treatment water usage is ${formatNumber(treatmentValue)} m³ with ${treatmentWater?.trend || '---'} trend`,
+                icon: <Waves className="w-5 h-5 text-green-600" />,
+                impact: 'Medium',
+                confidence: 0.82,
             },
         ],
         risks: [
             {
-                title: 'Deforestation Risk',
-                description: `Forest coverage changed by ${deforestation_analysis.forest_coverage.change_percent.toFixed(1)}% from previous year`,
+                title: 'Water Shortage Risk',
+                description: shortageLevel !== 'unknown' 
+                    ? `Water shortage risk level is ${shortageLevel} with ${formatPercent(shortageProbability * 100)} probability`
+                    : 'Water shortage risk assessment not available',
                 icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
-                priority: Math.abs(deforestation_analysis.forest_coverage.change_percent) > 5 ? 'High' : 'Medium',
-                timeframe: 'Immediate',
+                priority: shortageLevel === 'high' || shortageLevel === 'critical' ? 'High' : 
+                         shortageLevel === 'medium' ? 'Medium' : 'Low',
+                timeframe: 'Ongoing',
             },
             {
-                title: 'Agricultural Expansion',
-                description: `Agricultural area changed by ${deforestation_analysis.agricultural_expansion.change_percent.toFixed(1)}%`,
-                icon: <Globe className="w-5 h-5 text-amber-600" />,
-                priority: Math.abs(deforestation_analysis.agricultural_expansion.change_percent) > 10 ? 'High' : 'Low',
+                title: 'Treatment Capacity',
+                description: treatmentValue > 0 && irrigationValue > 0 
+                    ? `Treatment water is ${(treatmentValue / (irrigationValue + treatmentValue) * 100).toFixed(1)}% of total water usage`
+                    : 'Treatment capacity data not available',
+                icon: <Factory className="w-5 h-5 text-amber-600" />,
+                priority: (treatmentValue / (irrigationValue + treatmentValue)) > 0.3 ? 'Medium' : 'Low',
                 timeframe: 'Monitor',
             },
         ],
         opportunities: [
             {
-                title: 'Carbon Credit Potential',
-                description: totalSequestration > 0 ? `Potential ${formatNumber(totalSequestration * 0.1)} carbon credits annually from sequestration` : 'No carbon sequestration recorded',
+                title: 'Water Savings Potential',
+                description: savingsPotential > 0 
+                    ? `Potential to save ${formatNumber(savingsPotential)} m³ (${formatCurrency(costSavings)}) annually`
+                    : 'Water savings potential not calculated',
                 icon: <DollarSign className="w-5 h-5 text-green-600" />,
-                value: totalSequestration > 1000 ? 'High' : 'Medium',
+                value: savingsPotential > (totalValue * 0.1) ? 'High' : 'Medium',
                 timeframe: '1-2 years',
             },
             {
-                title: 'Protected Area Enhancement',
-                description: `Current protected area: ${deforestation_analysis.protected_area_coverage.percentage.toFixed(1)}% - ${deforestation_analysis.protected_area_coverage.percentage < 15 ? 'Expansion opportunity' : 'Well maintained'}`,
-                icon: <Shield className="w-5 h-5 text-blue-600" />,
-                value: 'Medium',
-                timeframe: 'Ongoing',
+                title: 'Efficiency Improvements',
+                description: efficiencyScore < 80 
+                    ? `Improve efficiency from ${formatPercent(efficiencyScore)} to 85%+ target`
+                    : 'Efficiency already at target levels',
+                icon: <Zap className="w-5 h-5 text-blue-600" />,
+                value: efficiencyScore < 70 ? 'High' : 'Medium',
+                timeframe: '6-12 months',
             },
         ],
     };
 
-    // Environmental metrics analysis
-    const environmentalMetricsData = [
+    // Water metrics analysis
+    const waterMetricsData = [
         {
-            title: 'Water Management',
-            value: environmental_impact.water_management.current_usage || 0,
+            title: 'Irrigation Water',
+            value: irrigationValue,
             unit: 'm³',
-            trend: environmental_impact.water_management.trend || 'Unknown',
-            efficiency: environmental_impact.water_management.efficiency || 0,
-            icon: <Droplets className="w-6 h-6 text-blue-600" />,
+            trend: irrigationWater?.trend || '---',
+            efficiency: efficiencyScore,
+            icon: <Droplet className="w-6 h-6 text-green-600" />,
         },
         {
-            title: 'Waste Management',
-            value: environmental_impact.waste_management.hazardous_waste || 0,
-            unit: 'tonnes',
-            trend: environmental_impact.waste_management.trend || 'Unknown',
-            recycled: environmental_impact.waste_management.recycled_waste || 0,
-            icon: <Factory className="w-6 h-6 text-amber-600" />,
+            title: 'Treatment Water',
+            value: treatmentValue,
+            unit: 'm³',
+            trend: treatmentWater?.trend || '---',
+            icon: <Waves className="w-6 h-6 text-blue-600" />,
         },
         {
-            title: 'Incident Management',
-            value: environmental_impact.incident_management.total_incidents || 0,
-            unit: 'incidents',
-            trend: environmental_impact.incident_management.trend || 'Unknown',
-            icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+            title: 'Total Water Usage',
+            value: totalValue,
+            unit: 'm³',
+            trend: totalWater?.trend || '---',
+            per_hectare: totalWater?.per_hectare || 0,
+            icon: <CloudRain className="w-6 h-6 text-teal-600" />,
         },
         {
-            title: 'Soil Health',
-            erosion: environmental_impact.soil_health.erosion_rate || 0,
-            organic: environmental_impact.soil_health.organic_matter || 0,
-            trend: environmental_impact.soil_health.trend || 'Unknown',
+            title: 'Water Efficiency',
+            value: efficiencyScore,
+            unit: '%',
+            trend: irrigationWater?.trend || '---',
+            benchmark: totalWater?.benchmark || 0,
+            icon: <Gauge className="w-6 h-6 text-emerald-600" />,
+        },
+    ];
+
+    // Stakeholder metrics
+    const stakeholderData = [
+        {
+            title: 'Farmer Water Savings',
+            value: stakeholder_benefits?.farmers?.water_savings?.estimated_savings || 0,
+            label: 'Potential Savings',
             icon: <Sprout className="w-6 h-6 text-green-600" />,
         },
-    ];
-
-    // Social governance metrics
-    const socialGovernanceData = [
         {
-            title: 'Community Programs',
-            value: social_governance.community_engagement.programs_count || 0,
-            label: 'Active Programs',
-            icon: <Users className="w-6 h-6 text-purple-600" />,
+            title: 'Financial Impact',
+            value: stakeholder_benefits?.farmers?.water_savings?.cost_savings || 0,
+            label: 'Cost Savings',
+            icon: <DollarSign className="w-6 h-6 text-blue-600" />,
         },
         {
-            title: 'Local Employment',
-            value: social_governance.community_engagement.local_employment || 0,
-            label: 'Employees',
-            icon: <Users className="w-6 h-6 text-blue-600" />,
-        },
-        {
-            title: 'Compliance Audits',
-            value: social_governance.governance_strength.compliance_audits || 0,
-            label: 'Completed',
-            icon: <ShieldCheck className="w-6 h-6 text-green-600" />,
+            title: 'Revenue Opportunity',
+            value: stakeholder_benefits?.agritech_revenue_opportunities?.water_management_services?.smart_irrigation_systems?.potential_revenue || 0,
+            label: 'Potential Revenue',
+            icon: <Calculator className="w-6 h-6 text-purple-600" />,
         },
     ];
 
-    // Carbon emission breakdown
-    const carbonBreakdown = currentCarbonData ? [
+    // Water usage breakdown
+    const waterBreakdown = [
         {
-            scope: 'Scope 1',
-            value: currentCarbonData.emissions.scope1_tco2e,
-            percentage: totalEmissions > 0 ? (currentCarbonData.emissions.scope1_tco2e / totalEmissions) * 100 : 0,
+            type: 'Irrigation',
+            value: irrigationValue,
+            percentage: totalValue > 0 ? (irrigationValue / totalValue) * 100 : 0,
         },
         {
-            scope: 'Scope 2',
-            value: currentCarbonData.emissions.scope2_tco2e,
-            percentage: totalEmissions > 0 ? (currentCarbonData.emissions.scope2_tco2e / totalEmissions) * 100 : 0,
+            type: 'Treatment',
+            value: treatmentValue,
+            percentage: totalValue > 0 ? (treatmentValue / totalValue) * 100 : 0,
         },
         {
-            scope: 'Scope 3',
-            value: currentCarbonData.emissions.scope3_tco2e,
-            percentage: totalEmissions > 0 ? (currentCarbonData.emissions.scope3_tco2e / totalEmissions) * 100 : 0,
+            type: 'Other',
+            value: Math.max(0, totalValue - irrigationValue - treatmentValue),
+            percentage: totalValue > 0 ? (Math.max(0, totalValue - irrigationValue - treatmentValue) / totalValue) * 100 : 0,
         },
-    ] : [];
+    ];
 
-    // Simplified explanations
+    // Simplified explanations for water terms
     const simpleExplanations = {
-        'Forest Coverage': 'Percentage of total land area covered by forests',
-        'Carbon Balance': 'Difference between carbon stored and carbon released',
-        'Carbon Sequestration': 'Amount of CO₂ captured and stored by forests',
-        'Protected Areas': 'Land officially protected for conservation',
-        'Water Efficiency': 'How effectively water resources are being used',
-        'Soil Health': 'Quality and sustainability of soil conditions',
+        'Irrigation Water': 'Water used for agricultural irrigation of crops',
+        'Treatment Water': 'Water used in treatment processes including purification',
+        'Water Efficiency': 'How effectively water is used in irrigation processes',
+        'Shortage Risk': 'Probability and level of water scarcity risks',
+        'Savings Potential': 'Potential water and cost savings from efficiency improvements',
+        'Water Benchmark': 'Industry standard or target for water usage comparison',
     };
 
     return (
@@ -263,9 +290,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     <div>
                         <h3 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                             <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                            Key Insights
+                            Water Insights
                         </h3>
-                        <p className="text-gray-600 text-lg">What your biodiversity data is telling you</p>
+                        <p className="text-gray-600 text-lg">What your water data is telling you</p>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
                         <button
@@ -331,7 +358,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                     <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                                         <span className={`px-4 py-2 rounded-xl text-xs font-bold ${(insight.impact || insight.priority || insight.value) === 'High'
                                                 ? 'bg-green-100 text-green-700'
-                                                : 'bg-blue-100 text-blue-700'
+                                                : (insight.impact || insight.priority || insight.value) === 'Medium'
+                                                ? 'bg-blue-100 text-blue-700'
+                                                : 'bg-gray-100 text-gray-700'
                                             }`}>
                                             {insight.impact || insight.priority || insight.value}
                                         </span>
@@ -344,14 +373,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
             </div>
 
-            {/* Environmental Metrics Analysis */}
+            {/* Water Metrics Analysis */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
                 <h3 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                    Environmental Impact Analysis
+                    Water Usage Analysis
                 </h3>
                 <div className="grid md:grid-cols-2 gap-6">
-                    {environmentalMetricsData.map((metric, index) => (
+                    {waterMetricsData.map((metric, index) => (
                         <div
                             key={index}
                             className="p-6 rounded-3xl border-2 border-gray-200 hover:border-green-400 bg-gradient-to-br from-white to-gray-50 hover:from-green-50 hover:to-emerald-50 transition-all duration-300 hover:shadow-xl cursor-pointer"
@@ -366,43 +395,48 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 </div>
                                 <div className="flex-1">
                                     <h4 className="font-bold text-lg text-gray-900 mb-2">{metric.title}</h4>
-                                    {'value' in metric && (
-                                        <p className="text-3xl font-bold text-gray-900">
-                                            {formatNumber(metric.value)} <span className="text-lg text-gray-600">{metric.unit}</span>
+                                    <p className="text-3xl font-bold text-gray-900">
+                                        {metric.value > 0 ? formatNumber(metric.value) : '---'} 
+                                        <span className="text-lg text-gray-600"> {metric.unit}</span>
+                                    </p>
+                                    {'per_hectare' in metric && metric.per_hectare > 0 && (
+                                        <p className="text-sm text-gray-600 mt-2">
+                                            Per hectare: {formatNumber(metric.per_hectare)} m³/ha
                                         </p>
                                     )}
-                                    {metric.title === 'Soil Health' && (
-                                        <>
-                                            <p className="text-sm text-gray-600 mt-2">Erosion: {metric.erosion.toFixed(2)} t/ha/yr</p>
-                                            <p className="text-sm text-gray-600">Organic Matter: {metric.organic.toFixed(2)}%</p>
-                                        </>
+                                    {'benchmark' in metric && metric.benchmark > 0 && (
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            Benchmark: {formatNumber(metric.benchmark)} m³
+                                        </p>
                                     )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                                 {getTrendIcon(metric.trend)}
-                                <span className="text-sm font-semibold text-gray-700">{metric.trend}</span>
+                                <span className="text-sm font-semibold text-gray-700">{metric.trend || '---'}</span>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Carbon Emission Breakdown */}
+            {/* Water Usage Breakdown */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
                 <h3 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                    Carbon Emission Breakdown
+                    Water Usage Breakdown
                 </h3>
                 <div className="grid md:grid-cols-3 gap-6 mb-8">
-                    {carbonBreakdown.map((item, index) => (
+                    {waterBreakdown.map((item, index) => (
                         <div
                             key={index}
                             className="p-6 rounded-3xl border-2 border-gray-200 hover:border-green-400 bg-gradient-to-br from-white to-gray-50 transition-all duration-300 hover:shadow-xl"
                         >
-                            <p className="text-sm text-gray-600 mb-2 font-medium">{item.scope}</p>
-                            <p className="text-3xl font-bold text-gray-900 mb-2">{formatNumber(item.value)}</p>
-                            <p className="text-sm text-gray-600">tCO₂e</p>
+                            <p className="text-sm text-gray-600 mb-2 font-medium">{item.type} Water</p>
+                            <p className="text-3xl font-bold text-gray-900 mb-2">
+                                {item.value > 0 ? formatNumber(item.value) : '---'}
+                            </p>
+                            <p className="text-sm text-gray-600">m³</p>
                             <div className="mt-4 pt-4 border-t border-gray-200">
                                 <p className="text-sm font-semibold text-gray-700">{item.percentage.toFixed(1)}% of total</p>
                             </div>
@@ -412,27 +446,30 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 <div className="p-6 rounded-3xl bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600 mb-2 font-medium">Total Carbon Sequestration</p>
-                            <p className="text-4xl font-bold text-green-700">{formatNumber(totalSequestration)} <span className="text-lg">tCO₂</span></p>
+                            <p className="text-sm text-gray-600 mb-2 font-medium">Water Savings Potential</p>
+                            <p className="text-4xl font-bold text-green-700">
+                                {savingsPotential > 0 ? formatNumber(savingsPotential) : '---'} 
+                                <span className="text-lg"> m³</span>
+                            </p>
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600 mb-2 font-medium">Net Carbon Balance</p>
-                            <p className={`text-4xl font-bold ${netCarbonBalance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {formatNumber(netCarbonBalance)} <span className="text-lg">tCO₂</span>
+                            <p className="text-sm text-gray-600 mb-2 font-medium">Cost Savings</p>
+                            <p className="text-4xl font-bold text-green-600">
+                                {costSavings > 0 ? formatCurrency(costSavings) : '---'}
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Social Governance Metrics */}
+            {/* Stakeholder Impact Metrics */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
                 <h3 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                    Social & Governance Metrics
+                    Stakeholder Impact
                 </h3>
                 <div className="grid md:grid-cols-3 gap-6">
-                    {socialGovernanceData.map((metric, index) => (
+                    {stakeholderData.map((metric, index) => (
                         <div
                             key={index}
                             className="p-6 rounded-3xl border-2 border-gray-200 hover:border-green-400 bg-gradient-to-br from-white to-gray-50 hover:from-green-50 hover:to-emerald-50 transition-all duration-300 hover:shadow-xl"
@@ -443,7 +480,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-lg text-gray-900 mb-2">{metric.title}</h4>
-                                    <p className="text-3xl font-bold text-gray-900">{formatNumber(metric.value)}</p>
+                                    <p className="text-3xl font-bold text-gray-900">
+                                        {metric.value > 0 ? formatNumber(metric.value) : '---'}
+                                    </p>
                                     <p className="text-sm text-gray-600 mt-1">{metric.label}</p>
                                 </div>
                             </div>
@@ -453,23 +492,24 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 <div className="mt-6 p-6 rounded-3xl bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200">
                     <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <Shield className="w-5 h-5 text-blue-600" />
-                        Governance Policies
+                        Water Risk Factors
                     </h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-2">
-                            <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-gray-900">Land Use Policy</p>
-                                <p className="text-sm text-gray-600">{social_governance.governance_strength.land_use_policy || 'Not specified'}</p>
+                    <div className="space-y-3">
+                        {shortageRisk?.factors?.map((factor, index) => (
+                            <div key={index} className="flex items-start gap-2">
+                                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-700">{factor}</p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-gray-900">Biodiversity Policy</p>
-                                <p className="text-sm text-gray-600">{social_governance.governance_strength.biodiversity_policy || 'Not specified'}</p>
+                        )) || (
+                            <div className="flex items-start gap-2">
+                                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-700">No specific risk factors identified</p>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -482,7 +522,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     </div>
                     <div>
                         <h3 className="text-3xl font-bold text-gray-900">In Simple Terms</h3>
-                        <p className="text-gray-600 text-lg">Understanding biodiversity metrics made easy</p>
+                        <p className="text-gray-600 text-lg">Understanding water metrics made easy</p>
                     </div>
                 </div>
 
@@ -494,7 +534,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         >
                             <div className="flex items-start gap-4">
                                 <div className="p-4 rounded-2xl bg-white shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
-                                    <Leaf className="w-6 h-6 text-green-600" />
+                                    <Droplet className="w-6 h-6 text-green-600" />
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-lg text-gray-900 mb-3 group-hover:text-green-700 transition-colors">
@@ -517,16 +557,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     </h3>
                     <div className="space-y-4">
                         <div className="p-4 rounded-2xl bg-gray-50">
-                            <p className="text-sm text-gray-600 mb-2">Data Completeness</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.data_completeness}</p>
+                            <p className="text-sm text-gray-600 mb-2">Data Confidence</p>
+                            <p className="text-xl font-bold text-gray-900">
+                                {confidence_score?.overall ? `${confidence_score.overall}%` : '---'}
+                            </p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Years Covered</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.analysis_years.length} years</p>
+                            <p className="text-xl font-bold text-gray-900">
+                                {reporting_period?.data_available_years?.length || 0} years
+                            </p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-50">
-                            <p className="text-sm text-gray-600 mb-2">Carbon Data Available</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.carbon_data_available ? 'Yes' : 'No'}</p>
+                            <p className="text-sm text-gray-600 mb-2">Current Year</p>
+                            <p className="text-xl font-bold text-gray-900">
+                                {reporting_period?.current_year || '---'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -538,16 +584,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     </h3>
                     <div className="space-y-4">
                         <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">Carbon Framework</p>
-                            <p className="text-sm text-gray-700">{carbon_emission_accounting.framework.calculation_approach}</p>
+                            <p className="text-sm font-semibold text-gray-900 mb-2">Water Usage Calculation</p>
+                            <p className="text-sm text-gray-700">Sum of irrigation, treatment, and other water sources</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-green-50 border border-green-200">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">Sequestration Method</p>
-                            <p className="text-sm text-gray-700">{carbon_emission_accounting.framework.sequestration_methodology}</p>
+                            <p className="text-sm font-semibold text-gray-900 mb-2">Efficiency Calculation</p>
+                            <p className="text-sm text-gray-700">Based on output vs water input ratio</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">Emission Method</p>
-                            <p className="text-sm text-gray-700">{carbon_emission_accounting.framework.emission_methodology}</p>
+                            <p className="text-sm font-semibold text-gray-900 mb-2">Risk Assessment</p>
+                            <p className="text-sm text-gray-700">Based on water availability, quality, and regulatory factors</p>
                         </div>
                     </div>
                 </div>
@@ -575,11 +621,26 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                             <div className="space-y-5">
                                 {Object.entries(selectedMetric).map(([key, value]) => {
                                     if (key === 'icon') return null;
+                                    if (typeof value === 'object') return null;
+                                    
+                                    let displayValue = value;
+                                    if (typeof value === 'number' && value > 0) {
+                                        if (key.includes('value')) {
+                                            displayValue = formatNumber(value);
+                                        } else if (key === 'efficiency') {
+                                            displayValue = `${value}%`;
+                                        }
+                                    } else if (value === 0 || value === '---') {
+                                        displayValue = '---';
+                                    }
+                                    
                                     return (
                                         <div key={key} className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                            <div className="text-sm text-gray-600 mb-2 capitalize font-semibold">{key.replace(/_/g, ' ')}</div>
+                                            <div className="text-sm text-gray-600 mb-2 capitalize font-semibold">
+                                                {key.replace(/_/g, ' ')}
+                                            </div>
                                             <div className="font-bold text-gray-900 text-lg">
-                                                {typeof value === 'number' ? formatNumber(value) : String(value)}
+                                                {displayValue}
                                             </div>
                                         </div>
                                     );
@@ -602,7 +663,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                     </div>
                                     <div>
                                         <h3 className="text-3xl font-bold">Action Recommendations</h3>
-                                        <p className="text-green-100 text-lg mt-1">Based on your biodiversity analytics</p>
+                                        <p className="text-green-100 text-lg mt-1">Based on your water analytics</p>
                                     </div>
                                 </div>
                                 <button
@@ -616,36 +677,42 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <div className="p-10 space-y-6">
                             {[
                                 {
-                                    title: 'Enhance Forest Monitoring',
-                                    description: `With current forest coverage at ${forestCoverage.toFixed(1)}%, implement regular satellite monitoring`,
-                                    impact: 'High',
+                                    title: 'Improve Irrigation Efficiency',
+                                    description: efficiencyScore < 80 
+                                        ? `Increase efficiency from ${formatPercent(efficiencyScore)} to 85%+ target`
+                                        : 'Maintain current efficiency levels',
+                                    impact: efficiencyScore < 70 ? 'High' : 'Medium',
                                     effort: 'Medium',
-                                    timeframe: '1 month',
-                                    icon: <Trees className="w-6 h-6 text-green-600" />,
+                                    timeframe: '6 months',
+                                    icon: <Gauge className="w-6 h-6 text-green-600" />,
                                 },
                                 {
-                                    title: 'Expand Protected Areas',
-                                    description: `Increase protected area from ${deforestation_analysis.protected_area_coverage.percentage.toFixed(1)}% to 15%`,
+                                    title: 'Implement Water Savings Measures',
+                                    description: savingsPotential > 0 
+                                        ? `Implement measures to achieve ${formatNumber(savingsPotential)} m³ annual savings`
+                                        : 'Conduct water audit to identify savings potential',
+                                    impact: savingsPotential > (totalValue * 0.1) ? 'High' : 'Medium',
+                                    effort: 'Medium',
+                                    timeframe: '1 year',
+                                    icon: <Droplet className="w-6 h-6 text-blue-600" />,
+                                },
+                                shortageLevel === 'high' || shortageLevel === 'critical' ? {
+                                    title: 'Address Water Shortage Risk',
+                                    description: `Implement mitigation strategies for ${shortageLevel} shortage risk`,
                                     impact: 'High',
                                     effort: 'High',
-                                    timeframe: '6 months',
-                                    icon: <Shield className="w-6 h-6 text-blue-600" />,
-                                },
-                                totalSequestration > 0 && {
-                                    title: 'Carbon Credit Registration',
-                                    description: `Register for carbon credits - potential ${formatNumber(totalSequestration * 0.1)} credits annually`,
+                                    timeframe: 'Immediate',
+                                    icon: <AlertTriangle className="w-6 h-6 text-red-600" />,
+                                } : null,
+                                {
+                                    title: 'Optimize Treatment Processes',
+                                    description: treatmentValue > 0 
+                                        ? `Review and optimize treatment water usage of ${formatNumber(treatmentValue)} m³`
+                                        : 'Evaluate treatment water requirements',
                                     impact: 'Medium',
                                     effort: 'Low',
                                     timeframe: '3 months',
-                                    icon: <DollarSign className="w-6 h-6 text-amber-600" />,
-                                },
-                                social_governance.community_engagement.programs_count < 5 && {
-                                    title: 'Community Engagement',
-                                    description: 'Increase community conservation programs to improve social metrics',
-                                    impact: 'Medium',
-                                    effort: 'Medium',
-                                    timeframe: '2 months',
-                                    icon: <Users className="w-6 h-6 text-purple-600" />,
+                                    icon: <Waves className="w-6 h-6 text-teal-600" />,
                                 },
                             ].filter(Boolean).map((recommendation, index) => (
                                 recommendation && (
