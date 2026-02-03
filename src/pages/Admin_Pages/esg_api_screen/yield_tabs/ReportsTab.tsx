@@ -47,7 +47,7 @@ import {
     LineChart,
 } from "lucide-react";
 
-// Import service functions
+// Import service functions from updated location
 import {
     getYieldForecastSummary,
     getRiskAssessmentSummary,
@@ -66,6 +66,9 @@ import {
     getAllEnvironmentalMetrics,
     getAvailableCropYieldYears,
     getSatelliteDataYears,
+    getMetricsByCategory,
+    getMonthlyCarbonData,
+    getRecommendations,
 } from "../../../../services/Admin_Service/esg_apis/crop_yield_service";
 
 // Import components
@@ -203,6 +206,7 @@ const CropYieldReportPDF = ({ data }: any) => {
     const environmentalMetrics = data.environmentalMetrics;
     const summary = data.summary;
     const metadata = data.metadata;
+    const carbonData = data.carbonData;
 
     return (
         <Document>
@@ -212,8 +216,8 @@ const CropYieldReportPDF = ({ data }: any) => {
                     <Text style={styles.companyName}>{companyInfo?.name || "Company"}</Text>
                     <Text style={styles.reportTitle}>Crop Yield Forecast Report</Text>
                     <Text style={{ fontSize: 10, color: '#6b7280' }}>
-                        Generated on: {new Date().toLocaleDateString()} | 
-                        API Version: {metadata?.api_version || "N/A"} | 
+                        Generated on: {new Date().toLocaleDateString()} |
+                        API Version: {metadata?.api_version || "N/A"} |
                         Report Year: {metadata?.year_requested || "N/A"}
                     </Text>
                 </View>
@@ -226,7 +230,7 @@ const CropYieldReportPDF = ({ data }: any) => {
                             {summary.outlook}
                         </Text>
                     )}
-                    
+
                     <View style={{ marginTop: 10 }}>
                         <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>
                             Key Strengths:
@@ -249,7 +253,7 @@ const CropYieldReportPDF = ({ data }: any) => {
                             <Text style={[styles.tableCell, { flex: 2 }]}>Unit</Text>
                             <Text style={[styles.tableCell, { flex: 3 }]}>Description</Text>
                         </View>
-                        
+
                         {yieldForecast && (
                             <>
                                 <View style={styles.tableRow}>
@@ -275,6 +279,77 @@ const CropYieldReportPDF = ({ data }: any) => {
                     </View>
                 </View>
 
+                {/* Carbon Emission Accounting */}
+                {carbonData && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Carbon Emission Accounting</Text>
+
+                        {/* Framework and Methodology */}
+                        <View style={{ marginBottom: 15 }}>
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>
+                                Framework & Methodology
+                            </Text>
+                            <Text style={{ fontSize: 9, marginBottom: 3 }}>
+                                Sequestration Methodology: {carbonData.framework?.sequestration_methodology || "N/A"}
+                            </Text>
+                            <Text style={{ fontSize: 9, marginBottom: 3 }}>
+                                Emission Methodology: {carbonData.framework?.emission_methodology || "N/A"}
+                            </Text>
+                            <Text style={{ fontSize: 9, marginBottom: 3 }}>
+                                Calculation Approach: {carbonData.framework?.calculation_approach || "N/A"}
+                            </Text>
+                            <Text style={{ fontSize: 9 }}>
+                                Methodology: {carbonData.methodology || "N/A"}
+                            </Text>
+                        </View>
+
+                        {/* Scope Emissions Table */}
+                        <View style={styles.table}>
+                            <View style={[styles.tableRow, styles.tableHeader]}>
+                                <Text style={[styles.tableCell, { flex: 3 }]}>Scope</Text>
+                                <Text style={[styles.tableCell, { flex: 2 }]}>Total tCO2e</Text>
+                                <Text style={[styles.tableCell, { flex: 2 }]}>tCO2e/ha</Text>
+                                <Text style={[styles.tableCell, { flex: 3 }]}>Description</Text>
+                            </View>
+
+                            {carbonData.yearly_data?.[0]?.emissions && (
+                                <>
+                                    <View style={styles.tableRow}>
+                                        <Text style={[styles.tableCell, { flex: 3 }]}>Scope 1</Text>
+                                        <Text style={[styles.tableCell, { flex: 2 }]}>
+                                            {carbonData.yearly_data[0].emissions.scope1?.total_tco2e?.toFixed(2) || "N/A"}
+                                        </Text>
+                                        <Text style={[styles.tableCell, { flex: 2 }]}>
+                                            {carbonData.yearly_data[0].emissions.scope1?.total_tco2e_per_ha?.toFixed(2) || "N/A"}
+                                        </Text>
+                                        <Text style={[styles.tableCell, { flex: 3 }]}>Direct emissions</Text>
+                                    </View>
+                                    <View style={styles.tableRow}>
+                                        <Text style={[styles.tableCell, { flex: 3 }]}>Scope 2</Text>
+                                        <Text style={[styles.tableCell, { flex: 2 }]}>
+                                            {carbonData.yearly_data[0].emissions.scope2?.total_tco2e?.toFixed(2) || "N/A"}
+                                        </Text>
+                                        <Text style={[styles.tableCell, { flex: 2 }]}>
+                                            {carbonData.yearly_data[0].emissions.scope2?.total_tco2e_per_ha?.toFixed(2) || "N/A"}
+                                        </Text>
+                                        <Text style={[styles.tableCell, { flex: 3 }]}>Indirect energy emissions</Text>
+                                    </View>
+                                    <View style={styles.tableRow}>
+                                        <Text style={[styles.tableCell, { flex: 3 }]}>Scope 3</Text>
+                                        <Text style={[styles.tableCell, { flex: 2 }]}>
+                                            {carbonData.yearly_data[0].emissions.scope3?.total_tco2e?.toFixed(2) || "N/A"}
+                                        </Text>
+                                        <Text style={[styles.tableCell, { flex: 2 }]}>
+                                            {carbonData.yearly_data[0].emissions.scope3?.total_tco2e_per_ha?.toFixed(2) || "N/A"}
+                                        </Text>
+                                        <Text style={[styles.tableCell, { flex: 3 }]}>Other indirect emissions</Text>
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    </View>
+                )}
+
                 {/* Risk Assessment */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Risk Assessment Summary</Text>
@@ -285,7 +360,7 @@ const CropYieldReportPDF = ({ data }: any) => {
                             <Text style={[styles.tableCell, { flex: 2 }]}>Score</Text>
                             <Text style={[styles.tableCell, { flex: 3 }]}>Probability</Text>
                         </View>
-                        
+
                         {riskAssessment?.detailedRisks?.slice(0, 5).map((risk: any, index: number) => (
                             <View key={index} style={styles.tableRow}>
                                 <Text style={[styles.tableCell, { flex: 3 }]}>{risk.category || "N/A"}</Text>
@@ -294,12 +369,12 @@ const CropYieldReportPDF = ({ data }: any) => {
                                 <Text style={[styles.tableCell, { flex: 3 }]}>{risk.probability || "N/A"}</Text>
                             </View>
                         )) || (
-                            <View style={styles.tableRow}>
-                                <Text style={[styles.tableCell, { flex: 10, textAlign: 'center', color: '#9ca3af' }]}>
-                                    No risk assessment data available
-                                </Text>
-                            </View>
-                        )}
+                                <View style={styles.tableRow}>
+                                    <Text style={[styles.tableCell, { flex: 10, textAlign: 'center', color: '#9ca3af' }]}>
+                                        No risk assessment data available
+                                    </Text>
+                                </View>
+                            )}
                     </View>
                 </View>
 
@@ -354,8 +429,10 @@ const ReportsTab = ({
     const calculationFactors = cropYieldData ? getCalculationFactors(cropYieldData) : null;
     const allEnvironmentalMetrics = cropYieldData ? getAllEnvironmentalMetrics(cropYieldData) : null;
     const reportingPeriod = cropYieldData ? getReportingPeriod(cropYieldData) : null;
+    const monthlyCarbonData = cropYieldData ? getMonthlyCarbonData(cropYieldData) : null;
+    const recommendations = cropYieldData ? getRecommendations(cropYieldData) : null;
 
-    // 3) COMPLIANCE DATA
+    // 3) COMPLIANCE DATA - Get ESG frameworks from companyInfo
     const esgFrameworks = companyInfo?.esg_frameworks || [];
     const latestReportYear = companyInfo?.latest_report_year || null;
     const dataSources = metadata?.data_sources || [];
@@ -456,8 +533,84 @@ const ReportsTab = ({
         },
     ];
 
+    // Environmental Metrics Table
+    const environmentalMetricsTable = allEnvironmentalMetrics ? Object.entries(allEnvironmentalMetrics).map(([metricKey, metric]: [string, any]) => ({
+        parameter: metric.name,
+        category: metric.category,
+        value: metric.values && metric.values.length > 0 ? metric.values[metric.values.length - 1]?.value || "N/A" : "N/A",
+        unit: metric.unit,
+        description: metric.description,
+        source: metric.values && metric.values.length > 0 ? metric.values[metric.values.length - 1]?.source_notes || "N/A" : "N/A",
+    })) : [];
+
+    // Carbon Emission Accounting Table - Scope Data
+    const getScopeTableData = () => {
+        if (!carbonData?.yearly_data?.[0]?.emissions) return [];
+
+        const emissions = carbonData.yearly_data[0].emissions;
+        const scopeData = [];
+
+        // Scope 1 Sources
+        if (emissions.scope1?.sources) {
+            emissions.scope1.sources.forEach((source: any) => {
+                scopeData.push({
+                    scope: "Scope 1",
+                    source: source.source,
+                    parameter: source.parameter,
+                    unit: source.unit,
+                    annual_per_ha: source.annual_per_ha?.toFixed(2),
+                    emission_factor: source.emission_factor,
+                    tco2e_per_ha_per_year: source.tco2e_per_ha_per_year?.toFixed(2),
+                    total_tco2e: source.total_tco2e?.toFixed(2),
+                });
+            });
+        }
+
+        // Scope 2 Sources
+        if (emissions.scope2?.sources) {
+            emissions.scope2.sources.forEach((source: any) => {
+                scopeData.push({
+                    scope: "Scope 2",
+                    source: source.source,
+                    parameter: source.parameter,
+                    unit: source.unit,
+                    annual_per_ha: source.annual_per_ha?.toFixed(2),
+                    emission_factor: source.emission_factor,
+                    tco2e_per_ha_per_year: source.tco2e_per_ha_per_year?.toFixed(2),
+                    total_tco2e: source.total_tco2e?.toFixed(2),
+                });
+            });
+        }
+
+        // Scope 3 Categories
+        if (emissions.scope3?.categories) {
+            emissions.scope3.categories.forEach((category: any) => {
+                scopeData.push({
+                    scope: "Scope 3",
+                    source: category.category,
+                    parameter: category.parameter,
+                    unit: category.unit,
+                    annual_per_ha: category.annual_activity_per_ha?.toFixed(2),
+                    emission_factor: category.emission_factor,
+                    tco2e_per_ha_per_year: category.tco2e_per_ha_per_year?.toFixed(2),
+                    total_tco2e: category.total_tco2e?.toFixed(2),
+                });
+            });
+        }
+
+        return scopeData;
+    };
+
     // Detailed Report Metrics Table
     const detailedMetricsTable = [
+        {
+            section: "Environmental Metrics",
+            data: environmentalMetricsTable.slice(0, 10), // Show first 10 metrics
+        },
+        {
+            section: "Carbon Emission Accounting - Scope Breakdown",
+            data: getScopeTableData(),
+        },
         {
             section: "Yield Calculation Factors",
             data: calculationFactors ? Object.entries(calculationFactors).map(([key, value]) => ({
@@ -494,63 +647,46 @@ const ReportsTab = ({
                 },
             ] : [],
         },
-        {
-            section: "Satellite Indicators",
-            data: satelliteIndicators ? [
-                {
-                    parameter: "Average SOC",
-                    value: satelliteIndicators.soc_summary?.average_soc?.toFixed(2) || "N/A",
-                    unit: "tC/ha",
-                    description: "Soil organic carbon content",
-                    impact: satelliteIndicators.soc_summary?.average_soc > 20 ? "Good" : "Improve",
-                },
-                {
-                    parameter: "Vegetation Health",
-                    value: satelliteIndicators.ndvi_summary?.average_ndvi?.toFixed(3) || "N/A",
-                    unit: "index",
-                    description: "Satellite-derived vegetation index",
-                    impact: "Monitoring",
-                },
-                {
-                    parameter: "Data Coverage",
-                    value: satelliteIndicators.data_coverage?.months_with_data || "N/A",
-                    unit: "months",
-                    description: "Available satellite data months",
-                    impact: satelliteIndicators.data_coverage?.months_with_data > 6 ? "Good" : "Limited",
-                },
-            ] : [],
-        },
     ];
 
-    // Compliance Checklist
+    // Compliance Checklist - Updated with ESG Frameworks and Carbon Framework
     const complianceChecklist = [
         {
             requirement: "ESG Framework Compliance",
             status: esgFrameworks.length > 0 ? "Compliant" : "Not Compliant",
-            frameworks: esgFrameworks.join(", ") || "None specified",
+            details: esgFrameworks.join(", ") || "None specified",
             lastVerified: latestReportYear || "N/A",
             icon: <Award className="w-4 h-4" />,
         },
         {
+            requirement: "Carbon Emission Accounting Framework",
+            status: carbonData?.framework ? "Documented" : "Not Documented",
+            details: carbonData?.framework ?
+                `Sequestration: ${carbonData.framework.sequestration_methodology}, Emission: ${carbonData.framework.emission_methodology}` :
+                "N/A",
+            lastVerified: metadata?.generated_at ? new Date(metadata.generated_at).getFullYear() : "N/A",
+            icon: <FileText className="w-4 h-4" />,
+        },
+        {
+            requirement: "Carbon Emission Accounting Methodology",
+            status: carbonData?.methodology ? "Documented" : "Not Documented",
+            details: carbonData?.methodology || "N/A",
+            lastVerified: metadata?.calculation_version || "N/A",
+            icon: <Database className="w-4 h-4" />,
+        },
+        {
             requirement: "Data Quality & Verification",
             status: confidenceScore?.data_quality > 70 ? "Verified" : "Needs Review",
-            frameworks: `Score: ${confidenceScore?.data_quality || 0}%`,
+            details: `Score: ${confidenceScore?.data_quality || 0}%`,
             lastVerified: metadata?.generated_at ? new Date(metadata.generated_at).getFullYear() : "N/A",
             icon: <Database className="w-4 h-4" />,
         },
         {
             requirement: "Methodology Documentation",
             status: calculationMethods.length > 0 ? "Documented" : "Pending",
-            frameworks: calculationMethods.slice(0, 2).join(", ") || "Standard methods",
+            details: calculationMethods.slice(0, 2).join(", ") || "Standard methods",
             lastVerified: metadata?.calculation_version || "N/A",
             icon: <FileText className="w-4 h-4" />,
-        },
-        {
-            requirement: "Satellite Data Coverage",
-            status: satelliteIndicators?.data_coverage?.months_with_data > 6 ? "Adequate" : "Insufficient",
-            frameworks: `${satelliteIndicators?.data_coverage?.months_with_data || 0}/12 months`,
-            lastVerified: reportingPeriod?.current_year || "N/A",
-            icon: <Cloud className="w-4 h-4" />,
         },
     ];
 
@@ -581,7 +717,7 @@ const ReportsTab = ({
         {
             name: 'Risk Score',
             value: riskAssessment?.overallScore || 0,
-            target: 30, // Target risk score
+            target: 30,
             unit: '%',
         },
     ];
@@ -591,9 +727,31 @@ const ReportsTab = ({
         name: risk.category,
         value: risk.score,
         probability: risk.probability,
-        color: risk.level === 'High' ? COLORS.danger : 
-               risk.level === 'Medium' ? COLORS.warning : COLORS.success,
+        color: risk.level === 'High' ? COLORS.danger :
+            risk.level === 'Medium' ? COLORS.warning : COLORS.success,
     })) || [];
+
+    // Carbon Emission Breakdown Graph
+    const carbonEmissionData = carbonData?.yearly_data?.[0]?.emissions ? [
+        {
+            name: 'Scope 1',
+            value: carbonData.yearly_data[0].emissions.scope1?.total_tco2e || 0,
+            percentage: carbonData.summary?.composition?.scope1_percentage || 0,
+            color: COLORS.danger,
+        },
+        {
+            name: 'Scope 2',
+            value: carbonData.yearly_data[0].emissions.scope2?.total_tco2e || 0,
+            percentage: carbonData.summary?.composition?.scope2_percentage || 0,
+            color: COLORS.warning,
+        },
+        {
+            name: 'Scope 3',
+            value: carbonData.yearly_data[0].emissions.scope3?.total_tco2e || 0,
+            percentage: carbonData.summary?.composition?.scope3_percentage || 0,
+            color: COLORS.info,
+        },
+    ] : [];
 
     // =====================
     // EXPORT FUNCTIONS
@@ -601,10 +759,10 @@ const ReportsTab = ({
 
     const exportToCSV = () => {
         const csvData = [];
-        
+
         // Add header
         csvData.push(['Category', 'Parameter', 'Value', 'Unit', 'Description', 'Status']);
-        
+
         // Add executive summary data
         executiveSummaryTable.forEach(section => {
             section.metrics.forEach(metric => {
@@ -618,10 +776,10 @@ const ReportsTab = ({
                 ]);
             });
         });
-        
+
         // Convert to CSV string
         const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-        
+
         // Create download link
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
@@ -650,6 +808,7 @@ const ReportsTab = ({
         yieldForecast,
         riskAssessment,
         environmentalMetrics,
+        carbonData,
         summary,
         metadata,
         seasonalAdvisory,
@@ -684,31 +843,28 @@ const ReportsTab = ({
                 <div className="flex flex-wrap gap-3 mb-6">
                     <button
                         onClick={() => setReportType('executive')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                            reportType === 'executive'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${reportType === 'executive'
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                            }`}
                     >
                         Executive Summary
                     </button>
                     <button
                         onClick={() => setReportType('detailed')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                            reportType === 'detailed'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${reportType === 'detailed'
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                            }`}
                     >
                         Detailed Reports
                     </button>
                     <button
                         onClick={() => setReportType('compliance')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                            reportType === 'compliance'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${reportType === 'compliance'
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                            }`}
                     >
                         Compliance & Documentation
                     </button>
@@ -730,7 +886,7 @@ const ReportsTab = ({
                                 ))}
                             </select>
                         </div>
-                        
+
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -751,7 +907,7 @@ const ReportsTab = ({
                             <Eye className="w-4 h-4" />
                             Preview
                         </button>
-                        
+
                         <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-200">
                             <Download className="w-4 h-4 text-gray-600" />
                             <select
@@ -764,7 +920,7 @@ const ReportsTab = ({
                                 <option value="excel">Export as Excel</option>
                             </select>
                         </div>
-                        
+
                         {exportFormat === 'pdf' && (
                             <PDFDownloadLink
                                 document={<CropYieldReportPDF data={pdfData} />}
@@ -785,7 +941,7 @@ const ReportsTab = ({
                                 )}
                             </PDFDownloadLink>
                         )}
-                        
+
                         {exportFormat === 'csv' && (
                             <button
                                 onClick={exportToCSV}
@@ -795,7 +951,7 @@ const ReportsTab = ({
                                 Download CSV
                             </button>
                         )}
-                        
+
                         {exportFormat === 'excel' && (
                             <button
                                 onClick={exportToExcel}
@@ -805,7 +961,7 @@ const ReportsTab = ({
                                 Download Excel
                             </button>
                         )}
-                        
+
                         <button
                             onClick={printReport}
                             className="p-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 transition-all"
@@ -841,75 +997,7 @@ const ReportsTab = ({
                 </div>
             )}
 
-            {/* Two Key Graphs Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* KPI Performance Graph */}
-                <GraphDisplay
-                    title="Key Performance Indicators"
-                    description="Comparison of critical metrics against targets"
-                    icon={<BarChart className="w-5 h-5 text-green-600" />}
-                    onClick={() => onMetricClick(kpiGraphData, 'KPI Performance')}
-                >
-                    <div className="h-64">
-                        <div className="space-y-4">
-                            {kpiGraphData.map((kpi, index) => (
-                                <div key={index} className="space-y-2">
-                                    <div className="flex justify-between">
-                                        <span className="text-sm font-medium text-gray-700">{kpi.name}</span>
-                                        <span className="text-sm font-bold text-gray-900">
-                                            {kpi.value} {kpi.unit}
-                                        </span>
-                                    </div>
-                                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full rounded-full transition-all duration-500"
-                                            style={{
-                                                width: `${Math.min((kpi.value / kpi.target) * 100, 100)}%`,
-                                                backgroundColor: kpi.value >= kpi.target ? COLORS.success : COLORS.warning,
-                                            }}
-                                        ></div>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-gray-500">
-                                        <span>Current: {kpi.value}</span>
-                                        <span>Target: {kpi.target}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </GraphDisplay>
-
-                {/* Risk Distribution Graph */}
-                <GraphDisplay
-                    title="Risk Distribution Analysis"
-                    description="Breakdown of identified risks by category"
-                    icon={<PieChartIcon className="w-5 h-5 text-green-600" />}
-                    onClick={() => onMetricClick(riskDistributionData, 'Risk Distribution')}
-                >
-                    <div className="h-64">
-                        <div className="space-y-4">
-                            {riskDistributionData.map((risk, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div
-                                            className="w-3 h-3 rounded-full"
-                                            style={{ backgroundColor: risk.color }}
-                                        ></div>
-                                        <span className="font-medium text-gray-900">{risk.name}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="font-bold text-gray-900">{risk.value}%</div>
-                                        <div className="text-xs text-gray-600">Prob: {risk.probability}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </GraphDisplay>
-            </div>
+           
 
             {/* Dynamic Report Table */}
             <div ref={tableRef} className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
@@ -928,11 +1016,11 @@ const ReportsTab = ({
                             </p>
                         </div>
                         <div className="text-sm text-gray-600">
-                            Generated: {metadata?.generated_at ? new Date(metadata.generated_at).toLocaleDateString() : 'N/A'} | 
+                            Generated: {metadata?.generated_at ? new Date(metadata.generated_at).toLocaleDateString() : 'N/A'} |
                             Records: {
                                 reportType === 'executive' ? filteredExecutiveSummary.reduce((acc, section) => acc + section.metrics.length, 0) :
-                                reportType === 'detailed' ? detailedMetricsTable.reduce((acc, section) => acc + section.data.length, 0) :
-                                complianceChecklist.length
+                                    reportType === 'detailed' ? detailedMetricsTable.reduce((acc, section) => acc + section.data.length, 0) :
+                                        complianceChecklist.length
                             }
                         </div>
                     </div>
@@ -967,12 +1055,12 @@ const ReportsTab = ({
                             <tbody className="divide-y divide-gray-200">
                                 {filteredExecutiveSummary.map((section, sectionIndex) => (
                                     section.metrics.map((metric, metricIndex) => (
-                                        <tr 
+                                        <tr
                                             key={`${sectionIndex}-${metricIndex}`}
                                             className="hover:bg-gray-50 transition-colors"
                                         >
                                             {metricIndex === 0 && (
-                                                <td 
+                                                <td
                                                     rowSpan={section.metrics.length}
                                                     className="py-4 px-6 align-top border-r border-gray-200"
                                                 >
@@ -997,13 +1085,12 @@ const ReportsTab = ({
                                                 <span className="text-sm text-gray-700">{metric.description}</span>
                                             </td>
                                             <td className="py-4 px-6">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                                    metric.trend.includes('Above') || metric.trend.includes('Good') 
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${metric.trend.includes('Above') || metric.trend.includes('Good')
                                                         ? 'bg-green-100 text-green-800' :
-                                                    metric.trend.includes('Below') || metric.trend.includes('Poor')
-                                                        ? 'bg-red-100 text-red-800' :
-                                                        'bg-yellow-100 text-yellow-800'
-                                                }`}>
+                                                        metric.trend.includes('Below') || metric.trend.includes('Poor')
+                                                            ? 'bg-red-100 text-red-800' :
+                                                            'bg-yellow-100 text-yellow-800'
+                                                    }`}>
                                                     {metric.trend}
                                                 </span>
                                             </td>
@@ -1028,49 +1115,170 @@ const ReportsTab = ({
                                         <table className="w-full">
                                             <thead className="bg-gray-50">
                                                 <tr>
-                                                    <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
-                                                        Parameter
-                                                    </th>
-                                                    <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
-                                                        Value
-                                                    </th>
-                                                    <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
-                                                        Unit
-                                                    </th>
-                                                    <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
-                                                        Description
-                                                    </th>
-                                                    <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
-                                                        Impact
-                                                    </th>
+                                                    {section.section === "Environmental Metrics" && (
+                                                        <>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Parameter
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Category
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Value
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Unit
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Description
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Source
+                                                            </th>
+                                                        </>
+                                                    )}
+                                                    {section.section === "Carbon Emission Accounting - Scope Breakdown" && (
+                                                        <>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Scope
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Source/Category
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Parameter
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                tCO₂e/ha/year
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Total tCO₂e
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Emission Factor
+                                                            </th>
+                                                        </>
+                                                    )}
+                                                    {section.section === "Yield Calculation Factors" && (
+                                                        <>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Parameter
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Value
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Unit
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Description
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Impact
+                                                            </th>
+                                                        </>
+                                                    )}
+                                                    {section.section === "NDVI Indicators" && (
+                                                        <>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Parameter
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Value
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Unit
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Description
+                                                            </th>
+                                                            <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
+                                                                Impact
+                                                            </th>
+                                                        </>
+                                                    )}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-200">
                                                 {section.data.map((item, itemIndex) => (
                                                     <tr key={itemIndex} className="hover:bg-gray-50">
-                                                        <td className="py-3 px-6">
-                                                            <span className="font-medium text-gray-900">{item.parameter}</span>
-                                                        </td>
-                                                        <td className="py-3 px-6">
-                                                            <span className="font-bold text-gray-900">{item.value}</span>
-                                                        </td>
-                                                        <td className="py-3 px-6">
-                                                            <span className="text-sm text-gray-600">{item.unit}</span>
-                                                        </td>
-                                                        <td className="py-3 px-6">
-                                                            <span className="text-sm text-gray-700">{item.description}</span>
-                                                        </td>
-                                                        <td className="py-3 px-6">
-                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                                                item.impact === 'Positive' || item.impact === 'Good' 
-                                                                    ? 'bg-green-100 text-green-800' :
-                                                                item.impact === 'Negative' || item.impact === 'Poor'
-                                                                    ? 'bg-red-100 text-red-800' :
-                                                                    'bg-yellow-100 text-yellow-800'
-                                                            }`}>
-                                                                {item.impact}
-                                                            </span>
-                                                        </td>
+                                                        {section.section === "Environmental Metrics" && (
+                                                            <>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-medium text-gray-900">{item.parameter}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                                                                        {item.category}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-bold text-gray-900">{item.value}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-600">{item.unit}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-700">{item.description}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-600">{item.source}</span>
+                                                                </td>
+                                                            </>
+                                                        )}
+                                                        {section.section === "Carbon Emission Accounting - Scope Breakdown" && (
+                                                            <>
+                                                                <td className="py-3 px-6">
+                                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${item.scope === "Scope 1" ? "bg-red-100 text-red-800" :
+                                                                            item.scope === "Scope 2" ? "bg-yellow-100 text-yellow-800" :
+                                                                                "bg-blue-100 text-blue-800"
+                                                                        }`}>
+                                                                        {item.scope}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-medium text-gray-900">{item.source}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-700">{item.parameter}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-bold text-gray-900">{item.tco2e_per_ha_per_year}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-bold text-gray-900">{item.total_tco2e}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-600">{item.emission_factor}</span>
+                                                                </td>
+                                                            </>
+                                                        )}
+                                                        {(section.section === "Yield Calculation Factors" || section.section === "NDVI Indicators") && (
+                                                            <>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-medium text-gray-900">{item.parameter}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="font-bold text-gray-900">{item.value}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-600">{item.unit}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className="text-sm text-gray-700">{item.description}</span>
+                                                                </td>
+                                                                <td className="py-3 px-6">
+                                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${item.impact === 'Positive' || item.impact === 'Good'
+                                                                            ? 'bg-green-100 text-green-800' :
+                                                                            item.impact === 'Negative' || item.impact === 'Poor'
+                                                                                ? 'bg-red-100 text-red-800' :
+                                                                                'bg-yellow-100 text-yellow-800'
+                                                                        }`}>
+                                                                        {item.impact}
+                                                                    </span>
+                                                                </td>
+                                                            </>
+                                                        )}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -1095,7 +1303,7 @@ const ReportsTab = ({
                                         Status
                                     </th>
                                     <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
-                                        Frameworks/Methods
+                                        Details
                                     </th>
                                     <th className="py-3 px-6 text-left text-xs font-medium text-gray-700 uppercase">
                                         Last Verified
@@ -1119,16 +1327,15 @@ const ReportsTab = ({
                                             </div>
                                         </td>
                                         <td className="py-4 px-6">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                                item.status === 'Compliant' || item.status === 'Verified' || item.status === 'Documented' || item.status === 'Adequate'
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${item.status === 'Compliant' || item.status === 'Verified' || item.status === 'Documented' || item.status === 'Adequate'
                                                     ? 'bg-green-100 text-green-800' :
                                                     'bg-red-100 text-red-800'
-                                            }`}>
+                                                }`}>
                                                 {item.status}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6">
-                                            <div className="text-sm text-gray-700 max-w-xs">{item.frameworks}</div>
+                                            <div className="text-sm text-gray-700 max-w-xs">{item.details}</div>
                                         </td>
                                         <td className="py-4 px-6">
                                             <div className="text-sm text-gray-700">{item.lastVerified}</div>
@@ -1149,8 +1356,8 @@ const ReportsTab = ({
                 <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600">
-                            Data Source: {metadata?.endpoint || 'Crop Yield Forecast API'} | 
-                            Version: {metadata?.calculation_version || 'N/A'} | 
+                            Data Source: {metadata?.endpoint || 'Crop Yield Forecast API'} |
+                            Version: {metadata?.calculation_version || 'N/A'} |
                             Generated: {metadata?.generated_at ? new Date(metadata.generated_at).toLocaleString() : 'N/A'}
                         </div>
                         <div className="flex items-center gap-3">
@@ -1178,52 +1385,55 @@ const ReportsTab = ({
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl border border-green-200 p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-green-100">
-                            <FileText className="w-5 h-5 text-green-600" />
+                            <Award className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
-                            <h4 className="font-bold text-gray-900">Report Coverage</h4>
-                            <p className="text-sm text-gray-600">Data completeness</p>
+                            <h4 className="font-bold text-gray-900">ESG Frameworks</h4>
+                            <p className="text-sm text-gray-600">Compliance frameworks</p>
                         </div>
                     </div>
                     <div className="text-3xl font-bold text-green-700 mb-2">
-                        {confidenceScore?.data_quality || 0}%
+                        {esgFrameworks.length}
                     </div>
-                    <p className="text-sm text-gray-600">Based on available metrics and verification</p>
+                    <p className="text-sm text-gray-600">
+                        {esgFrameworks.slice(0, 2).join(', ')}
+                        {esgFrameworks.length > 2 ? ` +${esgFrameworks.length - 2} more` : ''}
+                    </p>
                 </div>
 
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl border border-blue-200 p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-blue-100">
-                            <Calendar className="w-5 h-5 text-blue-600" />
+                            <Database className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                            <h4 className="font-bold text-gray-900">Reporting Period</h4>
-                            <p className="text-sm text-gray-600">Data time range</p>
+                            <h4 className="font-bold text-gray-900">Environmental Metrics</h4>
+                            <p className="text-sm text-gray-600">Tracked parameters</p>
                         </div>
                     </div>
                     <div className="text-3xl font-bold text-blue-700 mb-2">
-                        {reportingPeriod?.data_available_years?.length || 0} years
+                        {environmentalMetricsTable.length}
                     </div>
                     <p className="text-sm text-gray-600">
-                        {reportingPeriod?.data_available_years?.join(', ') || 'No data'}
+                        Across {new Set(environmentalMetricsTable.map(m => m.category)).size} categories
                     </p>
                 </div>
 
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl border border-purple-200 p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-lg bg-purple-100">
-                            <Database className="w-5 h-5 text-purple-600" />
+                            <Thermometer className="w-5 h-5 text-purple-600" />
                         </div>
                         <div>
-                            <h4 className="font-bold text-gray-900">Data Sources</h4>
-                            <p className="text-sm text-gray-600">Integrated systems</p>
+                            <h4 className="font-bold text-gray-900">Carbon Accounting</h4>
+                            <p className="text-sm text-gray-600">Scope emissions data</p>
                         </div>
                     </div>
                     <div className="text-3xl font-bold text-purple-700 mb-2">
-                        {dataSources.length || 0} sources
+                        {getScopeTableData().length}
                     </div>
                     <p className="text-sm text-gray-600">
-                        {dataSources.slice(0, 2).join(', ')}...
+                        Sources & categories across all scopes
                     </p>
                 </div>
             </div>

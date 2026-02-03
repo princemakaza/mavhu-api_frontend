@@ -13,29 +13,19 @@ import {
     Legend as RechartsLegend,
     AreaChart,
     Area,
-    RadarChart,
-    Radar,
-    PolarGrid,
-    PolarAngleAxis,
-    PolarRadiusAxis,
     BarChart as RechartsBarChart,
     Bar as RechartsBar,
-    ComposedChart,
 } from "recharts";
-import { MapContainer, TileLayer, Marker, Popup, Polygon } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polygon } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import {
     Thermometer,
     Factory,
     Zap,
-    Wind,
     Scale,
-    Target as TargetIcon,
-    Award,
-    AlertOctagon,
-    CheckCircle,
     AlertCircle,
+    CheckCircle,
     TrendingUp,
     TrendingDown,
     Building,
@@ -46,39 +36,41 @@ import {
     X,
     Download,
     Share2,
-    Leaf,
-    Sun,
-    Droplet,
     Activity,
     BarChart3,
     LineChart as LineChartIcon,
     PieChart as PieChartIcon,
     AreaChart as AreaChartIcon,
-    Radar as RadarIcon,
+    Calculator,
+    Cloud,
+    Settings,
 } from "lucide-react";
 import {
     getGhgSummary,
     getScopeBreakdown,
-    getConfidenceAssessment,
-    getSummary,
-    getIntensityAnalysis,
-    getReductionTargets,
-    getCurrentPerformance,
-    getFutureTargets,
-    getAllGhgGraphData,
-    getGhgCompany,
-    getCurrentYear,
+    getCarbonEmissionAccounting,
+    getYearlyDataSummary,
+    getSequestrationSummary,
+    getKeyEmissionMetrics,
+    getMonthlyGraphData,
+    getCompanyInfo,
+    getReportingYear,
+    getDataAvailability,
+    MonthlyGraphData,
 } from "../../../../services/Admin_Service/esg_apis/ghg_emmision";
-import type { GhgEmissionResponse } from "../../../../services/Admin_Service/esg_apis/ghg_emmision";
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconRetinaUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+    iconUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+    shadowUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
+// ─── Theme & Color Types ────────────────────────────────────────────────────
 interface ThemeClasses {
     bg: string;
     text: string;
@@ -103,7 +95,7 @@ interface ChartColors {
 }
 
 interface OverviewTabProps {
-    ghgData: GhgEmissionResponse;
+    ghgData: any;
     themeClasses: ThemeClasses;
     chartColors: ChartColors;
     logoGreen: string;
@@ -112,899 +104,949 @@ interface OverviewTabProps {
     coordinates: any[];
     areaName: string;
     areaCovered: string;
+    selectedCompany: any;
+    formatNumber: (num: number) => string;
+    formatPercent: (num: number) => string;
+    onMetricClick: (metric: any, modalType: string) => void;
+    onCalculationClick: (calculationType: string, data?: any) => void;
+    colors: {
+        primary: string;
+        secondary: string;
+        lightGreen: string;
+        darkGreen: string;
+        emerald: string;
+        lime: string;
+        background: string;
+    };
 }
 
-// Modern Color Palette
+// ─── Global Color Palette (Green-Themed) ────────────────────────────────────
 const COLORS = {
-    primary: '#22c55e',      // Green-500
-    primaryDark: '#16a34a',  // Green-600
-    primaryLight: '#86efac', // Green-300
-    secondary: '#10b981',    // Emerald-500
-    accent: '#84cc16',       // Lime-500
-    success: '#22c55e',
-    warning: '#eab308',      // Yellow-500
-    danger: '#ef4444',       // Red-500
-    info: '#3b82f6',         // Blue-500
-    scope1: '#3b82f6',       // Blue for Direct Emissions
-    scope2: '#eab308',       // Yellow for Energy
-    scope3: '#a855f7',       // Purple for Value Chain
+    primary: "#22c55e",
+    primaryDark: "#16a34a",
+    primaryLight: "#86efac",
+    secondary: "#10b981",
+    accent: "#84cc16",
+    success: "#22c55e",
+    warning: "#eab308",
+    danger: "#ef4444",
+    info: "#3b82f6",
+    scope1: "#3b82f6",
+    scope2: "#eab308",
+    scope3: "#a855f7",
+    // Graph 1 – CO₂ Stocks
+    biomass: "#22c55e",
+    soc: "#8b5cf6",
+    netStock: "#10b981",
+    // Graph 2 – CO₂ Deltas
+    deltaBiomass: "#ef4444",
+    deltaSoc: "#f59e0b",
+    netChange: "#374151",
+    // Graph 3 – Biomass Breakdown
+    agb: "#16a34a",
+    bgb: "#d97706",
+    bioCarbon: "#059669",
+    // Graph 4 – NDVI
+    ndvi: "#22c55e",
 };
 
-// Simplified Graph Display Component
+// ─── GraphCard Shell ────────────────────────────────────────────────────────
 const GraphCard: React.FC<{
     title: string;
     description: string;
     icon: React.ReactNode;
     onClick: () => void;
+    onInfoClick: () => void;
     children: React.ReactNode;
-}> = ({ title, description, icon, onClick, children }) => (
+}> = ({ title, description, icon, onClick, onInfoClick, children }) => (
     <div
-        className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 group"
+        className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300"
         onClick={onClick}
     >
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 group-hover:from-green-100 group-hover:to-emerald-100 transition-all">
+        <div
+            className="p-4 border-b border-gray-200"
+            style={{
+                background: `linear-gradient(to right, ${COLORS.primary}15, ${COLORS.secondary}15)`,
+            }}
+        >
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-1">{title}</h3>
                     <p className="text-sm text-gray-600">{description}</p>
                 </div>
-                {icon}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onInfoClick();
+                        }}
+                        className="p-2 rounded-lg hover:bg-green-100 transition-all"
+                    >
+                        <Info className="w-5 h-5 text-green-600" />
+                    </button>
+                    {icon}
+                </div>
             </div>
         </div>
-        <div className="p-6 h-80">
-            {children}
-        </div>
+        <div className="p-4 h-80">{children}</div>
     </div>
 );
 
+// ─── Main Component ─────────────────────────────────────────────────────────
 const OverviewTab: React.FC<OverviewTabProps> = ({
     ghgData,
-    themeClasses,
-    chartColors,
-    logoGreen,
-    logoYellow,
-    isDarkMode,
     coordinates,
     areaName,
     areaCovered,
+    selectedCompany,
+    formatNumber,
+    onCalculationClick,
+    colors,
 }) => {
     const [selectedGraph, setSelectedGraph] = useState<any>(null);
-    const [selectedMetric, setSelectedMetric] = useState<any>(null);
     const [showMetricModal, setShowMetricModal] = useState(false);
-    const [showInsightsModal, setShowInsightsModal] = useState(false);
+    const [selectedMetric, setSelectedMetric] = useState<any>(null);
 
-    // Get data using service functions
+    // ── Derived data from service helpers ───────────────────────────────────
     const ghgSummary = ghgData ? getGhgSummary(ghgData) : null;
     const scopeBreakdown = ghgData ? getScopeBreakdown(ghgData) : null;
-    const confidenceAssessment = ghgData ? getConfidenceAssessment(ghgData) : null;
-    const summary = ghgData ? getSummary(ghgData) : null;
-    const intensityAnalysis = ghgData ? getIntensityAnalysis(ghgData) : null;
-    const reductionTargets = ghgData ? getReductionTargets(ghgData) : null;
-    const currentPerformance = ghgData ? getCurrentPerformance(ghgData) : null;
-    const futureTargets = ghgData ? getFutureTargets(ghgData) : [];
-    const graphs = ghgData ? getAllGhgGraphData(ghgData) : null;
-    const companyInfo = ghgData ? getGhgCompany(ghgData) : null;
-    const currentYear = ghgData ? getCurrentYear(ghgData) : null;
+    const carbonAccounting = ghgData ? getCarbonEmissionAccounting(ghgData) : null;
+    const yearlySummary = ghgData ? getYearlyDataSummary(ghgData) : null;
+    const sequestrationSummary = ghgData ? getSequestrationSummary(ghgData) : null;
+    const keyMetrics = ghgData ? getKeyEmissionMetrics(ghgData) : null;
+    const monthlyGraphData: MonthlyGraphData | null = ghgData
+        ? getMonthlyGraphData(ghgData)
+        : null;
+    const companyInfo = ghgData ? getCompanyInfo(ghgData) : null;
+    const currentYear = ghgData ? getReportingYear(ghgData) : null;
+    const dataAvailability = ghgData ? getDataAvailability(ghgData) : null;
 
-    // Format utilities
-    const formatNumber = (num: number) => {
-        return new Intl.NumberFormat('en-US').format(num);
-    };
+    // Confidence from data availability
+    const confidenceScore =
+        dataAvailability?.carbon_data_quality?.completeness_score || 0;
 
-    const formatPercentage = (num: number) => {
-        return `${num.toFixed(1)}%`;
-    };
+    // ── Totals ──────────────────────────────────────────────────────────────
+    const totalEmissions = ghgSummary?.totalEmissions || 0;
+    const netCarbonBalance =
+        ghgSummary?.netBalance || keyMetrics?.net_carbon_balance?.value || 0;
+    const totalSequestration = sequestrationSummary?.total || 0;
 
-    // Get trend icon
-    const getTrendIcon = (trend: string) => {
-        const isGood = trend.toLowerCase().includes('declining') || 
-                       trend.toLowerCase().includes('decrease') || 
-                       trend.toLowerCase().includes('down') ||
-                       trend.toLowerCase().includes('improving');
-        
-        if (isGood) {
-            return <TrendingDown className="w-5 h-5 text-green-600" />;
-        }
-        return <TrendingUp className="w-5 h-5 text-red-500" />;
-    };
+    // ── Scope pie data ──────────────────────────────────────────────────────
+    const scope1Value = ghgSummary?.scope1 || 0;
+    const scope2Value = ghgSummary?.scope2 || 0;
+    const scope3Value = ghgSummary?.scope3 || 0;
+    const totalScope = scope1Value + scope2Value + scope3Value;
 
-    // Get confidence color
-    const getConfidenceColor = (score: number) => {
-        if (score >= 80) return 'text-green-600';
-        if (score >= 60) return 'text-yellow-600';
-        return 'text-red-600';
-    };
-
-    // Handle metric click
-    const handleMetricClick = (metric: any, title: string, description: string) => {
-        setSelectedMetric({ ...metric, title, description });
-        setShowMetricModal(true);
-    };
-
-    // Prepare chart data
-    const prepareChartData = () => {
-        // Monthly emissions trend
-        const monthlyData = graphs?.total_emissions_trend?.labels?.map((label: string, index: number) => ({
-            month: label,
-            scope1: graphs.total_emissions_trend.datasets[0]?.data[index] || 0,
-            scope2: graphs.total_emissions_trend.datasets[1]?.data[index] || 0,
-            scope3: graphs.total_emissions_trend.datasets[2]?.data[index] || 0,
-            total: (graphs.total_emissions_trend.datasets[0]?.data[index] || 0) +
-                   (graphs.total_emissions_trend.datasets[1]?.data[index] || 0) +
-                   (graphs.total_emissions_trend.datasets[2]?.data[index] || 0),
-        })) || [];
-
-        // Scope breakdown for pie chart
-        const scopeData = [
-            { name: 'Direct Emissions', value: ghgSummary?.scope1 || 0, color: COLORS.scope1 },
-            { name: 'Energy Emissions', value: ghgSummary?.scope2 || 0, color: COLORS.scope2 },
-            { name: 'Supply Chain', value: ghgSummary?.scope3 || 0, color: COLORS.scope3 },
-        ];
-
-        // Intensity comparison
-        const intensityData = [
-            { 
-                indicator: 'Your Intensity', 
-                value: intensityAnalysis?.carbon_intensity || 0, 
-                benchmark: intensityAnalysis?.benchmark || 0 
-            },
-        ];
-
-        // Reduction progress over time
-        const reductionData = futureTargets.slice(0, 5).map((target: any) => ({
-            year: target.target_year,
-            target: target.target_value,
-            current: ghgSummary?.totalEmissions || 0,
-            progress: Math.max(0, target.current_progress),
-        }));
-
-        // Performance radar
-        const performanceData = [
-            { 
-                metric: 'Emissions', 
-                score: Math.max(0, 100 - (ghgSummary?.reductionFromBaseline || 0)) 
-            },
-            { 
-                metric: 'Intensity', 
-                score: intensityAnalysis?.carbon_intensity ? 
-                    Math.min(100, (intensityAnalysis.benchmark / intensityAnalysis.carbon_intensity) * 100) : 50 
-            },
-            { 
-                metric: 'Data Quality', 
-                score: confidenceAssessment?.overall_score || 0 
-            },
-            { 
-                metric: 'Target Progress', 
-                score: currentPerformance ? Math.abs(currentPerformance.reduction_achieved) : 0 
-            },
-        ];
-
-        // Yearly comparison
-        const yearlyData = [
-            { year: (currentYear || 2024) - 2, emissions: (ghgSummary?.totalEmissions || 0) * 1.15, target: (ghgSummary?.totalEmissions || 0) * 1.1 },
-            { year: (currentYear || 2024) - 1, emissions: (ghgSummary?.totalEmissions || 0) * 1.08, target: (ghgSummary?.totalEmissions || 0) * 1.05 },
-            { year: currentYear || 2024, emissions: ghgSummary?.totalEmissions || 0, target: ghgSummary?.totalEmissions || 0 },
-        ];
-
-        return {
-            monthlyData,
-            scopeData,
-            intensityData,
-            reductionData,
-            performanceData,
-            yearlyData,
-        };
-    };
-
-    const chartData = prepareChartData();
-
-    // Graph configurations
-    const overviewGraphs = [
+    const scopeData = [
         {
-            id: 'emissions-breakdown',
-            title: 'Where Your Emissions Come From',
-            description: 'Simple breakdown of your carbon footprint',
-            icon: <PieChartIcon className="w-6 h-6 text-green-600" />,
+            name: "Direct Emissions",
+            value: scope1Value,
+            color: COLORS.scope1,
+            percentage: totalScope > 0 ? (scope1Value / totalScope) * 100 : 0,
+        },
+        {
+            name: "Energy Emissions",
+            value: scope2Value,
+            color: COLORS.scope2,
+            percentage: totalScope > 0 ? (scope2Value / totalScope) * 100 : 0,
+        },
+        {
+            name: "Supply Chain",
+            value: scope3Value,
+            color: COLORS.scope3,
+            percentage: totalScope > 0 ? (scope3Value / totalScope) * 100 : 0,
+        },
+    ];
+
+    // ── Reduction journey (simplified yearly trend) ────────────────────────
+    const reductionData = (() => {
+        if (!yearlySummary || !ghgSummary) return [];
+        const base = ghgSummary.totalEmissions;
+        const yr = currentYear || 2024;
+        return [
+            { year: yr - 2, target: base * 1.15, current: base * 1.1 },
+            { year: yr - 1, target: base * 1.08, current: base * 1.05 },
+            { year: yr, target: base * 0.9, current: base },
+        ];
+    })();
+
+    // ── Graph 1 chart data: Total CO₂ Stocks ──────────────────────────────
+    const graph1Data = (() => {
+        if (!monthlyGraphData) return [];
+        return monthlyGraphData.months.map((month, i) => ({
+            month,
+            biomass_co2_total_t: monthlyGraphData.biomass_co2_total_t[i],
+            soc_co2_total_t: monthlyGraphData.soc_co2_total_t[i],
+            net_co2_stock_t: monthlyGraphData.net_co2_stock_t[i],
+        }));
+    })();
+
+    // ── Graph 2 chart data: Monthly CO₂ Changes (Deltas) ───────────────────
+    const graph2Data = (() => {
+        if (!monthlyGraphData) return [];
+        return monthlyGraphData.months.map((month, i) => ({
+            month,
+            delta_biomass_co2_t: monthlyGraphData.delta_biomass_co2_t[i],
+            delta_soc_co2_t: monthlyGraphData.delta_soc_co2_t[i],
+            net_co2_change_t: monthlyGraphData.net_co2_change_t[i],
+        }));
+    })();
+
+    // ── Graph 3 chart data: Biomass Breakdown (per hectare) ────────────────
+    const graph3Data = (() => {
+        if (!monthlyGraphData) return [];
+        return monthlyGraphData.months.map((month, i) => ({
+            month,
+            agb_t_per_ha: monthlyGraphData.agb_t_per_ha[i],
+            bgb_t_per_ha: monthlyGraphData.bgb_t_per_ha[i],
+            biomass_c_t_per_ha: monthlyGraphData.biomass_c_t_per_ha[i],
+        }));
+    })();
+
+    // ── Graph 4 chart data: Vegetation Health (NDVI) ───────────────────────
+    const graph4Data = (() => {
+        if (!monthlyGraphData) return [];
+        return monthlyGraphData.months.map((month, i) => ({
+            month,
+            ndvi_max: monthlyGraphData.ndvi_max[i],
+        }));
+    })();
+
+    // ── Calculation formulas ────────────────────────────────────────────────
+    const areaHa = keyMetrics?.carbon_intensity?.area_ha || 0;
+    const carbonIntensity =
+        ghgSummary?.carbonIntensity || keyMetrics?.carbon_intensity?.value || 0;
+
+    const calculationFormulas = {
+        emissions: {
+            formula: "Scope 1 + Scope 2 + Scope 3 = Total Emissions",
+            description: "Following GHG Protocol standards",
+        },
+        intensity: {
+            formula: `${formatNumber(totalEmissions)} tCO₂e ÷ ${formatNumber(areaHa)} ha = ${carbonIntensity.toFixed(2)} tCO₂e/ha`,
+            description: "Emissions per unit area",
+        },
+        netBalance: {
+            formula: `${formatNumber(totalEmissions)} tCO₂e − ${formatNumber(totalSequestration)} tCO₂ = ${formatNumber(netCarbonBalance)} tCO₂e`,
+            description:
+                netCarbonBalance < 0 ? "Net Carbon Removal" : "Net Carbon Emissions",
+        },
+    };
+
+    // ── Metric click handler ────────────────────────────────────────────────
+    const handleMetricClick = (
+        metric: any,
+        title: string,
+        description: string,
+        calculationType?: string
+    ) => {
+        if (calculationType) {
+            onCalculationClick(calculationType, metric);
+        } else {
+            setSelectedMetric({ ...metric, title, description });
+            setShowMetricModal(true);
+        }
+    };
+
+    // ── Shared tooltip style ────────────────────────────────────────────────
+    const tooltipStyle = {
+        backgroundColor: "#ffffff",
+        border: "1px solid #d1d5db",
+        borderRadius: "0.5rem",
+        padding: "8px",
+    };
+
+    // ── Graph definitions ───────────────────────────────────────────────────
+    const overviewGraphs = [
+        // ── Emissions by Scope (Pie) ──────────────────────────────────────
+        {
+            id: "emissions-breakdown",
+            title: "Emissions by Scope",
+            description: "Breakdown of emissions by scope",
+            icon: <PieChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
             component: (
                 <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                         <Pie
-                            data={chartData.scopeData}
+                            data={scopeData.filter((item) => item.value > 0)}
                             cx="50%"
                             cy="50%"
                             labelLine={false}
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={120}
+                            label={({ name, percentage }) =>
+                                `${name}: ${percentage.toFixed(0)}%`
+                            }
+                            outerRadius={100}
                             dataKey="value"
                         >
-                            {chartData.scopeData.map((entry: any, index: number) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
+                            {scopeData
+                                .filter((item) => item.value > 0)
+                                .map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
                         </Pie>
                         <RechartsTooltip
-                            contentStyle={{ 
-                                backgroundColor: '#ffffff', 
-                                border: '1px solid #d1d5db', 
-                                borderRadius: '0.75rem',
-                                padding: '12px'
-                            }}
-                            formatter={(value: any) => [`${formatNumber(value)} tons`, '']}
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any) => [
+                                `${formatNumber(value)} tCO₂e`,
+                                "",
+                            ]}
                         />
                     </RechartsPieChart>
                 </ResponsiveContainer>
-            )
+            ),
         },
+        // ── Graph 1 – Total CO₂ Stocks ────────────────────────────────────
         {
-            id: 'monthly-trend',
-            title: 'Your Emissions Over Time',
-            description: 'Track your monthly carbon footprint',
-            icon: <AreaChartIcon className="w-6 h-6 text-green-600" />,
+            id: "total-co2-stocks",
+            title: "Total CO₂ Stocks",
+            description: "Where your total carbon is sitting over time",
+            icon: <AreaChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
             component: (
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData.monthlyData}>
+                    <AreaChart data={graph1Data}>
                         <defs>
-                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8} />
-                                <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0.1} />
+                            <linearGradient id="grad_biomass" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={COLORS.biomass} stopOpacity={0.4} />
+                                <stop offset="95%" stopColor={COLORS.biomass} stopOpacity={0.02} />
+                            </linearGradient>
+                            <linearGradient id="grad_soc" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={COLORS.soc} stopOpacity={0.4} />
+                                <stop offset="95%" stopColor={COLORS.soc} stopOpacity={0.02} />
+                            </linearGradient>
+                            <linearGradient id="grad_netstock" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={COLORS.netStock} stopOpacity={0.4} />
+                                <stop offset="95%" stopColor={COLORS.netStock} stopOpacity={0.02} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis 
-                            dataKey="month" 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
-                        <YAxis 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
+                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
                         <RechartsTooltip
-                            contentStyle={{ 
-                                backgroundColor: '#ffffff', 
-                                border: '1px solid #d1d5db', 
-                                borderRadius: '0.75rem',
-                                padding: '12px'
-                            }}
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any, name: string) => [
+                                `${formatNumber(Number(value))} t`,
+                                name,
+                            ]}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="total" 
-                            stroke={COLORS.primary} 
-                            fillOpacity={1} 
-                            fill="url(#colorTotal)" 
-                            strokeWidth={3} 
-                        />
+                        <RechartsLegend />
+                        <Area type="monotone" dataKey="biomass_co2_total_t" name="Biomass CO₂" stroke={COLORS.biomass} fill="url(#grad_biomass)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="soc_co2_total_t" name="SOC CO₂" stroke={COLORS.soc} fill="url(#grad_soc)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="net_co2_stock_t" name="Net CO₂ Stock" stroke={COLORS.netStock} fill="url(#grad_netstock)" strokeWidth={2} />
                     </AreaChart>
                 </ResponsiveContainer>
-            )
+            ),
         },
+        // ── Graph 2 – Monthly CO₂ Changes (Deltas) ───────────────────────
         {
-            id: 'scope-comparison',
-            title: 'Emissions by Category',
-            description: 'Compare different emission sources',
-            icon: <BarChart3 className="w-6 h-6 text-green-600" />,
+            id: "monthly-co2-changes",
+            title: "Monthly CO₂ Changes",
+            description: "Monthly deltas in biomass, SOC, and net CO₂",
+            icon: <LineChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
             component: (
                 <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={chartData.scopeData}>
+                    <RechartsLineChart data={graph2Data}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis 
-                            dataKey="name" 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '11px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
-                        <YAxis 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
+                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
                         <RechartsTooltip
-                            contentStyle={{ 
-                                backgroundColor: '#ffffff', 
-                                border: '1px solid #d1d5db', 
-                                borderRadius: '0.75rem',
-                                padding: '12px'
-                            }}
-                            formatter={(value: any) => [`${formatNumber(value)} tons`, 'Emissions']}
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any, name: string) => [
+                                `${formatNumber(Number(value))} t`,
+                                name,
+                            ]}
                         />
-                        <RechartsBar dataKey="value" radius={[8, 8, 0, 0]}>
-                            {chartData.scopeData.map((entry: any, index: number) => (
+                        <RechartsLegend />
+                        <RechartsLine type="monotone" dataKey="delta_biomass_co2_t" name="Δ Biomass CO₂" stroke={COLORS.deltaBiomass} strokeWidth={2} dot={{ r: 3 }} />
+                        <RechartsLine type="monotone" dataKey="delta_soc_co2_t" name="Δ SOC CO₂" stroke={COLORS.deltaSoc} strokeWidth={2} dot={{ r: 3 }} />
+                        <RechartsLine type="monotone" dataKey="net_co2_change_t" name="Net CO₂ Change" stroke={COLORS.netChange} strokeWidth={2} dot={{ r: 3 }} />
+                    </RechartsLineChart>
+                </ResponsiveContainer>
+            ),
+        },
+        // ── Graph 3 – Biomass Breakdown (per hectare) ────────────────────
+        {
+            id: "biomass-breakdown",
+            title: "Biomass Breakdown",
+            description: "Above-ground, below-ground & total biomass carbon per hectare",
+            icon: <BarChart3 className="w-5 h-5" style={{ color: colors.primary }} />,
+            component: (
+                <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={graph3Data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <RechartsTooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any, name: string) => [
+                                `${Number(value).toFixed(2)} t/ha`,
+                                name,
+                            ]}
+                        />
+                        <RechartsLegend />
+                        <RechartsBar dataKey="agb_t_per_ha" name="Above Ground" fill={COLORS.agb} radius={[3, 3, 0, 0]} />
+                        <RechartsBar dataKey="bgb_t_per_ha" name="Below Ground" fill={COLORS.bgb} radius={[3, 3, 0, 0]} />
+                        <RechartsBar dataKey="biomass_c_t_per_ha" name="Total Biomass C" fill={COLORS.bioCarbon} radius={[3, 3, 0, 0]} />
+                    </RechartsBarChart>
+                </ResponsiveContainer>
+            ),
+        },
+        // ── Graph 4 – Vegetation Health (NDVI) ────────────────────────────
+        {
+            id: "vegetation-health",
+            title: "Vegetation Health (NDVI)",
+            description: "Monthly maximum NDVI for vegetation monitoring",
+            icon: <AreaChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
+            component: (
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={graph4Data}>
+                        <defs>
+                            <linearGradient id="grad_ndvi" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={COLORS.ndvi} stopOpacity={0.5} />
+                                <stop offset="95%" stopColor={COLORS.ndvi} stopOpacity={0.05} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} domain={[0, 1]} />
+                        <RechartsTooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any) => [Number(value).toFixed(3), "NDVI Max"]}
+                        />
+                        <RechartsLegend />
+                        <Area type="monotone" dataKey="ndvi_max" name="NDVI Max" stroke={COLORS.ndvi} fill="url(#grad_ndvi)" strokeWidth={2} />
+                    </AreaChart>
+                </ResponsiveContainer>
+            ),
+        },
+        // ── Scope Comparison (Bar) ────────────────────────────────────────
+        {
+            id: "scope-comparison",
+            title: "Emissions Comparison",
+            description: "Compare different emission scopes",
+            icon: <BarChart3 className="w-5 h-5" style={{ color: colors.primary }} />,
+            component: (
+                <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={scopeData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="name" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 10 }} />
+                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <RechartsTooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any) => [`${formatNumber(value)} tCO₂e`, "Emissions"]}
+                        />
+                        <RechartsBar dataKey="value" radius={[4, 4, 0, 0]}>
+                            {scopeData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                         </RechartsBar>
                     </RechartsBarChart>
                 </ResponsiveContainer>
-            )
+            ),
         },
+        // ── Reduction Journey (Line) ──────────────────────────────────────
         {
-            id: 'performance-radar',
-            title: 'Your Sustainability Score',
-            description: 'Overall environmental performance',
-            icon: <RadarIcon className="w-6 h-6 text-green-600" />,
+            id: "reduction-progress",
+            title: "Reduction Journey",
+            description: "Progress towards emission targets",
+            icon: <LineChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
             component: (
                 <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={chartData.performanceData}>
-                        <PolarGrid stroke="#d1d5db" />
-                        <PolarAngleAxis 
-                            dataKey="metric" 
-                            style={{ fontSize: '12px', fill: '#6b7280' }}
-                        />
-                        <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                        <Radar 
-                            name="Performance" 
-                            dataKey="score" 
-                            stroke={COLORS.primary} 
-                            fill={COLORS.primary} 
-                            fillOpacity={0.6} 
-                            strokeWidth={2} 
-                        />
-                        <RechartsTooltip
-                            contentStyle={{ 
-                                backgroundColor: '#ffffff', 
-                                border: '1px solid #d1d5db', 
-                                borderRadius: '0.75rem',
-                                padding: '12px'
-                            }}
-                            formatter={(value: any) => [`${value.toFixed(0)}%`, 'Score']}
-                        />
-                    </RadarChart>
-                </ResponsiveContainer>
-            )
-        },
-        {
-            id: 'reduction-progress',
-            title: 'Your Reduction Journey',
-            description: 'Progress towards emission goals',
-            icon: <LineChartIcon className="w-6 h-6 text-green-600" />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={chartData.reductionData}>
+                    <RechartsLineChart data={reductionData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis 
-                            dataKey="year" 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
-                        <YAxis 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
+                        <XAxis dataKey="year" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
                         <RechartsTooltip
-                            contentStyle={{ 
-                                backgroundColor: '#ffffff', 
-                                border: '1px solid #d1d5db', 
-                                borderRadius: '0.75rem',
-                                padding: '12px'
-                            }}
+                            contentStyle={tooltipStyle}
+                            formatter={(value: any) => [`${formatNumber(value)} tCO₂e`, ""]}
                         />
                         <RechartsLegend />
-                        <RechartsLine 
-                            type="monotone" 
-                            dataKey="target" 
-                            stroke={COLORS.primary} 
-                            name="Target" 
-                            strokeWidth={3} 
-                            dot={{ fill: COLORS.primary, r: 5 }} 
-                        />
-                        <RechartsLine 
-                            type="monotone" 
-                            dataKey="current" 
-                            stroke={COLORS.info} 
-                            name="Current" 
-                            strokeWidth={3} 
-                            dot={{ fill: COLORS.info, r: 5 }}
-                            strokeDasharray="5 5"
-                        />
+                        <RechartsLine type="monotone" dataKey="target" stroke={COLORS.primary} name="Target" strokeWidth={2} dot={{ fill: COLORS.primary, r: 4 }} />
+                        <RechartsLine type="monotone" dataKey="current" stroke={COLORS.info} name="Current" strokeWidth={2} dot={{ fill: COLORS.info, r: 4 }} />
                     </RechartsLineChart>
                 </ResponsiveContainer>
-            )
-        },
-        {
-            id: 'yearly-comparison',
-            title: 'Year-Over-Year Progress',
-            description: 'Compare your emissions across years',
-            icon: <BarChart3 className="w-6 h-6 text-green-600" />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData.yearlyData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis 
-                            dataKey="year" 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
-                        <YAxis 
-                            stroke="#6b7280" 
-                            style={{ fontSize: '12px' }}
-                            tick={{ fill: '#6b7280' }}
-                        />
-                        <RechartsTooltip
-                            contentStyle={{ 
-                                backgroundColor: '#ffffff', 
-                                border: '1px solid #d1d5db', 
-                                borderRadius: '0.75rem',
-                                padding: '12px'
-                            }}
-                        />
-                        <RechartsLegend />
-                        <RechartsBar 
-                            dataKey="emissions" 
-                            fill={COLORS.info} 
-                            name="Actual Emissions" 
-                            radius={[8, 8, 0, 0]} 
-                        />
-                        <RechartsLine 
-                            type="monotone" 
-                            dataKey="target" 
-                            stroke={COLORS.primary} 
-                            name="Target" 
-                            strokeWidth={3} 
-                            dot={{ fill: COLORS.primary, r: 6 }} 
-                        />
-                    </ComposedChart>
-                </ResponsiveContainer>
-            )
+            ),
         },
     ];
 
+    // ── Early return: loading ───────────────────────────────────────────────
     if (!ghgSummary || !scopeBreakdown) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <Thermometer className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-gray-500 text-lg">Loading your environmental data...</p>
+                    <p className="text-gray-500 text-lg">
+                        Loading your GHG emissions data…
+                    </p>
                 </div>
             </div>
         );
     }
 
+    // ── Render ──────────────────────────────────────────────────────────────
     return (
         <div className="space-y-8 pb-8">
-            {/* Hero Section */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 p-8 md:p-12 text-white shadow-2xl">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
+            {/* ─── Company Details Card ───────────────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+                <div
+                    className="p-4 border-b border-gray-200"
+                    style={{
+                        background: `linear-gradient(to right, ${colors.primary}15, ${colors.emerald}15)`,
+                    }}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-xl bg-white border border-gray-200 shadow-sm">
+                                <Building className="w-5 h-5" style={{ color: colors.primary }} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-0.5">
+                                    {companyInfo?.name || selectedCompany?.name || "Company"}
+                                </h2>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800 font-medium">
+                                        {companyInfo?.industry || selectedCompany?.industry || "Industry"}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-800 font-medium">
+                                        {companyInfo?.country || selectedCompany?.country || "Country"}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800 font-medium">
+                                        {companyInfo?.esg_data_status || selectedCompany?.esg_data_status || "ESG Status"}
+                                    </span>
+                                    {(companyInfo?.esg_reporting_framework || selectedCompany?.esg_reporting_framework || []).map(
+                                        (fw: string, i: number) => (
+                                            <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-medium">
+                                                {fw}
+                                            </span>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] text-gray-600 mb-0.5">Last Updated</p>
+                            <p className="font-medium text-xs text-gray-900">
+                                {new Date(
+                                    ghgData?.data?.metadata?.generated_at || new Date()
+                                ).toLocaleDateString()}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <p className="text-[10px] text-gray-600 mb-0.5">Reporting Year</p>
+                            <p className="font-bold text-sm text-gray-900">{currentYear || "N/A"}</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <p className="text-[10px] text-gray-600 mb-0.5">Total Area</p>
+                            <p className="font-bold text-sm text-gray-900">
+                                {formatNumber(keyMetrics?.carbon_intensity?.area_ha || 0)} ha
+                            </p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <p className="text-[10px] text-gray-600 mb-0.5">Data Sources</p>
+                            <p className="font-bold text-sm text-gray-900">
+                                {companyInfo.data_source.length|| 0} sources
+                            </p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+                            <p className="text-[10px] text-gray-600 mb-0.5">Data Confidence</p>
+                            <p className="font-bold text-sm text-green-700">{confidenceScore}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── GHG Emissions Hero Banner ──────────────────────────────── */}
+            <div
+                className="relative overflow-hidden rounded-2xl p-5 shadow-2xl"
+                style={{
+                    background: `linear-gradient(to right, ${colors.primary}, ${colors.darkGreen})`,
+                }}
+            >
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
 
                 <div className="relative z-10">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+                    <div className="flex items-center justify-between mb-3">
                         <div>
-                            <h2 className="text-3xl md:text-4xl font-bold mb-2">Your Carbon Footprint</h2>
-                            <p className="text-green-100 text-lg">Understanding your environmental impact made simple</p>
+                            <h2 className="text-xl font-bold mb-1 text-white">
+                                GHG Emissions Overview
+                            </h2>
+                            <p className="text-green-100 text-sm">
+                                Complete greenhouse gas emissions inventory
+                            </p>
                         </div>
                         <button
-                            onClick={() => setShowInsightsModal(true)}
-                            className="px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2"
+                            onClick={() => onCalculationClick("overview")}
+                            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 text-white text-xs"
                         >
-                            <Zap className="w-5 h-5" />
-                            Get Insights
+                            <Calculator className="w-3.5 h-3.5" />
+                            How Calculated?
                         </button>
                     </div>
 
-                    {/* Key Metrics Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
                         {/* Total Emissions */}
                         <div
-                            className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 cursor-pointer hover:bg-white/20 transition-all group"
-                            onClick={() => handleMetricClick(
-                                { value: ghgSummary.totalEmissions, trend: ghgSummary.reductionFromBaseline > 0 ? 'decreasing' : 'increasing' },
-                                'Total Carbon Footprint',
-                                'This is the total amount of greenhouse gases you emit'
-                            )}
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
+                            onClick={() =>
+                                handleMetricClick(
+                                    ghgSummary,
+                                    "Total GHG Emissions",
+                                    "Total greenhouse gas emissions across all scopes",
+                                    "total-emissions"
+                                )
+                            }
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <Thermometer className="w-6 h-6 text-white" />
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Thermometer className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    {getTrendIcon(ghgSummary.reductionFromBaseline > 0 ? 'decreasing' : 'increasing')}
-                                </div>
+                                <p className="text-white font-bold text-xs">Total GHG Emissions</p>
                             </div>
-                            <h3 className="text-4xl font-bold mb-2">
-                                {formatNumber(ghgSummary.totalEmissions)}
-                                <span className="text-xl ml-1 text-green-100">tons</span>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(totalEmissions)}
+                                <span className="text-sm ml-1 text-green-100">tCO₂e</span>
                             </h3>
-                            <p className="text-green-100 mb-3">Total Carbon Emitted</p>
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${ghgSummary.reductionFromBaseline > 0 ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900'}`}>
-                                {ghgSummary.reductionFromBaseline > 0 ? '↓' : '↑'} {Math.abs(ghgSummary.reductionFromBaseline).toFixed(1)}% vs baseline
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                All Scopes
                             </span>
                         </div>
 
-                        {/* Scope 1 - Direct Emissions */}
+                        {/* Scope 1 */}
                         <div
-                            className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 cursor-pointer hover:bg-white/20 transition-all group"
-                            onClick={() => handleMetricClick(
-                                { value: ghgSummary.scope1, trend: scopeBreakdown.scope1.trend },
-                                'Direct Emissions',
-                                'Emissions from sources you own or control, like company vehicles'
-                            )}
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
+                            onClick={() =>
+                                handleMetricClick(
+                                    { value: ghgSummary.scope1 },
+                                    "Scope 1 – Direct Emissions",
+                                    "Emissions from owned or controlled sources",
+                                    "scope1"
+                                )
+                            }
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <Factory className="w-6 h-6 text-white" />
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Factory className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                {getTrendIcon(scopeBreakdown.scope1.trend)}
+                                <p className="text-white font-bold text-xs">Scope 1 – Direct</p>
                             </div>
-                            <h3 className="text-4xl font-bold mb-2">
+                            <h3 className="text-xl font-normal mb-2 text-white">
                                 {formatNumber(ghgSummary.scope1)}
-                                <span className="text-xl ml-1 text-green-100">tons</span>
+                                <span className="text-sm ml-1 text-green-100">tCO₂e</span>
                             </h3>
-                            <p className="text-green-100 mb-3">From Your Operations</p>
-                            <span className="inline-block px-3 py-1 rounded-full text-xs bg-white/20 text-white font-medium">
-                                {scopeBreakdown.scope1.percentage_of_total.toFixed(0)}% of total
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                {ghgSummary.scopeComposition?.scope1?.toFixed(0) || 0}% of total
                             </span>
                         </div>
 
-                        {/* Scope 2 - Energy */}
+                        {/* Scope 2 */}
                         <div
-                            className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 cursor-pointer hover:bg-white/20 transition-all group"
-                            onClick={() => handleMetricClick(
-                                { value: ghgSummary.scope2, trend: scopeBreakdown.scope2.trend },
-                                'Energy Emissions',
-                                'Emissions from electricity and heating you purchase'
-                            )}
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
+                            onClick={() =>
+                                handleMetricClick(
+                                    { value: ghgSummary.scope2 },
+                                    "Scope 2 – Energy",
+                                    "Emissions from purchased electricity, heat, and cooling",
+                                    "scope2"
+                                )
+                            }
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <Zap className="w-6 h-6 text-white" />
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Zap className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                {getTrendIcon(scopeBreakdown.scope2.trend)}
+                                <p className="text-white font-bold text-xs">Scope 2 – Energy</p>
                             </div>
-                            <h3 className="text-4xl font-bold mb-2">
+                            <h3 className="text-xl font-normal mb-2 text-white">
                                 {formatNumber(ghgSummary.scope2)}
-                                <span className="text-xl ml-1 text-green-100">tons</span>
+                                <span className="text-sm ml-1 text-green-100">tCO₂e</span>
                             </h3>
-                            <p className="text-green-100 mb-3">From Energy Use</p>
-                            <span className="inline-block px-3 py-1 rounded-full text-xs bg-white/20 text-white font-medium">
-                                {scopeBreakdown.scope2.percentage_of_total.toFixed(0)}% of total
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                {ghgSummary.scopeComposition?.scope2?.toFixed(0) || 0}% of total
                             </span>
                         </div>
 
-                        {/* Scope 3 - Supply Chain */}
+                        {/* Net Carbon Balance */}
                         <div
-                            className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 cursor-pointer hover:bg-white/20 transition-all group"
-                            onClick={() => handleMetricClick(
-                                { value: ghgSummary.scope3, trend: scopeBreakdown.scope3.trend },
-                                'Supply Chain Emissions',
-                                'Emissions from your suppliers, products, and services'
-                            )}
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
+                            onClick={() =>
+                                handleMetricClick(
+                                    ghgSummary,
+                                    "Net Carbon Balance",
+                                    "Total emissions minus carbon sequestration",
+                                    "net-balance"
+                                )
+                            }
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-white/20">
-                                    <Wind className="w-6 h-6 text-white" />
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Activity className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                {getTrendIcon(scopeBreakdown.scope3.trend)}
+                                <p className="text-white font-bold text-xs">Net Carbon Balance</p>
                             </div>
-                            <h3 className="text-4xl font-bold mb-2">
-                                {formatNumber(ghgSummary.scope3)}
-                                <span className="text-xl ml-1 text-green-100">tons</span>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(Math.abs(netCarbonBalance))}
+                                <span className="text-sm ml-1 text-green-100">tCO₂e</span>
                             </h3>
-                            <p className="text-green-100 mb-3">From Supply Chain</p>
-                            <span className="inline-block px-3 py-1 rounded-full text-xs bg-white/20 text-white font-medium">
-                                {scopeBreakdown.scope3.percentage_of_total.toFixed(0)}% of total
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Map & Confidence Score Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Map */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-1">Your Location</h3>
-                                <p className="text-gray-600 flex items-center gap-2">
-                                    <MapPin className="w-4 h-4 text-green-600" />
-                                    {areaName}
-                                </p>
-                            </div>
-                            <div className="flex gap-2">
-                                <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                    <Share2 className="w-5 h-5 text-gray-600" />
-                                </button>
-                                <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                    <Download className="w-5 h-5 text-gray-600" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="h-96">
-                        {coordinates && coordinates.length > 0 ? (
-                            <MapContainer
-                                center={[coordinates[0]?.lat || 0, coordinates[0]?.lon || 0]}
-                                zoom={10}
-                                style={{ height: '100%', width: '100%' }}
-                                className="leaflet-container z-0"
-                            >
-                                <TileLayer
-                                    attribution='&copy; OpenStreetMap contributors'
-                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                />
-                                {coordinates.length === 1 ? (
-                                    <Marker position={[coordinates[0].lat, coordinates[0].lon]}>
-                                        <Popup>
-                                            <div className="p-2">
-                                                <h3 className="font-bold text-green-700">{areaName}</h3>
-                                                <p className="text-sm text-gray-700">Lat: {coordinates[0].lat.toFixed(4)}</p>
-                                                <p className="text-sm text-gray-700">Lon: {coordinates[0].lon.toFixed(4)}</p>
-                                            </div>
-                                        </Popup>
-                                    </Marker>
-                                ) : (
-                                    <Polygon
-                                        pathOptions={{ fillColor: COLORS.primary, color: COLORS.primary, fillOpacity: 0.3, weight: 2 }}
-                                        positions={coordinates.map((coord: any) => [coord.lat, coord.lon])}
-                                    >
-                                        <Popup>
-                                            <div className="p-2">
-                                                <h3 className="font-bold text-green-700">{areaName}</h3>
-                                                <p className="text-sm text-gray-700">Area: {areaCovered}</p>
-                                            </div>
-                                        </Popup>
-                                    </Polygon>
-                                )}
-                            </MapContainer>
-                        ) : (
-                            <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                                <div className="text-center">
-                                    <Globe className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                    <p className="text-gray-500 font-medium">Location data not available</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <div className="p-6 grid grid-cols-2 gap-4 bg-gray-50">
-                        <div className="p-4 rounded-xl bg-white border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
-                                <Globe className="w-4 h-4 text-green-600" />
-                                Coverage Area
-                            </p>
-                            <p className="font-bold text-lg text-gray-900">{areaCovered}</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
-                                <TargetIcon className="w-4 h-4 text-green-600" />
-                                Data Points
-                            </p>
-                            <p className="font-bold text-lg text-gray-900">{coordinates?.length || 0} locations</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Confidence & Goals Sidebar */}
-                <div className="space-y-6">
-                    {/* Data Confidence */}
-                    <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-gray-900">Data Quality</h3>
-                            <div className="flex items-center gap-2">
-                                <Shield className="w-5 h-5 text-green-600" />
-                                <span className={`text-3xl font-bold ${getConfidenceColor(confidenceAssessment?.overall_score || 0)}`}>
-                                    {confidenceAssessment?.overall_score?.toFixed(0) || 'N/A'}%
+                            <div className="flex items-center justify-between">
+                                <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                        netCarbonBalance < 0
+                                            ? "bg-green-400 text-green-900"
+                                            : "bg-red-400 text-red-900"
+                                    }`}
+                                >
+                                    {netCarbonBalance < 0 ? "Carbon Sink" : "Carbon Source"}
+                                </span>
+                                <span className="text-green-100 text-[10px]">
+                                    {netCarbonBalance < 0 ? "✓ Positive" : "⚠ Needs Attention"}
                                 </span>
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            {confidenceAssessment && [
-                                { key: 'data_completeness', label: 'Data Complete' },
-                                { key: 'methodological_rigor', label: 'Accuracy' },
-                                { key: 'verification_status', label: 'Verified' },
-                                { key: 'temporal_coverage', label: 'Time Coverage' }
-                            ].map(({ key, label }) => {
-                                const value = confidenceAssessment[key as keyof typeof confidenceAssessment] as number || 0;
-                                return (
-                                    <div key={key}>
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-sm font-medium text-gray-700">{label}</span>
-                                            <span className="text-sm font-bold text-gray-900">{value.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: `${value}%`,
-                                                    backgroundColor: COLORS.primary
-                                                }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                            <p className="text-sm text-gray-700 flex items-start gap-2">
-                                <Info className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                <span>{confidenceAssessment?.interpretation || 'Your data quality is being assessed'}</span>
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Quick Goals */}
-                    <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl shadow-lg p-6 text-white">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold">Your Goals</h3>
-                            <TargetIcon className="w-6 h-6" />
-                        </div>
-                        <div className="space-y-4">
-                            <div className="p-4 rounded-xl bg-white/20 backdrop-blur-sm">
-                                <p className="text-xs mb-1 text-green-100">Reduction Target</p>
-                                <p className="text-2xl font-bold">
-                                    {currentPerformance?.reduction_achieved ? Math.abs(currentPerformance.reduction_achieved).toFixed(1) : '0'}%
-                                </p>
-                                <p className="text-xs text-green-100 mt-1">from baseline year</p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-white/20 backdrop-blur-sm">
-                                <p className="text-xs mb-1 text-green-100">Annual Rate</p>
-                                <p className="text-2xl font-bold">
-                                    {currentPerformance?.annual_reduction_rate?.toFixed(1) || '0'}%
-                                </p>
-                                <p className="text-xs text-green-100 mt-1">per year</p>
-                            </div>
-                            <div className="p-4 rounded-xl bg-white/20 backdrop-blur-sm">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium">Paris Agreement</p>
-                                    <CheckCircle className="w-5 h-5" />
-                                </div>
-                                <p className="font-bold mt-1">
-                                    {reductionTargets?.alignment?.paris_agreement || 'Not assessed'}
-                                </p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Charts Grid - All 6 Graphs */}
+            {/* ─── Graphs Grid (2-col) ────────────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {overviewGraphs.map((graph) => (
-                    <GraphCard
-                        key={graph.id}
-                        title={graph.title}
-                        description={graph.description}
-                        icon={graph.icon}
-                        onClick={() => setSelectedGraph(graph)}
-                    >
-                        {graph.component}
-                    </GraphCard>
-                ))}
+                {overviewGraphs
+                    .filter((graph) => {
+                        // Hide data-dependent graphs when there is no data
+                        if (
+                            ["total-co2-stocks", "monthly-co2-changes", "biomass-breakdown", "vegetation-health"].includes(graph.id) &&
+                            !monthlyGraphData
+                        )
+                            return false;
+                        if (graph.id === "reduction-progress" && reductionData.length === 0)
+                            return false;
+                        return true;
+                    })
+                    .map((graph) => (
+                        <GraphCard
+                            key={graph.id}
+                            title={graph.title}
+                            description={graph.description}
+                            icon={graph.icon}
+                            onClick={() => setSelectedGraph(graph)}
+                            onInfoClick={() =>
+                                onCalculationClick(graph.id, {
+                                    description: `Detailed calculation methodology for ${graph.title}`,
+                                })
+                            }
+                        >
+                            {graph.component}
+                        </GraphCard>
+                    ))}
             </div>
 
-            {/* Company Info */}
-            {companyInfo && (
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h3 className="text-2xl font-bold text-gray-900 mb-1">Company Details</h3>
-                            <p className="text-gray-600">About your organization</p>
-                        </div>
-                        <Building className="w-8 h-8 text-green-600" />
+            {/* ─── Calculation Methodology ───────────────────────────────── */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                            Calculation Methodology
+                        </h3>
+                        <p className="text-gray-600">
+                            Understand how GHG emissions are calculated
+                        </p>
                     </div>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-sm text-gray-600 mb-2">Company</p>
-                            <p className="font-bold text-lg text-gray-900">{companyInfo.name || 'N/A'}</p>
+                    <Settings className="w-8 h-8" style={{ color: colors.primary }} />
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Total Emissions */}
+                    <div
+                        className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 cursor-pointer hover:border-green-300 transition-all group"
+                        onClick={() =>
+                            onCalculationClick("emissions", calculationFormulas.emissions)
+                        }
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 rounded-xl bg-green-100">
+                                <Cloud className="w-6 h-6" style={{ color: colors.primary }} />
+                            </div>
+                            <h4 className="font-bold text-lg text-gray-900">Total Emissions</h4>
                         </div>
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-sm text-gray-600 mb-2">Industry</p>
-                            <p className="font-bold text-lg text-gray-900">{companyInfo.industry || 'N/A'}</p>
+                        <p className="text-gray-700 mb-4">Sum of Scope 1, 2, and 3 emissions</p>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-green-600 font-medium">
+                                Formula: Scope 1 + Scope 2 + Scope 3
+                            </span>
+                            <Info className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-sm text-gray-600 mb-2">Location</p>
-                            <p className="font-bold text-lg text-gray-900">{companyInfo.country || 'N/A'}</p>
+                    </div>
+
+                    {/* Carbon Intensity */}
+                    <div
+                        className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 cursor-pointer hover:border-blue-300 transition-all group"
+                        onClick={() =>
+                            onCalculationClick("intensity", calculationFormulas.intensity)
+                        }
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 rounded-xl bg-blue-100">
+                                <Scale className="w-6 h-6" style={{ color: colors.primary }} />
+                            </div>
+                            <h4 className="font-bold text-lg text-gray-900">Carbon Intensity</h4>
                         </div>
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                            <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
-                                <Award className="w-4 h-4 text-green-600" />
-                                Sustainability Rating
-                            </p>
-                            <p className="font-bold text-lg text-green-700">{companyInfo.esg_rating || 'Not Rated'}</p>
+                        <p className="text-gray-700 mb-4">Emissions per unit area</p>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-blue-600 font-medium">
+                                Formula: Emissions ÷ Area
+                            </span>
+                            <Info className="w-5 h-5 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                    </div>
+
+                    {/* Net Balance */}
+                    <div
+                        className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 cursor-pointer hover:border-purple-300 transition-all group"
+                        onClick={() =>
+                            onCalculationClick("net-balance", calculationFormulas.netBalance)
+                        }
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 rounded-xl bg-purple-100">
+                                <Calculator className="w-6 h-6" style={{ color: colors.primary }} />
+                            </div>
+                            <h4 className="font-bold text-lg text-gray-900">Net Balance</h4>
+                        </div>
+                        <p className="text-gray-700 mb-4">Emissions minus sequestration</p>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-purple-600 font-medium">
+                                Formula: Emissions − Sequestration
+                            </span>
+                            <Info className="w-5 h-5 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Executive Summary */}
-            {summary && (
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
-                    <div className="flex items-center justify-between mb-6">
+
+            {/* ─── Leaflet Map ────────────────────────────────────────────── */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+                    <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="text-2xl font-bold text-gray-900">What This Means</h3>
-                            <p className="text-gray-600">Simple summary of your impact</p>
-                        </div>
-                        <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-                            summary.outlook.toLowerCase().includes('positive') 
-                                ? 'bg-green-100 text-green-800' 
-                                : summary.outlook.toLowerCase().includes('neutral') 
-                                    ? 'bg-yellow-100 text-yellow-800' 
-                                    : 'bg-red-100 text-red-800'
-                        }`}>
-                            {summary.outlook}
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100">
-                            <p className="text-gray-700 leading-relaxed text-lg">
-                                {summary.overall_assessment}
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                Company Location
+                            </h3>
+                            <p className="text-gray-600 flex items-center gap-2">
+                                <MapPin className="w-4 h-4" style={{ color: colors.primary }} />
+                                {areaName}
                             </p>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <h4 className="font-semibold mb-3 flex items-center gap-2 text-lg">
-                                    <CheckCircle className="w-5 h-5 text-green-600" />
-                                    What's Going Well
-                                </h4>
-                                <ul className="space-y-2">
-                                    {summary.key_achievements.slice(0, 3).map((achievement: string, index: number) => (
-                                        <li key={index} className="flex items-start gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
-                                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <span className="text-green-700 font-bold text-sm">{index + 1}</span>
-                                            </div>
-                                            <span className="text-gray-700">{achievement}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold mb-3 flex items-center gap-2 text-lg">
-                                    <AlertCircle className="w-5 h-5 text-orange-600" />
-                                    Areas to Improve
-                                </h4>
-                                <ul className="space-y-2">
-                                    {summary.critical_areas.slice(0, 3).map((area: string, index: number) => (
-                                        <li key={index} className="flex items-start gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
-                                            <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <span className="text-orange-700 font-bold text-sm">{index + 1}</span>
-                                            </div>
-                                            <span className="text-gray-700">{area}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                        <div className="flex gap-2">
+                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
+                                <Share2 className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
+                                <Download className="w-5 h-5 text-gray-600" />
+                            </button>
                         </div>
-
-                        {summary.next_steps && summary.next_steps.length > 0 && (
-                            <div className="p-6 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
-                                <h4 className="font-semibold mb-4 text-lg">Your Next Steps</h4>
-                                <ul className="space-y-3">
-                                    {summary.next_steps.map((step: string, index: number) => (
-                                        <li key={index} className="flex items-start gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center flex-shrink-0 font-bold">
-                                                {index + 1}
-                                            </div>
-                                            <span className="text-gray-700 pt-1">{step}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
                     </div>
                 </div>
-            )}
+          <div className="h-96">
+    {companyInfo?.area_of_interest_metadata?.coordinates?.length ? (
+        <MapContainer
+            center={[
+                companyInfo.area_of_interest_metadata.coordinates[0].lat,
+                companyInfo.area_of_interest_metadata.coordinates[0].lon,
+            ]}
+            zoom={10}
+            style={{ height: "100%", width: "100%" }}
+            className="leaflet-container z-0"
+        >
+            <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
 
-            {/* Graph Modal */}
+            {companyInfo.area_of_interest_metadata.coordinates.length === 1 ? (
+                <Marker
+                    position={[
+                        companyInfo.area_of_interest_metadata.coordinates[0].lat,
+                        companyInfo.area_of_interest_metadata.coordinates[0].lon,
+                    ]}
+                >
+                    <Popup>
+                        <div className="p-2">
+                            <h3 className="font-bold" style={{ color: colors.primary }}>
+                                {companyInfo.area_of_interest_metadata.name}
+                            </h3>
+                            <p className="text-sm text-gray-700">
+                                Lat: {companyInfo.area_of_interest_metadata.coordinates[0].lat.toFixed(4)}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                                Lon: {companyInfo.area_of_interest_metadata.coordinates[0].lon.toFixed(4)}
+                            </p>
+                        </div>
+                    </Popup>
+                </Marker>
+            ) : (
+                <Polygon
+                    pathOptions={{
+                        fillColor: colors.primary,
+                        color: colors.primary,
+                        fillOpacity: 0.3,
+                        weight: 2,
+                    }}
+                    positions={companyInfo.area_of_interest_metadata.coordinates.map(
+                        (coord) => [coord.lat, coord.lon]
+                    )}
+                >
+                    <Popup>
+                        <div className="p-2">
+                            <h3 className="font-bold" style={{ color: colors.primary }}>
+                                {companyInfo.area_of_interest_metadata.name}
+                            </h3>
+                            <p className="text-sm text-gray-700">
+                                Area Covered: {companyInfo.area_of_interest_metadata.area_covered}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                                Points: {companyInfo.area_of_interest_metadata.coordinates.length}
+                            </p>
+                        </div>
+                    </Popup>
+                </Polygon>
+            )}
+        </MapContainer>
+    ) : (
+        <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="text-center">
+                <Globe
+                    className="w-16 h-16 mx-auto mb-4 opacity-20"
+                    style={{ color: colors.primary }}
+                />
+                <p className="text-gray-500 font-medium">
+                    No location data available
+                </p>
+            </div>
+        </div>
+    )}
+</div>
+
+            </div>
+
+            {/* ─── Graph Expanded Modal ──────────────────────────────────── */}
             {selectedGraph && (
-                <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" 
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={() => setSelectedGraph(null)}
                 >
-                    <div 
-                        className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden" 
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{selectedGraph.title}</h3>
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                                        {selectedGraph.title}
+                                    </h3>
                                     <p className="text-gray-600">{selectedGraph.description}</p>
                                 </div>
                                 <div className="flex gap-2">
@@ -1021,28 +1063,33 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                         </div>
                         <div className="p-8">
-                            <div className="h-[500px]">
-                                {selectedGraph.component}
-                            </div>
+                            <div className="h-[500px]">{selectedGraph.component}</div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Metric Detail Modal */}
+            {/* ─── Metric Detail Modal ────────────────────────────────────── */}
             {showMetricModal && selectedMetric && (
-                <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" 
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     onClick={() => setShowMetricModal(false)}
                 >
-                    <div 
-                        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full" 
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-3xl">
+                        <div
+                            className="p-6 border-b border-gray-200 rounded-t-3xl text-white"
+                            style={{
+                                background: `linear-gradient(to right, ${colors.primary}, ${colors.darkGreen})`,
+                            }}
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-2xl font-bold mb-1">{selectedMetric.title}</h3>
+                                    <h3 className="text-2xl font-bold mb-1">
+                                        {selectedMetric.title}
+                                    </h3>
                                     <p className="text-green-100">{selectedMetric.description}</p>
                                 </div>
                                 <button
@@ -1060,144 +1107,22 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 </div>
                                 <div className="text-xl text-gray-600">tons of CO₂</div>
                             </div>
-                            <div className="space-y-4">
-                                {selectedMetric.trend && (
-                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-                                        <div className="flex items-center gap-2 text-gray-800">
-                                            {getTrendIcon(selectedMetric.trend)}
-                                            <span className="font-semibold">
-                                                Trend: {selectedMetric.trend.includes('decreas') || selectedMetric.trend.includes('improv') ? 'Improving ✓' : 'Needs attention'}
-                                            </span>
-                                        </div>
+                            <div className="p-6 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+                                <h4 className="font-bold text-gray-900 mb-2">Recommendations</h4>
+                                <div className="space-y-2 text-gray-700">
+                                    <div className="flex items-start gap-2">
+                                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                                        <span>Monitor this metric regularly to track progress</span>
                                     </div>
-                                )}
-                                <div className="p-6 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-                                    <h4 className="font-bold text-gray-900 mb-2">What You Can Do</h4>
-                                    <ul className="space-y-2 text-gray-700">
-                                        <li className="flex items-start gap-2">
-                                            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                            <span>Monitor this metric regularly to track progress</span>
-                                        </li>
-                                        <li className="flex items-start gap-2">
-                                            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                            <span>Set reduction targets and action plans</span>
-                                        </li>
-                                        <li className="flex items-start gap-2">
-                                            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                            <span>Explore renewable energy and efficiency improvements</span>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* AI Insights Modal */}
-            {showInsightsModal && (
-                <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" 
-                    onClick={() => setShowInsightsModal(false)}
-                >
-                    <div 
-                        className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" 
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-t-3xl sticky top-0">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 rounded-xl bg-white/20">
-                                        <Zap className="w-6 h-6" />
+                                    <div className="flex items-start gap-2">
+                                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                                        <span>Set reduction targets and action plans</span>
                                     </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold">Your Personalized Insights</h3>
-                                        <p className="text-purple-100">AI-powered recommendations just for you</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setShowInsightsModal(false)}
-                                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-green-100 flex-shrink-0">
-                                        <TrendingDown className="w-6 h-6 text-green-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Great Progress!</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            Your emissions are {ghgSummary.reductionFromBaseline > 0 ? 'down' : 'up'} {Math.abs(ghgSummary.reductionFromBaseline).toFixed(1)}% 
-                                            compared to your baseline. {ghgSummary.reductionFromBaseline > 0 
-                                                ? "Keep up the excellent work! You're on the right track to meeting your sustainability goals." 
-                                                : "There's room for improvement. Let's work together to reduce your carbon footprint."}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-blue-100 flex-shrink-0">
-                                        <Shield className="w-6 h-6 text-blue-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Data Confidence</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            Your data quality score is {confidenceAssessment?.overall_score?.toFixed(0) || 'N/A'}%. 
-                                            {(confidenceAssessment?.overall_score || 0) >= 80 
-                                                ? " Excellent! Your data is reliable and can be trusted for important decisions." 
-                                                : " There's room to improve your data collection for more accurate insights."}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-yellow-100 flex-shrink-0">
-                                        <AlertCircle className="w-6 h-6 text-yellow-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Quick Wins</h4>
-                                        <ul className="space-y-2 text-gray-700">
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Switch to renewable energy sources to cut Scope 2 emissions by up to 40%</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Optimize your supply chain - your Scope 3 accounts for {scopeBreakdown.scope3.percentage_of_total.toFixed(0)}% of total emissions</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Implement energy efficiency measures in your operations</span>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-purple-100 flex-shrink-0">
-                                        <Award className="w-6 h-6 text-purple-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Industry Comparison</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            {intensityAnalysis?.performance 
-                                                ? `You're performing ${intensityAnalysis.performance.toLowerCase()} compared to industry standards. `
-                                                : 'Industry comparison data is being calculated. '}
-                                            {intensityAnalysis?.carbon_intensity && intensityAnalysis?.benchmark 
-                                                ? `Your carbon intensity is ${intensityAnalysis.carbon_intensity.toFixed(2)} vs industry average of ${intensityAnalysis.benchmark}.`
-                                                : ''}
-                                        </p>
+                                    <div className="flex items-start gap-2">
+                                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                                        <span>
+                                            Explore renewable energy and efficiency improvements
+                                        </span>
                                     </div>
                                 </div>
                             </div>

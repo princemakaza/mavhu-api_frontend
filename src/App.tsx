@@ -68,6 +68,12 @@ import GhgEmissionScreen from "./pages/Admin_Pages/esg_api_screen/ghg_emmision_s
 import CropYieldCarbonEmissionScreen from "./pages/Admin_Pages/esg_api_screen/crop_yield_screen";
 import EsgMetricsScreen from "./pages/Admin_Pages/esg_api_screen/esg_metric_screen";
 import BiodiversityLandUseScreen from "./pages/Admin_Pages/esg_api_screen/BiodiversityLandUseScreen";
+import IrrigationWaterScreen from "./pages/Admin_Pages/esg_api_screen/irrigation_water_screen";
+import EnvironmentalDataScreen from "./pages/Admin_Pages/esg_api_screen/environment_screen";
+import SocialDataScreen from "./pages/Admin_Pages/esg_api_screen/social_esg_screen";
+import GovernanceDataScreen from "./pages/Admin_Pages/esg_api_screen/governace_esg_screen";
+import Report_Page from "./pages/Admin_Pages/report_admin_screen";
+import FarmComplianceScreen from "./pages/Admin_Pages/esg_api_screen/farm_compliance_screen";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -94,6 +100,7 @@ const App = () => (
             <Route path="/reserourceupload" element={<ReserourceUpload />} />
             <Route path="/reserourcewalle" element={<ReserourceWalle />} />
             <Route path="/admin_dashboard" element={<Admin_Dashboard />} />
+            <Route path="/admin_report" element={<Report_Page />} />
             <Route path="/admin_companies" element={<CompanyManagementScreen />} />
             <Route path="/admin_soil_health_carbon" element={<SoilHealthCarbonEmissionScreen />} />
             <Route path="/admin_soil_health_carbon/:companyId" element={<SoilHealthCarbonEmissionScreen />} />
@@ -105,6 +112,32 @@ const App = () => (
             <Route path="/admin_esg_metric/:companyId" element={<EsgMetricsScreen />} />
             <Route path="/admin_biodiversity_land_use" element={<BiodiversityLandUseScreen />} />
             <Route path="/admin_biodiversity_land_use/:companyId" element={<BiodiversityLandUseScreen />} />
+            <Route path="/admin_irrigation_water" element={<IrrigationWaterScreen />} />
+            <Route path="/admin_irrigation_water/:companyId" element={<IrrigationWaterScreen />} />
+            <Route path="/admin_farm_compliance" element={<FarmComplianceScreen />} />
+            <Route path="/admin_farm_compliance/:companyId" element={<FarmComplianceScreen />} />
+            <Route path="/admin_governance_data" element={<GovernanceDataScreen />} />
+            <Route path="/admin_governance_data/:companyId" element={<GovernanceDataScreen />} />
+
+
+            <Route
+              path="/admin_social_data"
+              element={<SocialDataScreen />}
+            />
+            <Route
+              path="/admin_social_data/:companyId"
+              element={<SocialDataScreen />}
+            />
+
+            <Route
+              path="/admin_environmental_data"
+              element={<EnvironmentalDataScreen />}
+            />
+            <Route
+              path="/admin_environmental_data/:companyId"
+              element={<EnvironmentalDataScreen />}
+            />
+
             <Route path="/students_dashboard" element={<StudentDashboard />} />
             <Route path="/chat" element={<ChatApp />} />
             <Route path="/library" element={<Library />} />

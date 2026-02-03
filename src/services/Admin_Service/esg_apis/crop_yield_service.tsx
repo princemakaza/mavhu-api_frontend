@@ -22,6 +22,234 @@ export interface CompanyInfo {
     latest_report_year: number;
 }
 
+export interface DataSources {
+    _id: string;
+    company: string;
+    emission_references: {
+        methodology_statement: string;
+        emission_factors: EmissionFactor[];
+        global_warming_potentials: GlobalWarmingPotentials;
+        conversion_factors: ConversionFactors;
+    };
+    yearly_data: YearlyData[];
+    summary: {
+        net_carbon_balance_tco2e: number;
+    };
+    framework: {
+        sequestration_methodology: string;
+        emission_methodology: string;
+        calculation_approach: string;
+        data_sources: any[];
+    };
+    data_management: {
+        validation_status: string;
+        import_history: any[];
+        validation_errors: any[];
+    };
+    created_by: {
+        _id: string;
+        email: string;
+    };
+    last_updated_by: {
+        _id: string;
+        email: string;
+    };
+    status: string;
+    is_active: boolean;
+    created_at: string;
+    last_updated_at: string;
+    __v: number;
+    comprehensive_summary: ComprehensiveSummary;
+}
+
+export interface MonthlyCarbonDataDetail {
+    month: string;
+    month_number: number;
+    year: number;
+    ndvi_max: number;
+    agb_t_per_ha: number;
+    bgb_t_per_ha: number;
+    biomass_c_t_per_ha: number;
+    biomass_co2_t_per_ha: number;
+    biomass_co2_total_t: number;
+    delta_biomass_co2_t: number;
+    soc_tc_per_ha: number;
+    soc_co2_t_per_ha: number;
+    soc_co2_total_t: number;
+    delta_soc_co2_t: number;
+    net_co2_stock_t: number;
+    net_co2_change_t: number;
+    meaning: string;
+    is_baseline: boolean;
+    _id: string;
+}
+
+export interface SequestrationMethodology {
+    component: string;
+    method_applied: string;
+    standard_source: string;
+    purpose: string;
+    _id: string;
+}
+
+export interface VegetationSummary {
+    average_ndvi: number;
+    max_ndvi: number;
+    min_ndvi: number;
+    ndvi_std_dev: number;
+    growing_season_months: GrowingSeasonMonth[];
+}
+
+export interface SOCSummary {
+    average_soc: number;
+    soc_change: number;
+    sequestration_rate: number;
+}
+
+export interface BiomassSummary {
+    average_biomass: number;
+    peak_biomass_month: string;
+    total_biomass_co2: number;
+}
+
+export interface AnnualSummary {
+    total_biomass_co2_t: number;
+    total_soc_co2_t: number;
+    net_co2_stock_t: number;
+    net_co2_change_t: number;
+    sequestration_total_tco2: number;
+}
+
+export interface EmissionSourceDetail {
+    source: string;
+    parameter: string;
+    unit: string;
+    annual_per_ha: number;
+    emission_factor: string;
+    ef_number: number;
+    gwp: number;
+    tco2e_per_ha_per_year: number;
+    methodological_justification: string;
+    reference: string;
+    calculation_notes: string;
+    is_active: boolean;
+    _id: string;
+}
+
+export interface ScopeEmissionSource {
+    source: string;
+    parameter: string;
+    unit: string;
+    annual_per_ha: number;
+    emission_factor: string;
+    tco2e_per_ha_per_year: number;
+    total_tco2e: number;
+}
+
+export interface Scope3Category {
+    category: string;
+    parameter: string;
+    unit: string;
+    annual_activity_per_ha: number;
+    emission_factor: string;
+    ef_number: number;
+    tco2e_per_ha_per_year: number;
+    methodological_justification: string;
+    reference: string;
+    calculation_notes: string;
+    is_active: boolean;
+    _id: string;
+}
+
+export interface Scope3CategoryDetail {
+    category: string;
+    parameter: string;
+    unit: string;
+    annual_activity_per_ha: number;
+    emission_factor: string;
+    tco2e_per_ha_per_year: number;
+    total_tco2e: number;
+}
+
+export interface ScopeData {
+    sources: EmissionSourceDetail[];
+    total_tco2e_per_ha: number;
+    total_tco2e: number;
+    detailed_sources?: ScopeEmissionSource[];
+    categories?: Scope3Category[];
+    detailed_categories?: Scope3CategoryDetail[];
+}
+
+export interface IntensityMetrics {
+    scope1_intensity: number;
+    scope2_intensity: number;
+    scope3_intensity: number;
+    total_intensity: number;
+}
+
+export interface YearlyData {
+    sequestration: {
+        annual_summary: AnnualSummary;
+        reporting_area_ha: number;
+        soc_area_ha: number;
+        monthly_data: MonthlyCarbonDataDetail[];
+        methodologies: SequestrationMethodology[];
+        vegetation_summary: VegetationSummary;
+        soc_summary: SOCSummary;
+        biomass_summary: BiomassSummary;
+    };
+    emissions: {
+        scope1: ScopeData;
+        scope2: ScopeData;
+        scope3: ScopeData;
+        total_scope_emission_tco2e_per_ha: number;
+        total_scope_emission_tco2e: number;
+        net_total_emission_tco2e: number;
+        intensity_metrics: IntensityMetrics;
+    };
+    data_quality: {
+        completeness_score: number;
+        verification_status: string;
+    };
+    year: number;
+    source_file: string;
+    imported_at: string;
+    _id: string;
+    last_updated_at: string;
+}
+
+export interface ComprehensiveSummary {
+    period: {
+        start_year: number;
+        end_year: number;
+        years_count: number;
+    };
+    totals: {
+        total_sequestration_tco2: number;
+        total_emissions_tco2e: number;
+        net_carbon_balance: number;
+        average_area_ha: number;
+    };
+    averages: {
+        annual_sequestration: number;
+        annual_emissions: number;
+        carbon_intensity: number;
+        sequestration_rate: number;
+    };
+    trends: {
+        sequestration_trend: number;
+        emission_trend: number;
+        sequestration_direction: string;
+        emission_direction: string;
+    };
+    composition: {
+        scope1_percentage: number;
+        scope2_percentage: number;
+        scope3_percentage: number;
+        soc_sequestration_percentage: number;
+    };
+}
+
 export interface Metadata {
     api_version: string;
     calculation_version: string;
@@ -29,11 +257,8 @@ export interface Metadata {
     generated_at: string;
     endpoint: string;
     company_id: string;
-    year_requested: number | null;
-    data_sources: string[];
-    calculation_methods: string[];
-    spatial_resolution: string;
-    temporal_resolution: string;
+    year_requested: number;
+    data_sources: DataSources;
 }
 
 export interface ReportingPeriod {
@@ -62,18 +287,18 @@ export interface GrowingSeasonMonth {
 
 export interface CalculationFactors {
     base_yield: number;
-    ndvi_factor: string;
-    water_efficiency: string;
-    energy_efficiency: string;
-    biomass_factor: string;
-    soil_health_factor: string;
-    climate_factor: string;
+    ndvi_factor: number;
+    water_efficiency: number;
+    energy_efficiency: number;
+    biomass_factor: number;
+    soil_health_factor: number;
+    climate_factor: number;
 }
 
 export interface ComparisonToIndustryAverage {
     industry_average: number;
     company_yield: number;
-    percentage_difference: string;
+    percentage_difference: number;
     status: string;
     potential_improvement: number;
 }
@@ -216,6 +441,35 @@ export interface EnvironmentalMetrics {
     };
 }
 
+export interface EmissionFactor {
+    source: string;
+    activity_data: string;
+    default_ef_start: string;
+    notes_source: string;
+    emission_factor_code: string;
+    emission_factor_value: number;
+    emission_factor_unit: string;
+    gwp_value: number;
+    gwp_source: string;
+    conversion_factor: number;
+    is_active: boolean;
+    created_at: string;
+    last_updated_at: string;
+    _id: string;
+}
+
+export interface GlobalWarmingPotentials {
+    n2o_gwp: number;
+    ch4_gwp: number;
+    source: string;
+}
+
+export interface ConversionFactors {
+    n2o_n_to_n2o: number;
+    carbon_to_co2: number;
+    carbon_fraction: number;
+}
+
 export interface CarbonEmissionFramework {
     sequestration_methodology: string;
     emission_methodology: string;
@@ -267,34 +521,6 @@ export interface MonthlyCarbonData {
     meaning: string;
 }
 
-export interface VegetationSummary {
-    average_ndvi: number;
-    max_ndvi: number;
-    min_ndvi: number;
-    ndvi_std_dev: number;
-    growing_season_months: GrowingSeasonMonth[];
-}
-
-export interface SOCSummary {
-    average_soc: number;
-    soc_change: number;
-    sequestration_rate: number;
-}
-
-export interface BiomassSummary {
-    average_biomass: number;
-    peak_biomass_month: string;
-    total_biomass_co2: number;
-}
-
-export interface AnnualSummary {
-    total_biomass_co2_t: number;
-    total_soc_co2_t: number;
-    net_co2_stock_t: number;
-    net_co2_change_t: number;
-    sequestration_total_tco2: number;
-}
-
 export interface EmissionSource {
     source: string;
     parameter: string;
@@ -315,26 +541,26 @@ export interface EmissionCategory {
     total_tco2e: number;
 }
 
-export interface ScopeData {
+export interface CarbonScopeData {
     total_tco2e: number;
     total_tco2e_per_ha: number;
     sources?: EmissionSource[];
     categories?: EmissionCategory[];
 }
 
-export interface IntensityMetrics {
+export interface CarbonIntensityMetrics {
     scope1_intensity: number;
     scope2_intensity: number;
     scope3_intensity: number;
     total_intensity: number;
 }
 
-export interface DataQuality {
+export interface CarbonDataQuality {
     completeness_score: number;
     verification_status: string;
 }
 
-export interface YearlyCarbonData {
+export interface CarbonYearlyData {
     year: number;
     sequestration: {
         reporting_area_ha: number;
@@ -346,53 +572,24 @@ export interface YearlyCarbonData {
         annual_summary: AnnualSummary;
     };
     emissions: {
-        scope1: ScopeData;
-        scope2: ScopeData;
-        scope3: ScopeData;
+        scope1: CarbonScopeData;
+        scope2: CarbonScopeData;
+        scope3: CarbonScopeData;
         totals: {
             total_scope_emission_tco2e: number;
             total_scope_emission_tco2e_per_ha: number;
             net_total_emission_tco2e: number;
         };
-        intensity_metrics: IntensityMetrics;
+        intensity_metrics: CarbonIntensityMetrics;
     };
-    data_quality: DataQuality;
-}
-
-export interface EmissionFactor {
-    source: string;
-    activity_data: string;
-    default_ef_start: string;
-    notes_source: string;
-    emission_factor_code: string;
-    emission_factor_value: number;
-    emission_factor_unit: string;
-    gwp_value: number;
-    gwp_source: string;
-    conversion_factor: number;
-    is_active: boolean;
-    created_at: string;
-    last_updated_at: string;
-    _id: string;
-}
-
-export interface GlobalWarmingPotentials {
-    n2o_gwp: number;
-    ch4_gwp: number;
-    source: string;
-}
-
-export interface ConversionFactors {
-    n2o_n_to_n2o: number;
-    carbon_to_co2: number;
-    carbon_fraction: number;
+    data_quality: CarbonDataQuality;
 }
 
 export interface CarbonEmissionAccounting {
     framework: CarbonEmissionFramework;
     methodology: string;
     summary: CarbonEmissionSummary;
-    yearly_data: YearlyCarbonData[];
+    yearly_data: CarbonYearlyData[];
     emission_factors: EmissionFactor[];
     global_warming_potentials: GlobalWarmingPotentials;
     conversion_factors: ConversionFactors;
@@ -415,52 +612,41 @@ export interface SatelliteIndicators {
 
 export interface GraphDataset {
     label: string;
-    data: number[] | { x: number; y: number; r: number }[];
-    borderColor?: string;
+    data: number[];
     backgroundColor?: string | string[];
+    borderColor?: string;
+    pointBackgroundColor?: string;
     fill?: boolean;
     tension?: number;
-    borderDash?: number[];
-    pointBackgroundColor?: string;
     borderWidth?: number;
-}
-
-export interface GraphOptions {
-    scales?: {
-        x?: {
-            title?: {
-                display: boolean;
-                text: string;
-            };
-        };
-        y?: {
-            title?: {
-                display: boolean;
-                text: string;
-            };
-        };
-    };
 }
 
 export interface Graph {
     type: string;
     title: string;
     description: string;
-    labels: string[] | number[];
+    labels: string[];
     datasets: GraphDataset[];
-    options?: GraphOptions;
 }
 
-// FIXED: Updated to match both API responses
 export interface Graphs {
-    yield_trend?: Graph; // Only in 2025 response
     risk_distribution: Graph;
     ndvi_trend: Graph;
     soc_trend: Graph;
     biomass_accumulation: Graph;
     emissions_breakdown: Graph;
-    yield_risk_correlation: Graph;
+    carbon_balance: Graph;
     forecast_confidence: Graph;
+}
+
+export interface Recommendation {
+    category: string;
+    priority: string;
+    action: string;
+    impact: string;
+    timeline: string;
+    cost_estimate: string;
+    roi_estimate: string;
 }
 
 export interface SeasonalAdvisory {
@@ -492,12 +678,6 @@ export interface Summary {
     next_steps: string[];
 }
 
-/**
- * =====================
- * Main Response Interface
- * =====================
- */
-
 export interface CropYieldForecastResponse {
     message: string;
     api: string;
@@ -512,31 +692,22 @@ export interface CropYieldForecastResponse {
         carbon_emission_accounting: CarbonEmissionAccounting;
         satellite_indicators: SatelliteIndicators;
         graphs: Graphs;
-        recommendations: any[];
+        recommendations: Recommendation[];
         seasonal_advisory: SeasonalAdvisory;
         summary: Summary;
     };
 }
 
 /**
- * =====================
  * Request Parameters
- * =====================
  */
-
 export interface CropYieldForecastParams {
     companyId: string;
-    year?: number; // Optional year parameter
+    year?: number;
 }
 
 /**
- * =====================
  * Crop Yield Service
- * =====================
- */
-
-/**
- * Get crop yield forecast data for a company
  */
 export const getCropYieldForecastData = async (
     params: CropYieldForecastParams
@@ -544,7 +715,6 @@ export const getCropYieldForecastData = async (
     try {
         const { companyId, year } = params;
 
-        // Build query parameters
         const queryParams = new URLSearchParams();
         if (year !== undefined) {
             queryParams.append('year', year.toString());
@@ -559,7 +729,6 @@ export const getCropYieldForecastData = async (
         const statusCode = error.response?.status;
         const errorMessage = error.response?.data?.error || error.response?.data?.message;
 
-        // Handle specific error cases
         switch (statusCode) {
             case 400:
                 throw new Error(errorMessage || "Invalid request parameters");
@@ -584,6 +753,9 @@ export const getCropYieldForecastData = async (
         }
     }
 };
+
+// Keep all your utility functions as they are (they should work with the updated interfaces)
+// ... rest of your utility functions remain the same
 
 /**
  * Get available years for crop yield forecast data

@@ -44,14 +44,9 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
     {
       icon: BarChart,
       label: "Reports",
-      path: "/reports",
+      path: "/admin_report",
     },
-    {
-      icon: Settings,
-      label: "Settings",
-      path: "/settings",
-    },
-  ];
+  ]
 
   // Simplified API items without descriptions
   const apiItems = [
@@ -59,14 +54,15 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
     { icon: TrendingUp, label: "Crop Yield", path: "/admin_crop_yield_carbon" },
     { icon: Cloud, label: "GHG Emissions", path: "/admin_ghg_emission" },
     { icon: Globe, label: "Biodiversity", path: "/admin_biodiversity_land_use" },
-    { icon: Droplet, label: "Water Risk", path: "/apis/water-risk" },
-    { icon: Shield, label: "Compliance", path: "/apis/compliance" },
+    { icon: Droplet, label: "Water Risk", path: "/admin_irrigation_water" },
+    { icon: Leaf, label: "Environmental Data", path: "/admin_environmental_data" },
+    { icon: Users, label: "Social Data", path: "/admin_social_data" },
+    { icon: Building, label: "Governance", path: "/admin_governance_data" },
+    { icon: Shield, label: "Compliance", path: "/admin_farm_compliance" },
     { icon: Zap, label: "Energy", path: "/apis/energy" },
     { icon: Recycle, label: "Waste", path: "/apis/waste" },
-    { icon: Users, label: "Workforce", path: "/apis/workforce" },
     { icon: Heart, label: "Health & Safety", path: "/apis/health-safety" },
-    { icon: Building, label: "Governance", path: "/apis/governance" },
-    { icon: BarChart, label: "ESG Score", path: "/apis/esg-score" },
+    
   ];
   const handleNavigation = (path: To) => {
     navigate(path);

@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-
-// Icons
 import {
     FileText,
     Download,
@@ -28,40 +26,52 @@ import {
     MoreVertical,
     Printer,
     ClipboardCheck,
-    Trees,
-    Leaf,
+    Droplet,
+    Waves,
+    Gauge,
+    CloudRain,
+    Factory,
     Users,
-    Globe,
     BarChartHorizontal,
     FileSpreadsheet,
     Calculator,
-    Target as TargetIcon,
     Zap,
     Layers,
     BookOpen,
     TrendingUp,
     TrendingDown,
     BarChart2,
+    Thermometer,
+    Wind,
+    Sprout,
 } from "lucide-react";
 
-// Import types and helper functions from biodiversity API
+// Import types and helper functions from water API
 import {
-    BiodiversityLandUseResponse,
-    getBiodiversityCompany,
-    getBiodiversityCarbonEmissionAccounting,
-    getEsgMetrics,
-    getBiodiversityMetadata,
-    getKeyStatistics,
-    getCarbonBalance,
-    getTotalCarbonEmissions,
-    getCarbonSequestration,
-    getYearlyCarbonData,
-    getCurrentBiodiversityYear,
-    getBiodiversitySummaryAssessment,
-    getEnvironmentalMetrics,
-    getSocialMetrics,
-    getGovernanceMetrics
-} from '../../../../services/Admin_Service/esg_apis/biodiversity_api_service';
+    IrrigationWaterResponse,
+    getIrrigationWaterCompany,
+    getIrrigationWaterMetadata,
+    getWaterUsageAnalysis,
+    getEnvironmentalMetricsData,
+    getAllEsgMetrics,
+    getStakeholderBenefits,
+    getIrrigationWaterSummary,
+    getConfidenceScore,
+    getCurrentIrrigationWaterYear,
+    getRecommendations,
+    getKeyFindings,
+    getNextSteps,
+    getWaterUsagePerHectare,
+    getWaterUsageBenchmark,
+    getWaterEfficiencyScore,
+    getWaterSavingsPotential,
+    getWaterCostSavings,
+    getWaterShortageRisk,
+    getWaterShortageRiskLevel,
+    getWaterShortageRiskProbability,
+    getWaterShortageMitigationStrategies,
+    getWaterEfficiencyROIPeriod,
+} from '../../../../services/Admin_Service/esg_apis/water_risk_service';
 
 // Color Palette
 const COLORS = {
@@ -75,11 +85,14 @@ const COLORS = {
     danger: '#EF4444',
     info: '#3B82F6',
     purple: '#8B5CF6',
+    waterBlue: '#0D9488',
+    waterTeal: '#14B8A6',
 };
 
 interface ReportsTabProps {
-    biodiversityData: BiodiversityLandUseResponse | null;
+    waterData: IrrigationWaterResponse | null;
     formatNumber: (num: number) => string;
+    formatCurrency: (num: number) => string;
     formatPercent: (num: number) => string;
     selectedYear: number | null;
     availableYears: number[];
@@ -87,8 +100,9 @@ interface ReportsTabProps {
 }
 
 const ReportsTab: React.FC<ReportsTabProps> = ({
-    biodiversityData,
+    waterData,
     formatNumber,
+    formatCurrency,
     formatPercent,
     availableYears,
     onMetricClick,
@@ -98,61 +112,88 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
     const [exportFormat, setExportFormat] = useState<'pdf' | 'excel' | 'csv'>('pdf');
     const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-    if (!biodiversityData) {
+    if (!waterData) {
         return (
             <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl">
                 <div className="text-center max-w-md p-8">
                     <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
                         <FileText className="w-12 h-12 text-green-600" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-3">No Reports Available</h3>
-                    <p className="text-gray-600">Select a company to view compliance and reporting information.</p>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">No Water Reports Available</h3>
+                    <p className="text-gray-600">Select a company to view water compliance and reporting information.</p>
                 </div>
             </div>
         );
     }
 
     // Get data using helper functions
-    const company = getBiodiversityCompany(biodiversityData);
-    const carbonAccounting = getBiodiversityCarbonEmissionAccounting(biodiversityData);
-    const esgMetrics = getEsgMetrics(biodiversityData);
-    const metadata = getBiodiversityMetadata(biodiversityData);
-    const keyStats = getKeyStatistics(biodiversityData);
-    const currentYear = getCurrentBiodiversityYear(biodiversityData);
-    const summaryAssessment = getBiodiversitySummaryAssessment(biodiversityData);
-    const environmentalMetrics = getEnvironmentalMetrics(biodiversityData);
-    const socialMetrics = getSocialMetrics(biodiversityData);
-    const governanceMetrics = getGovernanceMetrics(biodiversityData);
+    const company = getIrrigationWaterCompany(waterData);
+    const metadata = getIrrigationWaterMetadata(waterData);
+    const waterUsageAnalysis = getWaterUsageAnalysis(waterData);
+    const environmentalMetrics = getEnvironmentalMetricsData(waterData);
+    const allEsgMetrics = getAllEsgMetrics(waterData);
+    const stakeholderBenefits = getStakeholderBenefits(waterData);
+    const summary = getIrrigationWaterSummary(waterData);
+    const confidenceScore = getConfidenceScore(waterData);
+    const currentYear = getCurrentIrrigationWaterYear(waterData);
 
-    // Prepare carbon accounting data
-    const yearlyCarbonData = getYearlyCarbonData(biodiversityData);
-    const carbonBalance = getCarbonBalance(biodiversityData, currentYear);
-    const totalEmissions = getTotalCarbonEmissions(biodiversityData, currentYear);
-    const totalSequestration = getCarbonSequestration(biodiversityData, currentYear);
+    // Extract specific water data
+    const irrigationWater = waterUsageAnalysis?.irrigation_water;
+    const treatmentWater = waterUsageAnalysis?.treatment_water;
+    const totalWater = waterUsageAnalysis?.total_water_usage;
+    const shortageRisk = getWaterShortageRisk(waterData);
+    const waterSavings = waterUsageAnalysis?.water_savings_analysis;
+
+    // Get recommendations and next steps
+    const recommendations = getRecommendations(waterData);
+    const keyFindings = getKeyFindings(waterData);
+    const nextSteps = getNextSteps(waterData);
+
+    // Calculate water metrics
+    const irrigationValue = irrigationWater?.current_value || 0;
+    const treatmentValue = treatmentWater?.current_value || 0;
+    const totalValue = totalWater?.current_value || 0;
+    const efficiencyScore = getWaterEfficiencyScore(waterData) || 0;
+    const savingsPotential = getWaterSavingsPotential(waterData) || 0;
+    const costSavings = getWaterCostSavings(waterData) || 0;
+    const perHectare = getWaterUsagePerHectare(waterData) || 0;
+    const benchmark = getWaterUsageBenchmark(waterData) || 0;
+    const shortageLevel = getWaterShortageRiskLevel(waterData) || 'unknown';
+    const shortageProbability = getWaterShortageRiskProbability(waterData) || 0;
+    const mitigationStrategies = getWaterShortageMitigationStrategies(waterData) || [];
+    const roiPeriod = getWaterEfficiencyROIPeriod(waterData) || 0;
 
     // Get ESG frameworks
     const esgFrameworks = company.esg_reporting_framework || [];
 
-    // Get carbon framework details
-    const carbonFramework = carbonAccounting.framework || {
-        sequestration_methodology: "Not specified",
-        emission_methodology: "Not specified",
-        calculation_approach: "Not specified",
-        data_sources: []
-    };
+    // Get water-specific ESG metrics
+    const waterEsgMetrics = Object.values(allEsgMetrics?.environmental || {}).filter(metric =>
+        metric?.name?.toLowerCase().includes('water') ||
+        metric?.name?.toLowerCase().includes('irrigation') ||
+        metric?.name?.toLowerCase().includes('treatment') ||
+        metric?.name?.toLowerCase().includes('effluent')
+    );
+
+    // Extract area of interest metadata
+    const areaOfInterest = company.area_of_interest_metadata;
+    const areaName = areaOfInterest?.name || 'Not specified';
+    const areaCovered = areaOfInterest?.area_covered || 'Not specified';
 
     return (
         <div className="space-y-8 pb-8">
             {/* Report Navigation */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-gray-900">Report Sections</h3>
+                    <h3 className="text-xl font-bold text-gray-900">Water Report Sections</h3>
                     <div className="flex gap-2">
-                        <button className="p-2 border border-gray-300 rounded-xl hover:bg-gray-50">
-                            <Printer className="w-5 h-5" />
+                        <button
+                            onClick={() => setIsExportModalOpen(true)}
+                            className="p-2 border border-gray-300 rounded-xl hover:bg-gray-50"
+                        >
+                            <Download className="w-5 h-5" />
                         </button>
                         <button className="p-2 border border-gray-300 rounded-xl hover:bg-gray-50">
-                            <MoreVertical className="w-5 h-5" />
+                            <Printer className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
@@ -161,7 +202,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                     {[
                         { id: 'summary', label: 'Summary', icon: <FileText className="w-4 h-4" /> },
                         { id: 'esg-frameworks', label: 'ESG Frameworks', icon: <BookOpen className="w-4 h-4" /> },
-                        { id: 'carbon-accounting', label: 'Carbon Accounting', icon: <Calculator className="w-4 h-4" /> },
+                        { id: 'water-accounting', label: 'Water Accounting', icon: <Calculator className="w-4 h-4" /> },
                         { id: 'methodology', label: 'Methodology', icon: <Layers className="w-4 h-4" /> },
                         { id: 'technical', label: 'Technical Data', icon: <Database className="w-4 h-4" /> },
                     ].map((tab) => (
@@ -169,8 +210,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             key={tab.id}
                             onClick={() => setSelectedReport(tab.id)}
                             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${selectedReport === tab.id
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {tab.icon}
@@ -188,7 +229,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Company Overview</h3>
-                                <p className="text-gray-600">Environmental reporting and compliance status</p>
+                                <p className="text-gray-600">Water management reporting and compliance status</p>
                             </div>
                             <Building className="w-8 h-8 text-green-600" />
                         </div>
@@ -209,6 +250,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Country</p>
                                             <p className="text-lg font-medium text-gray-800">{company.country}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-1">Purpose</p>
+                                            <p className="text-lg font-medium text-gray-800">{company.purpose || 'Not specified'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-1">Scope</p>
+                                            <p className="text-lg font-medium text-gray-800">{company.scope || 'Not specified'}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -231,49 +280,61 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                             <p className="text-sm text-gray-600 mb-1">ESG Data Status</p>
                                             <p className="text-lg font-medium text-gray-800">{company.esg_data_status || 'Not specified'}</p>
                                         </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-1">Data Range</p>
+                                            <p className="text-lg font-medium text-gray-800">{company.data_range || 'Not specified'}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">Reporting Scope</h4>
+                                <h4 className="font-bold text-lg text-gray-900 mb-4">Area of Interest</h4>
                                 <div className="space-y-4">
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-1">Purpose</p>
-                                        <p className="text-gray-800">{company.purpose || 'Not specified'}</p>
+                                        <p className="text-sm text-gray-600 mb-1">Area Name</p>
+                                        <p className="text-gray-800">{areaName}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-1">Scope</p>
-                                        <p className="text-gray-800">{company.scope || 'Not specified'}</p>
+                                        <p className="text-sm text-gray-600 mb-1">Area Covered</p>
+                                        <p className="text-gray-800">{areaCovered}</p>
                                     </div>
-                                    <div>
-                                        <p className="text-sm text-gray-600 mb-1">Data Range</p>
-                                        <p className="text-gray-800">{company.data_range || 'Not specified'}</p>
-                                    </div>
+                                    {areaOfInterest?.coordinates && (
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-1">Coordinates</p>
+                                            <p className="text-gray-800">{areaOfInterest.coordinates.length} points</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Key Statistics */}
+                    {/* Key Water Statistics */}
                     <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-8">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-2xl font-bold text-gray-900">Key Statistics</h3>
-                            <BarChart3 className="w-8 h-8 text-green-600" />
+                            <h3 className="text-2xl font-bold text-gray-900">Key Water Statistics</h3>
+                            <Droplet className="w-8 h-8 text-green-600" />
                         </div>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                <p className="text-sm text-gray-600 mb-2">Analysis Years</p>
-                                <p className="text-2xl font-bold text-gray-900">{keyStats.years_covered || 1}</p>
+                                <p className="text-sm text-gray-600 mb-2">Total Water Usage</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {totalValue > 0 ? formatNumber(totalValue) : '---'} m³
+                                </p>
                             </div>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                <p className="text-sm text-gray-600 mb-2">Current Year</p>
-                                <p className="text-2xl font-bold text-gray-900">{currentYear}</p>
+                                <p className="text-sm text-gray-600 mb-2">Water Efficiency</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {efficiencyScore > 0 ? formatPercent(efficiencyScore) : '---'}
+                                </p>
                             </div>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                <p className="text-sm text-gray-600 mb-2">Total Metrics Analyzed</p>
-                                <p className="text-2xl font-bold text-gray-900">{keyStats.total_metrics_analyzed || 0}</p>
+                                <p className="text-sm text-gray-600 mb-2">Shortage Risk Level</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {shortageLevel !== 'unknown' ? shortageLevel : '---'}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -315,25 +376,30 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                 </div>
                             )}
 
-                            {/* ESG Metrics Summary */}
+                            {/* Water ESG Metrics Summary */}
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">ESG Metrics Overview</h4>
-                                <div className="grid grid-cols-3 gap-6">
-                                    <div className="text-center p-4 bg-white rounded-xl border border-blue-100">
-                                        <p className="text-sm text-gray-600 mb-2">Environmental</p>
-                                        <p className="text-2xl font-bold text-green-600">{environmentalMetrics.length}</p>
-                                        <p className="text-xs text-gray-500">metrics</p>
-                                    </div>
-                                    <div className="text-center p-4 bg-white rounded-xl border border-blue-100">
-                                        <p className="text-sm text-gray-600 mb-2">Social</p>
-                                        <p className="text-2xl font-bold text-blue-600">{socialMetrics.length}</p>
-                                        <p className="text-xs text-gray-500">metrics</p>
-                                    </div>
-                                    <div className="text-center p-4 bg-white rounded-xl border border-blue-100">
-                                        <p className="text-sm text-gray-600 mb-2">Governance</p>
-                                        <p className="text-2xl font-bold text-purple-600">{governanceMetrics.length}</p>
-                                        <p className="text-xs text-gray-500">metrics</p>
-                                    </div>
+                                <h4 className="font-bold text-lg text-gray-900 mb-4">Water ESG Metrics Overview</h4>
+                                <div className="space-y-4">
+                                    {waterEsgMetrics.length > 0 ? (
+                                        waterEsgMetrics.slice(0, 5).map((metric, index) => (
+                                            <div key={index} className="p-4 bg-white rounded-xl border border-gray-200">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <Droplet className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                                    <span className="font-medium text-gray-800">{metric.name}</span>
+                                                </div>
+                                                {metric.description && (
+                                                    <p className="text-sm text-gray-600">{metric.description}</p>
+                                                )}
+                                                {metric.unit && (
+                                                    <p className="text-xs text-gray-500 mt-1">Unit: {metric.unit}</p>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center p-6">
+                                            <p className="text-gray-600">No water-specific ESG metrics available</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -341,78 +407,141 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                 </div>
             )}
 
-            {/* Carbon Accounting Report */}
-            {selectedReport === 'carbon-accounting' && (
+            {/* Water Accounting Report */}
+            {selectedReport === 'water-accounting' && (
                 <div className="space-y-8">
                     <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-8">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Carbon Emission Accounting</h3>
-                                <p className="text-gray-600">Methodology and annual carbon data</p>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Water Usage Accounting</h3>
+                                <p className="text-gray-600">Detailed water usage analysis and metrics</p>
                             </div>
                             <Calculator className="w-8 h-8 text-green-600" />
                         </div>
 
-                        {/* Overall Methodology */}
+                        {/* Overall Water Usage */}
                         <div className="mb-8">
-                            <h4 className="font-bold text-lg text-gray-900 mb-4">Calculation Methodology</h4>
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Water Usage Breakdown</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-                                <p className="text-gray-800">
-                                    {carbonAccounting.methodology || 'Standard carbon emission accounting methodology applied.'}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Yearly Data Summary */}
-                        <div className="mb-8">
-                            <h4 className="font-bold text-lg text-gray-900 mb-4">Yearly Carbon Data</h4>
-                            <div className="space-y-4">
-                                {yearlyCarbonData.map((yearData, index) => (
-                                    <div key={index} className="p-6 rounded-2xl border-2 border-gray-200 hover:border-green-300 transition-all">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h5 className="font-bold text-lg text-gray-900">Year {yearData.year}</h5>
-                                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">
-                                                {yearData.emissions.net_balance < 0 ? 'Carbon Sink' : 'Carbon Source'}
-                                            </span>
-                                        </div>
-                                        <div className="grid md:grid-cols-3 gap-4">
-                                            <div className="p-4 rounded-xl bg-gray-50">
-                                                <p className="text-sm text-gray-600 mb-1">Sequestration</p>
-                                                <p className="text-xl font-bold text-green-600">{formatNumber(yearData.sequestration.total_tco2)} tCO₂</p>
-                                            </div>
-                                            <div className="p-4 rounded-xl bg-gray-50">
-                                                <p className="text-sm text-gray-600 mb-1">Emissions</p>
-                                                <p className="text-xl font-bold text-red-600">{formatNumber(yearData.emissions.total_tco2e)} tCO₂e</p>
-                                            </div>
-                                            <div className="p-4 rounded-xl bg-gray-50">
-                                                <p className="text-sm text-gray-600 mb-1">Net Balance</p>
-                                                <p className={`text-xl font-bold ${yearData.emissions.net_balance < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {formatNumber(yearData.emissions.net_balance)} tCO₂
-                                                </p>
-                                            </div>
-                                        </div>
+                                <div className="grid md:grid-cols-3 gap-6">
+                                    <div className="text-center p-4 bg-white rounded-xl">
+                                        <p className="text-sm text-gray-600 mb-2">Irrigation Water</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {irrigationValue > 0 ? formatNumber(irrigationValue) : '---'} m³
+                                        </p>
+                                        <p className="text-xs text-gray-500">{irrigationWater?.trend || '---'}</p>
                                     </div>
-                                ))}
+                                    <div className="text-center p-4 bg-white rounded-xl">
+                                        <p className="text-sm text-gray-600 mb-2">Treatment Water</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {treatmentValue > 0 ? formatNumber(treatmentValue) : '---'} m³
+                                        </p>
+                                        <p className="text-xs text-gray-500">{treatmentWater?.trend || '---'}</p>
+                                    </div>
+                                    <div className="text-center p-4 bg-white rounded-xl">
+                                        <p className="text-sm text-gray-600 mb-2">Total Water Usage</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {totalValue > 0 ? formatNumber(totalValue) : '---'} m³
+                                        </p>
+                                        <p className="text-xs text-gray-500">{totalWater?.trend || '---'}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Current Year Summary */}
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
-                            <h4 className="font-bold text-lg text-gray-900 mb-4">Current Year ({currentYear}) Summary</h4>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center p-3 bg-white rounded-xl">
-                                    <span className="text-gray-700">Total Carbon Sequestration</span>
-                                    <span className="font-bold text-green-600">{formatNumber(totalSequestration)} tCO₂</span>
+                        {/* Efficiency and Benchmarking */}
+                        <div className="mb-8">
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Efficiency & Benchmarking</h4>
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
+                                    <p className="text-sm text-gray-600 mb-2">Water Efficiency Score</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {efficiencyScore > 0 ? formatPercent(efficiencyScore) : '---'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">Higher is better</p>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-white rounded-xl">
-                                    <span className="text-gray-700">Total Emissions</span>
-                                    <span className="font-bold text-red-600">{formatNumber(totalEmissions)} tCO₂e</span>
+                                <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+                                    <p className="text-sm text-gray-600 mb-2">Usage per Hectare</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {perHectare > 0 ? formatNumber(perHectare) : '---'} m³/ha
+                                    </p>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-white rounded-xl">
-                                    <span className="text-gray-700">Net Carbon Balance</span>
-                                    <span className={`font-bold ${carbonBalance < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {formatNumber(carbonBalance)} tCO₂
-                                    </span>
+                                <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
+                                    <p className="text-sm text-gray-600 mb-2">Industry Benchmark</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {benchmark > 0 ? formatNumber(benchmark) : '---'} m³
+                                    </p>
+                                </div>
+                                <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200">
+                                    <p className="text-sm text-gray-600 mb-2">Savings Potential</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {savingsPotential > 0 ? formatNumber(savingsPotential) : '---'} m³
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Risk Assessment */}
+                        <div className="mb-8">
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Water Shortage Risk Assessment</h4>
+                            <div className="p-6 rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200">
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-2">Risk Level</p>
+                                        <p className={`text-2xl font-bold ${shortageLevel === 'high' ? 'text-red-600' :
+                                                shortageLevel === 'medium' ? 'text-yellow-600' :
+                                                    shortageLevel === 'low' ? 'text-green-600' :
+                                                        'text-gray-600'
+                                            }`}>
+                                            {shortageLevel !== 'unknown' ? shortageLevel : '---'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-2">Probability</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {shortageProbability > 0 ? formatPercent(shortageProbability * 100) : '---'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {mitigationStrategies.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-red-200">
+                                        <p className="text-sm font-semibold text-gray-900 mb-2">Mitigation Strategies</p>
+                                        <ul className="space-y-2">
+                                            {mitigationStrategies.slice(0, 3).map((strategy, index) => (
+                                                <li key={index} className="flex items-start gap-2">
+                                                    <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                                    <span className="text-sm text-gray-700">{strategy}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Financial Impact */}
+                        <div>
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Financial Impact Analysis</h4>
+                            <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+                                <div className="grid md:grid-cols-3 gap-6">
+                                    <div className="text-center p-4 bg-white rounded-xl">
+                                        <p className="text-sm text-gray-600 mb-2">Cost Savings Potential</p>
+                                        <p className="text-2xl font-bold text-green-600">
+                                            {costSavings > 0 ? formatCurrency(costSavings) : '---'}
+                                        </p>
+                                    </div>
+                                    <div className="text-center p-4 bg-white rounded-xl">
+                                        <p className="text-sm text-gray-600 mb-2">Implementation Cost</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {waterSavings?.implementation_cost ? formatCurrency(waterSavings.implementation_cost) : '---'}
+                                        </p>
+                                    </div>
+                                    <div className="text-center p-4 bg-white rounded-xl">
+                                        <p className="text-sm text-gray-600 mb-2">ROI Period</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {roiPeriod > 0 ? `${roiPeriod} years` : '---'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -427,37 +556,43 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Methodology Details</h3>
-                                <p className="text-gray-600">Calculation approaches and data processing workflows</p>
+                                <p className="text-gray-600">Water metrics calculation and data processing workflows</p>
                             </div>
                             <Layers className="w-8 h-8 text-green-600" />
                         </div>
 
-                        {/* Carbon Calculation Framework */}
+                        {/* Calculation Framework */}
                         <div className="mb-8">
-                            <h4 className="font-bold text-lg text-gray-900 mb-4">Carbon Calculation Framework</h4>
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Water Calculation Framework</h4>
                             <div className="space-y-4">
                                 <div className="p-5 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
                                     <div className="flex items-center gap-3 mb-3">
-                                        <Trees className="w-5 h-5 text-green-600" />
-                                        <h5 className="font-bold text-gray-900">Sequestration Methodology</h5>
+                                        <Calculator className="w-5 h-5 text-green-600" />
+                                        <h5 className="font-bold text-gray-900">Calculation Approach</h5>
                                     </div>
-                                    <p className="text-gray-800 pl-8">{carbonFramework.sequestration_methodology}</p>
-                                </div>
-
-                                <div className="p-5 rounded-xl bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <Zap className="w-5 h-5 text-red-600" />
-                                        <h5 className="font-bold text-gray-900">Emission Methodology</h5>
-                                    </div>
-                                    <p className="text-gray-800 pl-8">{carbonFramework.emission_methodology}</p>
+                                    <p className="text-gray-800 pl-8">
+                                        {company.data_processing_workflow || 'Standard water usage calculation methodology applied.'}
+                                    </p>
                                 </div>
 
                                 <div className="p-5 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                     <div className="flex items-center gap-3 mb-3">
-                                        <Calculator className="w-5 h-5 text-blue-600" />
-                                        <h5 className="font-bold text-gray-900">Calculation Approach</h5>
+                                        <Droplet className="w-5 h-5 text-blue-600" />
+                                        <h5 className="font-bold text-gray-900">Water Efficiency Calculation</h5>
                                     </div>
-                                    <p className="text-gray-800 pl-8">{carbonFramework.calculation_approach}</p>
+                                    <p className="text-gray-800 pl-8">
+                                        Efficiency calculated based on water input versus agricultural output ratio.
+                                    </p>
+                                </div>
+
+                                <div className="p-5 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <AlertTriangle className="w-5 h-5 text-amber-600" />
+                                        <h5 className="font-bold text-gray-900">Risk Assessment Methodology</h5>
+                                    </div>
+                                    <p className="text-gray-800 pl-8">
+                                        Risk assessment based on water availability, quality parameters, and regulatory compliance factors.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -467,16 +602,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Data Sources</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
                                 <div className="space-y-2">
-                                    {carbonFramework.data_sources.length > 0 ? (
-                                        carbonFramework.data_sources.map((source, index) => (
-                                            <div key={index} className="flex items-center gap-3">
-                                                <Database className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                                                <span className="text-gray-700">{source}</span>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-gray-600">No specific data sources defined</p>
-                                    )}
+                                    {metadata.data_sources?.map((source, index) => (
+                                        <div key={index} className="flex items-center gap-3">
+                                            <Database className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                            <span className="text-gray-700">{source}</span>
+                                        </div>
+                                    )) || (
+                                            <p className="text-gray-600">No specific data sources defined</p>
+                                        )}
                                 </div>
                             </div>
                         </div>
@@ -486,7 +619,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Data Processing Workflow</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
                                 <p className="text-gray-800">
-                                    {company.data_processing_workflow || 'Standard data processing workflow applied for biodiversity and land use analysis.'}
+                                    {company.data_processing_workflow || 'Standard data processing workflow applied for water usage analysis.'}
                                 </p>
                             </div>
                         </div>
@@ -496,7 +629,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Analytical Layer Metadata</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200">
                                 <p className="text-gray-800">
-                                    {company.analytical_layer_metadata || 'Standard analytical layers applied for environmental impact assessment.'}
+                                    {company.analytical_layer_metadata || 'Standard analytical layers applied for water risk assessment.'}
                                 </p>
                             </div>
                         </div>
@@ -557,55 +690,57 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                         <span className="font-bold text-gray-900">{metadata.company_id}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-700">Period Requested</span>
-                                        <span className="font-bold text-gray-900">{metadata.period_requested}</span>
+                                        <span className="text-gray-700">Year Requested</span>
+                                        <span className="font-bold text-gray-900">{metadata.year_requested}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Data Sources */}
+                        {/* Company Data Sources */}
                         <div className="mb-8">
-                            <h4 className="font-bold text-lg text-gray-900 mb-4">Data Sources ({metadata.data_sources?.length || 0})</h4>
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Company Data Sources</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                 <div className="space-y-2">
-                                    {metadata.data_sources?.map((source, index) => (
+                                    {company.data_source?.map((source, index) => (
                                         <div key={index} className="flex items-center gap-3">
                                             <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                                             <span className="text-gray-700">{source}</span>
                                         </div>
-                                    ))}
+                                    )) || (
+                                            <p className="text-gray-600">No company data sources defined</p>
+                                        )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Data Availability */}
+                        {/* Data Quality */}
                         <div>
-                            <h4 className="font-bold text-lg text-gray-900 mb-4">Data Availability</h4>
+                            <h4 className="font-bold text-lg text-gray-900 mb-4">Data Quality</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">Total Metrics</p>
+                                        <p className="text-sm text-gray-600 mb-2">Confidence Score</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {summaryAssessment.data_availability?.total_metrics || 0}
+                                            {confidenceScore.overall ? `${confidenceScore.overall}%` : '---'}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">Years Covered</p>
+                                        <p className="text-sm text-gray-600 mb-2">Years Available</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {summaryAssessment.data_availability?.years_covered || 1}
+                                            {availableYears.length}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">Carbon Data</p>
+                                        <p className="text-sm text-gray-600 mb-2">Current Year</p>
                                         <p className="text-lg font-bold text-gray-900">
-                                            {summaryAssessment.data_availability?.carbon_data ? 'Available' : 'Not Available'}
+                                            {currentYear}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">NDVI Data</p>
+                                        <p className="text-sm text-gray-600 mb-2">ESG Data Status</p>
                                         <p className="text-lg font-bold text-gray-900">
-                                            {summaryAssessment.data_availability?.ndvi_data ? 'Available' : 'Not Available'}
+                                            {company.esg_data_status || '---'}
                                         </p>
                                     </div>
                                 </div>
@@ -615,13 +750,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                 </div>
             )}
 
+        
             {/* Export Modal */}
             {isExportModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setIsExportModalOpen(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
                         <div className="p-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-3xl">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-2xl font-bold">Export Report</h3>
+                                <h3 className="text-2xl font-bold">Export Water Report</h3>
                                 <button onClick={() => setIsExportModalOpen(false)} className="p-2 rounded-xl bg-white/20 hover:bg-white/30">
                                     <X className="w-6 h-6" />
                                 </button>
@@ -660,7 +796,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                 </button>
                                 <button
                                     onClick={() => {
-                                        alert(`Exporting as ${exportFormat.toUpperCase()}`);
+                                        alert(`Exporting water report as ${exportFormat.toUpperCase()}`);
                                         setIsExportModalOpen(false);
                                     }}
                                     className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold"

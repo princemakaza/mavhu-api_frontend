@@ -1,17 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Sidebar from "../../../components/Sidebar";
 import {
     RefreshCw,
     ChevronLeft,
     Download,
-    Building,
     ArrowRight,
     AlertCircle,
-    X,
+    Calendar,
     TrendingUp,
     TrendingDown,
     Activity,
+    BarChart3,
+    PieChart,
+    FileText,
+    Globe,
+    Target,
+    Shield,
+    Trees,
+
+    Rabbit,
 } from "lucide-react";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
@@ -26,52 +34,62 @@ import OverviewTab from "./biodiversity_tabs/OverviewTab";
 import AnalyticsTab from "./biodiversity_tabs/AnalyticsTab";
 import ReportsTab from "./biodiversity_tabs/ReportsTab";
 
-// Unified Design System - matches OverviewTab
-const DESIGN_SYSTEM = {
-    primary: {
-        main: '#059669',
-        light: '#10b981',
-        dark: '#047857',
-        50: '#ecfdf5',
-        100: '#d1fae5',
-        200: '#a7f3d0',
-    },
-    secondary: {
-        main: '#f59e0b',
-        light: '#fbbf24',
-        dark: '#d97706',
-        50: '#fffbeb',
-        100: '#fef3c7',
-    },
-    status: {
-        success: '#10b981',
-        warning: '#f59e0b',
-        danger: '#ef4444',
-        info: '#3b82f6',
-    },
-    neutral: {
-        50: '#f9fafb',
-        100: '#f3f4f6',
-        200: '#e5e7eb',
-        300: '#d1d5db',
-        400: '#9ca3af',
-        500: '#6b7280',
-        600: '#4b5563',
-        700: '#374151',
-        800: '#1f2937',
-        900: '#111827',
+// Color Palette (matched to CropYieldCarbonEmissionScreen)
+const PRIMARY_GREEN = '#22c55e';
+const SECONDARY_GREEN = '#16a34a';
+const LIGHT_GREEN = '#86efac';
+const DARK_GREEN = '#15803d';
+const EMERALD = '#10b981';
+const LIME = '#84cc16';
+const BACKGROUND_GRAY = '#f9fafb';
+
+// Loading Skeleton
+const SkeletonCard = () => (
+    <div className="animate-pulse h-full rounded-xl bg-gray-100"></div>
+);
+
+const Shimmer = () => (
+    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-gray-100/50 to-transparent"></div>
+);
+
+// Helper function to parse data_range string (mirrors CropYieldCarbonEmissionScreen)
+const parseDataRange = (dataRange: string | undefined): number[] => {
+    if (!dataRange) return [];
+
+    try {
+        const cleanedRange = dataRange
+            .replace(/–/g, '-')
+            .replace(/\s+/g, '')
+            .replace(/to/g, '-')
+            .trim();
+
+        const [startStr, endStr] = cleanedRange.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+
+        if (isNaN(start) || isNaN(end) || start > end) {
+            console.warn('Invalid data_range format:', dataRange);
+            return [];
+        }
+
+        const years = [];
+        for (let year = start; year <= end; year++) {
+            years.push(year);
+        }
+
+        return years;
+    } catch (error) {
+        console.error('Error parsing data_range:', error, dataRange);
+        return [];
     }
 };
 
-// Loading Skeleton
-const Shimmer = () => (
-    <div 
-        className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite]"
-        style={{
-            background: `linear-gradient(to right, transparent, ${DESIGN_SYSTEM.neutral[100]}50, transparent)`
-        }}
-    ></div>
-);
+// Helper function to get end year from data_range
+const getEndYearFromDataRange = (dataRange: string | undefined): number | null => {
+    if (!dataRange) return null;
+    const years = parseDataRange(dataRange);
+    return years.length > 0 ? Math.max(...years) : null;
+};
 
 const BiodiversityLandUseScreen = () => {
     const { companyId: paramCompanyId } = useParams<{ companyId: string }>();
@@ -86,13 +104,36 @@ const BiodiversityLandUseScreen = () => {
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>(paramCompanyId || "");
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
+    const [latestYear, setLatestYear] = useState<number | null>(null);
     const [showCompanySelector, setShowCompanySelector] = useState(!paramCompanyId);
     const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "reports">("overview");
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Modal states
-    const [selectedModal, setSelectedModal] = useState<string | null>(null);
-    const [selectedMetricData, setSelectedMetricData] = useState<any>(null);
+    // Format helpers
+    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    const formatCurrency = (num: number) => new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(num);
+    const formatPercent = (num: number) => `${num.toFixed(1)}%`;
+
+    // Get trend icon
+    const getTrendIcon = (trend: string) => {
+        if (trend.toLowerCase().includes('improving') || 
+            trend.toLowerCase().includes('increase') || 
+            trend.toLowerCase().includes('up') ||
+            trend.toLowerCase().includes('positive')) {
+            return <TrendingUp className="w-4 h-4 text-green-600" />;
+        } else if (trend.toLowerCase().includes('declining') || 
+                   trend.toLowerCase().includes('decrease') || 
+                   trend.toLowerCase().includes('down') ||
+                   trend.toLowerCase().includes('negative')) {
+            return <TrendingDown className="w-4 h-4 text-red-600" />;
+        }
+        return <Activity className="w-4 h-4 text-yellow-600" />;
+    };
 
     // Fetch companies
     const fetchCompanies = async () => {
@@ -107,6 +148,30 @@ const BiodiversityLandUseScreen = () => {
         }
     };
 
+    // Get available years from company's data_range (mirrors CropYieldCarbonEmissionScreen)
+    const getAvailableYearsForCompany = (company: Company | undefined): number[] => {
+        if (!company) return [];
+
+        if (company.data_range) {
+            const years = parseDataRange(company.data_range);
+            if (years.length > 0) {
+                return years.sort((a, b) => b - a); // Sort descending (latest first)
+            }
+        }
+
+        if (company.latest_esg_report_year) {
+            const currentYear = company.latest_esg_report_year;
+            const years = [];
+            for (let year = currentYear; year >= currentYear - 3; year--) {
+                if (year > 2020) years.push(year);
+            }
+            return years;
+        }
+
+        const currentYear = new Date().getFullYear();
+        return [currentYear];
+    };
+
     // Fetch biodiversity data
     const fetchBiodiversityData = async () => {
         if (!selectedCompanyId) return;
@@ -114,20 +179,53 @@ const BiodiversityLandUseScreen = () => {
         try {
             setLoading(true);
             setError(null);
-            const params: BiodiversityLandUseParams = {
-                companyId: selectedCompanyId,
-            };
 
-            if (selectedYear !== null) {
-                params.year = selectedYear;
+            const selectedCompany = companies.find(c => c._id === selectedCompanyId);
+
+            if (selectedCompany) {
+                const years = getAvailableYearsForCompany(selectedCompany);
+                setAvailableYears(years);
+
+                if (years.length > 0) {
+                    const latest = years[0]; // First in descending sorted array
+                    setLatestYear(latest);
+
+                    const yearToFetch = selectedYear !== null ? selectedYear : latest;
+
+                    const params: BiodiversityLandUseParams = {
+                        companyId: selectedCompanyId,
+                        year: yearToFetch,
+                    };
+
+                    const data = await getBiodiversityLandUseData(params);
+                    setBiodiversityData(data);
+
+                    if (selectedYear === null) {
+                        setSelectedYear(latest);
+                    }
+                } else {
+                    const currentYear = new Date().getFullYear();
+                    const data = await getBiodiversityLandUseData({
+                        companyId: selectedCompanyId,
+                        year: currentYear,
+                    });
+                    setBiodiversityData(data);
+
+                    setAvailableYears([currentYear]);
+                    setLatestYear(currentYear);
+                    setSelectedYear(currentYear);
+                }
+            } else {
+                const currentYear = new Date().getFullYear();
+                const data = await getBiodiversityLandUseData({
+                    companyId: selectedCompanyId,
+                    year: currentYear,
+                });
+                setBiodiversityData(data);
+                setAvailableYears([currentYear]);
+                setLatestYear(currentYear);
+                setSelectedYear(currentYear);
             }
-
-            const data = await getBiodiversityLandUseData(params);
-            setBiodiversityData(data);
-
-            const years = getAvailableBiodiversityYears(data);
-            const sortedYears = [...years].sort((a, b) => b - a);
-            setAvailableYears(sortedYears);
         } catch (err: any) {
             setError(err.message || "Failed to fetch biodiversity data");
             console.error("Error fetching biodiversity data:", err);
@@ -144,9 +242,54 @@ const BiodiversityLandUseScreen = () => {
 
     const handleCompanyChange = (companyId: string) => {
         setSelectedCompanyId(companyId);
+        setSelectedYear(null); // Reset year when changing company
         setShowCompanySelector(false);
         navigate(`/admin_biodiversity_land_use/${companyId}`);
     };
+
+    const handleYearChange = (year: string) => {
+        const newYear = year ? Number(year) : latestYear;
+        setSelectedYear(newYear);
+    };
+
+    // Handle metric click
+    const handleMetricClick = (metric: any, modalType: string) => {
+        console.log("Metric clicked:", metric, modalType);
+    };
+
+    // Handle calculation click
+    const handleCalculationClick = (calculationType: string, data?: any) => {
+        console.log("Calculation clicked:", calculationType, data);
+    };
+
+    // Calculate summary metrics for biodiversity
+    const summaryMetrics = useMemo(() => {
+        if (!biodiversityData) return null;
+
+        // Mock metrics based on biodiversity data structure
+        // You can replace these with actual calculations from your data
+        return {
+            protectedArea: 12500, // hectares
+            protectedAreaChange: 5.2,
+            biodiversityIndex: 0.78,
+            biodiversityIndexChange: 2.1,
+            landUseEfficiency: 320,
+            landUseEfficiencyChange: -1.8,
+            speciesRichness: 42,
+            speciesRichnessChange: 8.3,
+        };
+    }, [biodiversityData]);
+
+    // Mock data for coordinates, area, etc.
+    const mockCoordinates = [
+        { lat: 40.7128, lon: -74.0060 },
+        { lat: 40.7129, lon: -74.0061 },
+        { lat: 40.7127, lon: -74.0059 },
+        { lat: 40.7128, lon: -74.0060 },
+    ];
+
+    const areaName = "Protected Wildlife Corridor";
+    const areaCovered = "12,500 hectares";
 
     useEffect(() => {
         if (location.state?.companyId) {
@@ -157,36 +300,13 @@ const BiodiversityLandUseScreen = () => {
     }, [location.state]);
 
     useEffect(() => {
-        if (selectedCompanyId) {
+        if (selectedCompanyId && companies.length > 0) {
             fetchBiodiversityData();
         }
     }, [selectedCompanyId, selectedYear]);
 
     // Get selected company
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
-
-    // Format helpers
-    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
-    const formatCurrency = (num: number) => new Intl.NumberFormat('en-US', { 
-        style: 'currency', 
-        currency: 'USD', 
-        minimumFractionDigits: 0 
-    }).format(num);
-    const formatPercent = (num: number) => `${num.toFixed(1)}%`;
-
-    // Get trend icon
-    const getTrendIcon = (trend: string) => {
-        if (trend.toLowerCase().includes('improving') || 
-            trend.toLowerCase().includes('increase') || 
-            trend.toLowerCase().includes('positive')) {
-            return <TrendingUp className="w-4 h-4" style={{ color: DESIGN_SYSTEM.status.success }} />;
-        } else if (trend.toLowerCase().includes('declining') || 
-                   trend.toLowerCase().includes('decrease') || 
-                   trend.toLowerCase().includes('negative')) {
-            return <TrendingDown className="w-4 h-4" style={{ color: DESIGN_SYSTEM.status.danger }} />;
-        }
-        return <Activity className="w-4 h-4" style={{ color: DESIGN_SYSTEM.secondary.main }} />;
-    };
 
     // Prepare shared data for tabs
     const sharedData = {
@@ -198,23 +318,34 @@ const BiodiversityLandUseScreen = () => {
         getTrendIcon,
         selectedYear,
         availableYears,
+        latestYear,
         loading,
         isRefreshing,
-        onMetricClick: (metric: any, modalType: string) => {
-            setSelectedMetricData(metric);
-            setSelectedModal(modalType);
-        }
+        onMetricClick: handleMetricClick,
+        onCalculationClick: handleCalculationClick,
+        coordinates: mockCoordinates,
+        areaName,
+        areaCovered,
+        colors: {
+            primary: PRIMARY_GREEN,
+            secondary: SECONDARY_GREEN,
+            lightGreen: LIGHT_GREEN,
+            darkGreen: DARK_GREEN,
+            emerald: EMERALD,
+            lime: LIME,
+            background: BACKGROUND_GRAY,
+        },
     };
 
     // Loading State
     if (loading) {
         return (
-            <div className="flex min-h-screen" style={{ backgroundColor: DESIGN_SYSTEM.neutral[50] }}>
+            <div className="flex min-h-screen bg-gray-50 text-gray-900">
                 <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <main className="flex-1 p-6">
                     {/* Shimmer Header */}
                     <div className="mb-8 relative overflow-hidden">
-                        <div className="h-12 rounded-xl" style={{ backgroundColor: DESIGN_SYSTEM.neutral[100] }}></div>
+                        <div className="h-12 rounded-xl bg-gray-100"></div>
                         <Shimmer />
                     </div>
 
@@ -222,7 +353,7 @@ const BiodiversityLandUseScreen = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         {[1, 2, 3, 4].map(i => (
                             <div key={i} className="relative overflow-hidden">
-                                <div className="h-32 rounded-xl" style={{ backgroundColor: DESIGN_SYSTEM.neutral[100] }}></div>
+                                <div className="h-32 rounded-xl bg-gray-100"></div>
                                 <Shimmer />
                             </div>
                         ))}
@@ -232,7 +363,7 @@ const BiodiversityLandUseScreen = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                         {[1, 2].map(i => (
                             <div key={i} className="relative overflow-hidden">
-                                <div className="h-96 rounded-xl" style={{ backgroundColor: DESIGN_SYSTEM.neutral[100] }}></div>
+                                <div className="h-96 rounded-xl bg-gray-100"></div>
                                 <Shimmer />
                             </div>
                         ))}
@@ -240,7 +371,7 @@ const BiodiversityLandUseScreen = () => {
 
                     {/* Shimmer Table */}
                     <div className="relative overflow-hidden">
-                        <div className="h-96 rounded-xl" style={{ backgroundColor: DESIGN_SYSTEM.neutral[100] }}></div>
+                        <div className="h-96 rounded-xl bg-gray-100"></div>
                         <Shimmer />
                     </div>
                 </main>
@@ -251,69 +382,71 @@ const BiodiversityLandUseScreen = () => {
     // Company Selector
     if (showCompanySelector && !paramCompanyId) {
         return (
-            <div className="flex min-h-screen" style={{ backgroundColor: DESIGN_SYSTEM.neutral[50] }}>
+            <div className="flex min-h-screen bg-gray-50 text-gray-900">
                 <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <main className="flex-1 p-6">
                     <div className="max-w-6xl mx-auto">
-                        <div 
-                            className="bg-white rounded-2xl border p-8 shadow-lg"
-                            style={{ borderColor: DESIGN_SYSTEM.neutral[200] }}
-                        >
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
                             <div className="flex items-center gap-3 mb-8">
-                                <Building className="w-10 h-10" style={{ color: DESIGN_SYSTEM.primary.main }} />
+                                <Trees className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
                                 <div>
-                                    <h1 className="text-3xl font-bold" style={{ color: DESIGN_SYSTEM.primary.main }}>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
                                         Select Company
                                     </h1>
-                                    <p style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                                        Choose a company to view Biodiversity & Land Use data
-                                    </p>
+                                    <p className="text-gray-600">Choose a company to view Biodiversity & Land Use Data</p>
                                 </div>
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
-                                {companies.map((company) => (
-                                    <button
-                                        key={company._id}
-                                        onClick={() => handleCompanyChange(company._id)}
-                                        className="flex items-center gap-4 p-6 rounded-xl border transition-all duration-300 text-left group"
-                                        style={{ 
-                                            borderColor: DESIGN_SYSTEM.neutral[200],
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.borderColor = DESIGN_SYSTEM.primary.main;
-                                            e.currentTarget.style.backgroundColor = DESIGN_SYSTEM.neutral[50];
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.borderColor = DESIGN_SYSTEM.neutral[200];
-                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                        }}
-                                    >
-                                        <div 
-                                            className="p-3 rounded-lg border transition-colors"
-                                            style={{
-                                                backgroundColor: DESIGN_SYSTEM.primary[50],
-                                                borderColor: DESIGN_SYSTEM.primary[200]
-                                            }}
+                                {companies.map((company) => {
+                                    const dataRangeYears = parseDataRange(company.data_range);
+                                    const endYear = getEndYearFromDataRange(company.data_range);
+
+                                    return (
+                                        <button
+                                            key={company._id}
+                                            onClick={() => handleCompanyChange(company._id)}
+                                            className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
                                         >
-                                            <Building className="w-6 h-6" style={{ color: DESIGN_SYSTEM.primary.main }} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 
-                                                className="font-semibold text-lg mb-1"
-                                                style={{ color: DESIGN_SYSTEM.neutral[900] }}
-                                            >
-                                                {company.name}
-                                            </h3>
-                                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                                                {company.industry} • {company.country}
-                                            </p>
-                                        </div>
-                                        <ArrowRight 
-                                            className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" 
-                                            style={{ color: DESIGN_SYSTEM.primary.main }}
-                                        />
-                                    </button>
-                                ))}
+                                            <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
+                                                <Trees className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
+                                                <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <div
+                                                        className="text-xs px-2 py-1 rounded-full"
+                                                        style={{
+                                                            background: company.esg_data_status === 'complete'
+                                                                ? 'rgba(34, 197, 94, 0.2)'
+                                                                : company.esg_data_status === 'partial'
+                                                                    ? 'rgba(251, 191, 36, 0.2)'
+                                                                    : 'rgba(239, 68, 68, 0.2)',
+                                                            color: company.esg_data_status === 'complete'
+                                                                ? PRIMARY_GREEN
+                                                                : company.esg_data_status === 'partial'
+                                                                    ? '#FBBF24'
+                                                                    : '#EF4444'
+                                                        }}
+                                                    >
+                                                        {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
+                                                    </div>
+                                                    {company.data_range && (
+                                                        <div className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                            Data: {company.data_range}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {company.data_range && dataRangeYears.length > 0 && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -323,202 +456,135 @@ const BiodiversityLandUseScreen = () => {
     }
 
     return (
-        <div className="flex min-h-screen" style={{ backgroundColor: DESIGN_SYSTEM.neutral[50] }}>
+        <div className="flex min-h-screen bg-gray-50 text-gray-900">
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="flex-1">
-                {/* Header */}
-                <header
-                    className="sticky top-0 z-40 backdrop-blur-xl border-b px-6 py-4"
-                    style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        borderColor: DESIGN_SYSTEM.neutral[200]
-                    }}
-                >
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => navigate("/company-management")}
-                                className="p-2 rounded-lg transition-colors"
-                                style={{ color: DESIGN_SYSTEM.primary.main }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = DESIGN_SYSTEM.neutral[100]}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                                <ChevronLeft className="w-5 h-5" />
-                            </button>
-                            <div>
-                                <h1 className="text-2xl font-bold" style={{ color: DESIGN_SYSTEM.primary.main }}>
-                                    Biodiversity & Land Use Dashboard
-                                </h1>
-                                <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                                    {selectedCompany?.name || "Company Data"}
-                                </p>
+                {/* Header — matches CropYieldCarbonEmissionScreen layout */}
+                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
+                    <div className="px-4 sm:px-6 py-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => navigate("/company-management")}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                    style={{ color: PRIMARY_GREEN }}
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div>
+                                    <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
+                                        Biodiversity & Land Use Dashboard
+                                    </h1>
+                                    {selectedCompany && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="text-xs text-gray-600">{selectedCompany.name} • {selectedCompany.industry}</p>
+                                            {selectedCompany.data_range && (
+                                                <div className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                    Data range: {selectedCompany.data_range}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Year Selector — same pattern as CropYieldCarbonEmissionScreen */}
+                                {availableYears.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-gray-500" />
+                                        <select
+                                            value={selectedYear || ""}
+                                            onChange={(e) => handleYearChange(e.target.value)}
+                                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 min-w-[120px]"
+                                        >
+                                            {availableYears.map((year) => (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                    {year === latestYear ? ' (Latest)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                    style={{ color: PRIMARY_GREEN }}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
+                                    style={{
+                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                    }}
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Export
+                                </button>
                             </div>
                         </div>
-
-                        <div className="flex items-center gap-3">
-                            {availableYears.length > 0 && (
-                                <select
-                                    value={selectedYear === null ? "" : selectedYear}
-                                    onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : null)}
-                                    className="px-4 py-2 rounded-lg border bg-white focus:outline-none focus:ring-2"
-                                    style={{
-                                        borderColor: DESIGN_SYSTEM.neutral[300],
-                                        color: DESIGN_SYSTEM.neutral[900],
-                                        '--tw-ring-color': DESIGN_SYSTEM.primary.main
-                                    } as React.CSSProperties}
-                                >
-                                    <option value="">All Years</option>
-                                    {availableYears.map((year) => (
-                                        <option key={year} value={year}>{year}</option>
-                                    ))}
-                                </select>
-                            )}
-                            <button
-                                onClick={handleRefresh}
-                                disabled={isRefreshing}
-                                className="p-2 rounded-lg transition-colors"
-                                style={{ color: DESIGN_SYSTEM.primary.main }}
-                                onMouseEnter={(e) => !isRefreshing && (e.currentTarget.style.backgroundColor = DESIGN_SYSTEM.neutral[100])}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                                <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            </button>
-                            <button
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-white font-medium shadow-sm hover:shadow-md"
-                                style={{
-                                    background: `linear-gradient(135deg, ${DESIGN_SYSTEM.primary.main} 0%, ${DESIGN_SYSTEM.primary.dark} 100%)`,
-                                }}
-                            >
-                                <Download className="w-4 h-4" />
-                                Export
-                            </button>
+                        <div className="flex space-x-2 overflow-x-auto pb-1">
+                            {[
+                                { id: "overview", label: "Overview", icon: BarChart3 },
+                                { id: "analytics", label: "Analytics", icon: PieChart },
+                                { id: "reports", label: "Reports", icon: FileText }
+                            ].map((tab) => {
+                                const Icon = tab.icon;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id as any)}
+                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
+                                            ? 'text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                            }`}
+                                        style={activeTab === tab.id ? {
+                                            background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                        } : {}}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
                         </div>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex space-x-2 overflow-x-auto">
-                        {[
-                            { id: "overview", label: "Overview" },
-                            { id: "analytics", label: "Analytics" },
-                            { id: "reports", label: "Reports" }
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`px-6 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-                                    activeTab === tab.id ? 'text-white shadow-md' : 'hover:text-gray-900'
-                                }`}
-                                style={activeTab === tab.id ? {
-                                    background: `linear-gradient(135deg, ${DESIGN_SYSTEM.primary.main} 0%, ${DESIGN_SYSTEM.primary.dark} 100%)`,
-                                } : {
-                                    backgroundColor: DESIGN_SYSTEM.neutral[100],
-                                    color: DESIGN_SYSTEM.neutral[600]
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (activeTab !== tab.id) {
-                                        e.currentTarget.style.backgroundColor = DESIGN_SYSTEM.neutral[200];
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (activeTab !== tab.id) {
-                                        e.currentTarget.style.backgroundColor = DESIGN_SYSTEM.neutral[100];
-                                    }
-                                }}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
                     </div>
                 </header>
 
                 {/* Error Message */}
                 {error && (
-                    <div 
-                        className="m-6 p-4 rounded-xl border"
-                        style={{
-                            backgroundColor: `${DESIGN_SYSTEM.status.danger}10`,
-                            borderColor: `${DESIGN_SYSTEM.status.danger}30`
-                        }}
-                    >
+                    <div className="m-4 sm:m-6 p-3 sm:p-4 rounded-xl bg-red-50 border border-red-200">
                         <div className="flex items-center">
-                            <AlertCircle 
-                                className="w-5 h-5 mr-2" 
-                                style={{ color: DESIGN_SYSTEM.status.danger }} 
-                            />
-                            <p style={{ color: DESIGN_SYSTEM.status.danger }}>{error}</p>
+                            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-600 flex-shrink-0" />
+                            <p className="text-sm text-red-700">{error}</p>
                         </div>
                     </div>
                 )}
 
                 {/* Content */}
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     {activeTab === "overview" && (
-                        <OverviewTab {...sharedData} />
+                        <OverviewTab
+                            {...sharedData}
+                        />
                     )}
                     {activeTab === "analytics" && (
-                        <AnalyticsTab {...sharedData} />
+                        <AnalyticsTab
+                            {...sharedData}
+                        />
                     )}
                     {activeTab === "reports" && (
-                        <ReportsTab {...sharedData} />
+                        <ReportsTab
+                            {...sharedData}
+                        />
                     )}
                 </div>
             </main>
-
-            {/* Enhanced Modal */}
-            {selectedModal && (
-                <div 
-                    className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
-                    onClick={() => setSelectedModal(null)}
-                >
-                    <div 
-                        className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div 
-                            className="p-6 border-b text-white"
-                            style={{
-                                background: `linear-gradient(135deg, ${DESIGN_SYSTEM.primary.main} 0%, ${DESIGN_SYSTEM.primary.light} 100%)`,
-                                borderColor: DESIGN_SYSTEM.neutral[200]
-                            }}
-                        >
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h3 className="text-2xl font-bold mb-1">
-                                        {selectedModal} Details
-                                    </h3>
-                                    <p className="text-emerald-50">Comprehensive metric analysis</p>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedModal(null)}
-                                    className="p-2 rounded-xl transition-all"
-                                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="p-8 overflow-y-auto max-h-[calc(90vh-120px)]">
-                            {/* Modal content based on selectedMetricData */}
-                            <div 
-                                className="p-4 rounded-xl border font-mono text-sm overflow-auto"
-                                style={{
-                                    backgroundColor: DESIGN_SYSTEM.neutral[50],
-                                    borderColor: DESIGN_SYSTEM.neutral[200],
-                                    color: DESIGN_SYSTEM.neutral[700]
-                                }}
-                            >
-                                <pre className="whitespace-pre-wrap">
-                                    {JSON.stringify(selectedMetricData, null, 2)}
-                                </pre>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
