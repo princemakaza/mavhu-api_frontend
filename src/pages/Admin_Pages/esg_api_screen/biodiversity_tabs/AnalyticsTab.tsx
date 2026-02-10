@@ -388,42 +388,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
             </div>
 
-            {/* Carbon Emission Breakdown */}
-            <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
-                <h3 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
-                    <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                    Carbon Emission Breakdown
-                </h3>
-                <div className="grid md:grid-cols-3 gap-6 mb-8">
-                    {carbonBreakdown.map((item, index) => (
-                        <div
-                            key={index}
-                            className="p-6 rounded-3xl border-2 border-gray-200 hover:border-green-400 bg-gradient-to-br from-white to-gray-50 transition-all duration-300 hover:shadow-xl"
-                        >
-                            <p className="text-sm text-gray-600 mb-2 font-medium">{item.scope}</p>
-                            <p className="text-3xl font-bold text-gray-900 mb-2">{formatNumber(item.value)}</p>
-                            <p className="text-sm text-gray-600">tCO₂e</p>
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                                <p className="text-sm font-semibold text-gray-700">{item.percentage.toFixed(1)}% of total</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <div className="p-6 rounded-3xl bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-600 mb-2 font-medium">Total Carbon Sequestration</p>
-                            <p className="text-4xl font-bold text-green-700">{formatNumber(totalSequestration)} <span className="text-lg">tCO₂</span></p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-600 mb-2 font-medium">Net Carbon Balance</p>
-                            <p className={`text-4xl font-bold ${netCarbonBalance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {formatNumber(netCarbonBalance)} <span className="text-lg">tCO₂</span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    
 
             {/* Social Governance Metrics */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">

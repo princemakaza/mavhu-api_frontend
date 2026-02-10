@@ -416,10 +416,9 @@ const OverviewTab = ({
                 className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 text-white text-xs"
             >
                 <Calculator className="w-3.5 h-3.5" />
-                How Calculated?
+                Methodology
             </button>
         </div>
-
         {/* Key Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
             {/* SOC Card */}
@@ -567,34 +566,7 @@ const OverviewTab = ({
                 )}
 
                 {/* Emissions Breakdown from API */}
-                {chartData?.emissionsBreakdownData && chartData.emissionsBreakdownData.length > 0 && (
-                    <GraphDisplay
-                        title="Emissions Breakdown"
-                        description="Detailed emissions by category"
-                        icon={<BarChart3 className="w-5 h-5" style={{ color: colors.primary }} />}
-                        onClick={() => { }}
-                        onInfoClick={() => onCalculationClick('emissions-breakdown', {
-                            description: allGraphs?.emissions_breakdown?.interpretation || "Emissions breakdown analysis"
-                        })}
-                    >
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData.emissionsBreakdownData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="name" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
-                                <RechartsTooltip
-                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
-                                    formatter={(value: any) => [`${formatNumber(value)} tCO₂e`, 'Emissions']}
-                                />
-                                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                                    {chartData.emissionsBreakdownData.map((entry: any, index: number) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </GraphDisplay>
-                )}
+
 
 
 
@@ -756,7 +728,12 @@ const OverviewTab = ({
                 )}
 
                 {/* Monthly SOC CO2 and Delta */}
-                {chartData?.monthlySocCO2Data && chartData.monthlySocCO2Data.length > 0 && (
+
+
+                {/* Monthly NDVI Max */}
+
+            </div>
+                            {chartData?.monthlySocCO2Data && chartData.monthlySocCO2Data.length > 0 && (
                     <GraphDisplay
                         title="Monthly SOC CO₂ Metrics"
                         description="SOC CO₂ per hectare and delta changes"
@@ -796,10 +773,6 @@ const OverviewTab = ({
                         </ResponsiveContainer>
                     </GraphDisplay>
                 )}
-
-                {/* Monthly NDVI Max */}
-
-            </div>
 
             {chartData?.monthlyNdviMaxData && chartData.monthlyNdviMaxData.length > 0 && (
                 <GraphDisplay
@@ -1061,7 +1034,7 @@ const OverviewTab = ({
                         </div>
                         <p className="text-gray-700 mb-4">Sequestration minus emissions</p>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-purple-600 font-medium">Formula: Net = Sequestration - Emissions</span>
+                            <span className="text-sm text-purple-600 font-medium">Formula: Net = Emissions - Sequestration</span>
                             <Info className="w-5 h-5 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </div>

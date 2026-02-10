@@ -191,7 +191,7 @@ const ReportsTab = ({
         // Methodology Data
         const methodologyData = {
             selectedYear: selectedYear || metadata?.yearRequested || new Date().getFullYear(),
-            calculationMethods: metadata?.calculation_methods || [],
+            calculationMethods: companyDetails.esg_reporting_framework.length || [],
             dataSources: metadata?.data_sources || [],
             apiVersion: metadata?.api_version || 'N/A',
             calculationVersion: metadata?.calculation_version || 'N/A',
@@ -239,26 +239,7 @@ const ReportsTab = ({
             { key: 'date', header: 'Target Date' },
             { key: 'verifiedBy', header: 'Verified By' },
         ],
-        audit: [
-            { key: 'id', header: 'ID' },
-            { key: 'action', header: 'Action' },
-            { key: 'user', header: 'User' },
-            { key: 'timestamp', header: 'Timestamp' },
-            { 
-                key: 'status', 
-                header: 'Status', 
-                accessor: (row: any) => (
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                        row.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        row.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                    }`}>
-                        {row.status}
-                    </span>
-                )
-            },
-            { key: 'changes', header: 'Changes' },
-        ],
+
         emissionFactors: [
             { key: 'source', header: 'Source' },
             { key: 'value', header: 'Value', accessor: (row: any) => formatNumber(row.value) },
@@ -349,7 +330,7 @@ const ReportsTab = ({
                         { id: 'summary', label: 'Executive Summary', icon: <FileText className="w-4 h-4" /> },
                         { id: 'methodology', label: 'Methodology & Data', icon: <BookOpen className="w-4 h-4" /> },
                         { id: 'compliance', label: 'Compliance', icon: <ShieldCheck className="w-4 h-4" /> },
-                        { id: 'audit', label: 'Audit Trail', icon: <Clock className="w-4 h-4" /> },
+                        // { id: 'audit', label: 'Audit Trail', icon: <Clock className="w-4 h-4" /> },
                         { id: 'technical', label: 'Technical Data', icon: <Database className="w-4 h-4" /> },
                         { id: 'export', label: 'Export Data', icon: <Download className="w-4 h-4" /> },
                     ].map((tab) => (
@@ -472,7 +453,7 @@ const ReportsTab = ({
                                 </div>
                             </div>
                             <p className="text-3xl font-bold text-blue-600 mb-2">
-                                {reportData.methodologyData.calculationMethods.length}
+                                {reportData.methodologyData.esgFrameworks.length}
                             </p>
                             <p className="text-sm text-gray-600">
                                 Different calculation approaches used
@@ -667,7 +648,7 @@ const ReportsTab = ({
                     </div>
                 </div>
             )}
-
+{/* 
             {selectedReport === 'audit' && (
                 <div className="space-y-8">
                     <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
@@ -686,7 +667,7 @@ const ReportsTab = ({
                         />
                     </div>
                 </div>
-            )}
+            )} */}
 
             {selectedReport === 'technical' && (
                 <div className="space-y-8">

@@ -74,6 +74,12 @@ import SocialDataScreen from "./pages/Admin_Pages/esg_api_screen/social_esg_scre
 import GovernanceDataScreen from "./pages/Admin_Pages/esg_api_screen/governace_esg_screen";
 import Report_Page from "./pages/Admin_Pages/report_admin_screen";
 import FarmComplianceScreen from "./pages/Admin_Pages/esg_api_screen/farm_compliance_screen";
+import EnergyConsumptionScreen from "./pages/Admin_Pages/esg_api_screen/energy_renewables_screen";
+import WasteManagementScreen from "./pages/Admin_Pages/esg_api_screen/waste_management_screen";
+import WorkforceDiversityScreen from "./pages/Admin_Pages/esg_api_screen/workforce_diversity_screen";
+import HealthSafetyScreen from "./pages/Admin_Pages/esg_api_screen/health_and_safety_screen";
+import GovernanceBoardScreen from "./pages/Admin_Pages/esg_api_screen/governance_esg_screean";
+import CommunityEngagementScreen from "./pages/Admin_Pages/esg_api_screen/community_engagement_screen";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -118,6 +124,23 @@ const App = () => (
             <Route path="/admin_farm_compliance/:companyId" element={<FarmComplianceScreen />} />
             <Route path="/admin_governance_data" element={<GovernanceDataScreen />} />
             <Route path="/admin_governance_data/:companyId" element={<GovernanceDataScreen />} />
+            <Route path="/admin_governance_board_metrics" element={<GovernanceBoardScreen />} />
+            <Route path="/admin_governance_board_metrics/:companyId" element={<GovernanceBoardScreen />} />
+
+            <Route path="/admin_community_engagement" element={<CommunityEngagementScreen />} />
+            <Route path="/admin_community_engagement/:companyId" element={<CommunityEngagementScreen />} />
+            
+            <Route path="/admin_health_safety" element={<HealthSafetyScreen />} />
+            <Route path="/admin_health_safety/:companyId" element={<HealthSafetyScreen />} />
+
+            <Route path="/admin_workforce_diversity" element={<WorkforceDiversityScreen />} />
+            <Route path="/admin_workforce_diversity/:companyId" element={<WorkforceDiversityScreen />} />
+
+            <Route path="/admin_waste_management" element={<WasteManagementScreen />} />
+            <Route path="/admin_waste_management/:companyId" element={<WasteManagementScreen />} />
+
+            <Route path="/admin_energy_consumption" element={<EnergyConsumptionScreen />} />
+            <Route path="/admin_energy_consumption/:companyId" element={<EnergyConsumptionScreen />} />
 
 
             <Route
