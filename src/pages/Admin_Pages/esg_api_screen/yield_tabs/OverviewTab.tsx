@@ -942,12 +942,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             {/* Crop Yield Hero Banner */}
-            <div
-                className="relative overflow-hidden rounded-2xl p-5 shadow-2xl"
-                style={{
-                    background: `linear-gradient(to right, ${COLORS.primary}, ${COLORS.darkGreen})`,
-                }}
-            >
+<div className="relative overflow-hidden rounded-2xl p-5 shadow-2xl" style={{ background: `linear-gradient(to right, ${colors.primary}, ${colors.darkGreen})` }}>
+
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
                 <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
 

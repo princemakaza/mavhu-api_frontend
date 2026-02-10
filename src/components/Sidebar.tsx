@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Users,
   TrendingUp,
-  Settings,
   Database,
   BarChart,
   Leaf,
@@ -11,6 +10,7 @@ import {
   Droplet,
   Shield,
   Zap,
+  ShieldPlus, Landmark, HandHeart,
   Recycle,
   Heart,
   Building,
@@ -21,7 +21,7 @@ import {
 import { useNavigate, useLocation, type To } from "react-router-dom";
 import Logo from "../assets/logo.png";
 
-const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
+const Sidebar = ({ isOpen = true, onClose = () => { } }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -46,24 +46,40 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
       label: "Reports",
       path: "/admin_report",
     },
+    {
+      icon: Users,
+      label: "Social Data",
+      path: "/admin_social_data",
+    },
+    {
+      icon: Leaf,
+      label: "Environmental Data",
+      path: "/admin_environmental_data",
+    },
+    {
+      icon: Building,
+      label: "Governance Data",
+      path: "/admin_governance_data",
+    },
   ]
 
   // Simplified API items without descriptions
   const apiItems = [
-    { icon: Leaf, label: "Soil Health", path: "/admin_soil_health_carbon" },
-    { icon: TrendingUp, label: "Crop Yield", path: "/admin_crop_yield_carbon" },
+    { icon: Leaf, label: "Soil Health & Carbon Quality", path: "/admin_soil_health_carbon" },
+    { icon: TrendingUp, label: "Crop Yield Forecast & Risk", path: "/admin_crop_yield_carbon" },
     { icon: Cloud, label: "GHG Emissions", path: "/admin_ghg_emission" },
-    { icon: Globe, label: "Biodiversity", path: "/admin_biodiversity_land_use" },
-    { icon: Droplet, label: "Water Risk", path: "/admin_irrigation_water" },
-    { icon: Leaf, label: "Environmental Data", path: "/admin_environmental_data" },
-    { icon: Users, label: "Social Data", path: "/admin_social_data" },
-    { icon: Building, label: "Governance", path: "/admin_governance_data" },
-    { icon: Shield, label: "Compliance", path: "/admin_farm_compliance" },
-    { icon: Zap, label: "Energy", path: "/apis/energy" },
-    { icon: Recycle, label: "Waste", path: "/apis/waste" },
-    { icon: Heart, label: "Health & Safety", path: "/apis/health-safety" },
-    
+    { icon: Globe, label: "Biodiversity & Land Use Integrity", path: "/admin_biodiversity_land_use" },
+    { icon: Droplet, label: "Irrigation Efficiency & Water Risk", path: "/admin_irrigation_water" },
+    { icon: Shield, label: "Farm Management Compliance", path: "/admin_farm_compliance" },
+    { icon: Zap, label: "Energy Consumption & Renewables", path: "/admin_energy_consumption" },
+    { icon: Recycle, label: "Waste Management", path: "/admin_waste_management" },
+    { icon: Users, label: "Workforce & Diversity", path: "/admin_workforce_diversity" },
+    { icon: ShieldPlus, label: "Health & Safety", path: "/admin_health_safety" },
+    { icon: Landmark, label: "Governance & Board Metrics", path: "/admin_governance_board_metrics" },
+    { icon: HandHeart, label: "Community Engagement", path: "/admin_community_engagement" },
+    // { icon: Heart, label: "Overall ESG Score", path: "/admin_overall_esg_score"},
   ];
+
   const handleNavigation = (path: To) => {
     navigate(path);
     if (window.innerWidth < 1024) {
@@ -83,16 +99,15 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-all duration-300 ease-out lg:translate-x-0 lg:static lg:inset-0 overflow-hidden flex flex-col bg-white border-r border-gray-200`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform ${isOpen ? "translate-x-0" : "-translate-x-full"
+          } transition-all duration-300 ease-out lg:translate-x-0 lg:static lg:inset-0 overflow-hidden flex flex-col bg-white border-r border-gray-200`}
       >
-        {/* Header */}
-        <div className="relative flex items-center justify-between h-20 px-4 border-b border-gray-200 bg-white flex-shrink-0">
+        {/* Header — reduced from h-20 to h-14 */}
+        <div className="relative flex items-center justify-between h-14 px-4 border-b border-gray-200 bg-white flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <img src={Logo} alt="MAVHU ESG Dashboard" className="h-10 w-auto" />
+            <img src={Logo} alt="MAVHU ESG Dashboard" className="h-8 w-auto" />
             <div>
-              <h1 className="text-lg font-bold text-gray-900">
+              <h1 className="text-base font-bold text-gray-900">
                 ESG Dashboard
               </h1>
               <p
@@ -106,18 +121,18 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
           <div className="flex items-center space-x-2">
             <button
               onClick={onClose}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-all duration-200"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 transition-all duration-200"
             >
-              <X className="w-5 h-5 text-gray-600" />
+              <X className="w-4 h-4 text-gray-600" />
             </button>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-6 scrollbar-hide">
+        {/* Navigation — reduced vertical spacing */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 scrollbar-hide">
           {/* Dashboard Section */}
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider mb-3 text-gray-500">
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-2 text-gray-500">
               Dashboard
             </h2>
             {dashboardItems.map((item, index) => {
@@ -127,41 +142,37 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
               return (
                 <div
                   key={index}
-                  className={`group flex items-center px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer mb-2 ${
-                    isActive
+                  className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer mb-1 ${isActive
                       ? "text-white"
                       : "text-gray-700 hover:bg-gray-50"
-                  }`}
+                    }`}
                   onClick={() => handleNavigation(item.path)}
                   style={
                     isActive
                       ? {
-                          background: `linear-gradient(to right, ${logoGreen}, #006400)`,
-                          boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
-                        }
+                        background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                        boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
+                      }
                       : {}
                   }
                 >
                   <div
-                    className={`p-2 rounded-lg mr-3 transition-all duration-300 ${
-                      isActive ? "bg-white/20" : "bg-gray-100"
-                    }`}
+                    className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${isActive ? "bg-white/20" : "bg-gray-100"
+                      }`}
                   >
                     <IconComponent
-                      className={`w-5 h-5 transition-all duration-300 ${
-                        isActive
+                      className={`w-4 h-4 transition-all duration-300 ${isActive
                           ? "text-white"
                           : "text-gray-600 group-hover:text-gray-800"
-                      }`}
+                        }`}
                     />
                   </div>
                   <div className="flex-1 font-medium text-sm">{item.label}</div>
                   <ChevronRight
-                    className={`w-4 h-4 transition-all duration-300 ${
-                      isActive
+                    className={`w-4 h-4 transition-all duration-300 ${isActive
                         ? "text-white opacity-100 translate-x-0.5"
                         : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
-                    }`}
+                      }`}
                   />
                 </div>
               );
@@ -170,15 +181,15 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
 
           {/* APIs Section */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 ESG APIs
               </h2>
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">
                 13
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               {apiItems.map((item, index) => {
                 const IconComponent = item.icon;
                 const isActive = location.pathname === item.path;
@@ -186,41 +197,37 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
                 return (
                   <div
                     key={index}
-                    className={`group flex items-center px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer ${
-                      isActive
+                    className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${isActive
                         ? "text-white"
                         : "text-gray-700 hover:bg-gray-50"
-                    }`}
+                      }`}
                     onClick={() => handleNavigation(item.path)}
                     style={
                       isActive
                         ? {
-                            background: `linear-gradient(to right, ${logoGreen}, #006400)`,
-                            boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
-                          }
+                          background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                          boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
+                        }
                         : {}
                     }
                   >
                     <div
-                      className={`p-2 rounded-lg mr-3 transition-all duration-300 ${
-                        isActive ? "bg-white/20" : "bg-gray-100"
-                      }`}
+                      className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${isActive ? "bg-white/20" : "bg-gray-100"
+                        }`}
                     >
                       <IconComponent
-                        className={`w-4 h-4 transition-all duration-300 ${
-                          isActive
+                        className={`w-3.5 h-3.5 transition-all duration-300 ${isActive
                             ? "text-white"
                             : "text-gray-600 group-hover:text-gray-800"
-                        }`}
+                          }`}
                       />
                     </div>
                     <div className="flex-1 font-medium text-sm">{item.label}</div>
                     <ChevronRight
-                      className={`w-3 h-3 transition-all duration-300 ${
-                        isActive
+                      className={`w-3 h-3 transition-all duration-300 ${isActive
                           ? "text-white opacity-100 translate-x-0.5"
                           : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
-                      }`}
+                        }`}
                     />
                   </div>
                 );
@@ -229,24 +236,23 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
           </div>
 
           {/* API Documentation Link */}
-          <div className="mt-8">
+          <div className="mt-4">
             <div
-              className="group flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-700"
+              className="group flex items-center justify-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer border border-gray-200 hover:bg-gray-50 text-gray-700"
               onClick={() => handleNavigation("/api-documentation")}
             >
-              <Database className="w-5 h-5 mr-2 text-gray-600" />
+              <Database className="w-4 h-4 mr-2 text-gray-600" />
               <span className="font-medium text-sm">View API Docs</span>
             </div>
           </div>
         </nav>
 
-        {/* Footer */}
-        <div className="px-4 pb-6 pt-4 border-t border-gray-200 flex-shrink-0">
-          {/* Logout Button */}
+        {/* Footer — reduced padding */}
+        <div className="px-4 pb-4 pt-3 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div
-                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                className="px-2.5 py-1 rounded-lg text-xs font-medium"
                 style={{
                   background: `linear-gradient(to right, ${logoGreen}10, ${logoYellow}10)`,
                   border: `1px solid ${logoGreen}20`,
@@ -261,7 +267,7 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
             </div>
             <button
               onClick={() => handleNavigation("/admin-logout")}
-              className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="text-xs font-medium px-2.5 py-1 rounded-full transition-colors text-red-600 hover:text-red-700 hover:bg-red-50"
             >
               Logout
             </button>
