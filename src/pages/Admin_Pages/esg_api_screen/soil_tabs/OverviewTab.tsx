@@ -400,136 +400,231 @@ const OverviewTab = ({
                 </div>
             </div>
 
-            {/* Environmental Overview */}
-<div className="relative overflow-hidden rounded-2xl p-5 shadow-2xl" style={{ background: `linear-gradient(to right, ${colors.primary}, ${colors.darkGreen})` }}>
-    <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-    <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
 
-    <div className="relative z-10">
-        <div className="flex items-center justify-between mb-3">
-            <div>
-                <h2 className="text-xl font-bold mb-1 text-white">Environmental Overview</h2>
-                <p className="text-green-100 text-sm">Real-time soil health and carbon metrics</p>
-            </div>
-            <button
-                onClick={() => onCalculationClick('overview')}
-                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 text-white text-xs"
-            >
-                <Calculator className="w-3.5 h-3.5" />
-                Methodology
-            </button>
-        </div>
-        {/* Key Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
-            {/* SOC Card */}
-            <div
-                className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
-                onClick={() => handleMetricClick(dashboardIndicators?.soilHealth, 'Soil Organic Carbon', 'soc')}
-            >
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-white/20">
-                        <Leaf className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <p className="text-white font-bold text-xs">Soil Organic Carbon</p>
-                </div>
-                <h3 className="text-xl font-normal mb-2 text-white">
-                    {dashboardIndicators?.soilHealth?.value.toFixed(2) || '0.00'}
-                    <span className="text-sm ml-1 text-green-100">{dashboardIndicators?.soilHealth?.unit || 'tC/ha'}</span>
-                </h3>
-                <div className="flex items-center justify-between">
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
-                        {dashboardIndicators?.soilHealth?.status || 'N/A'}
-                    </span>
-                    {getTrendIcon(dashboardIndicators?.soilHealth?.trend || '')}
-                </div>
-            </div>
 
-            {/* Carbon Stock Card */}
-            <div
-                className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
-                onClick={() => handleMetricClick(dashboardIndicators?.carbonStock, 'Carbon Stock', 'carbon-stock')}
-            >
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-lg bg-white/20">
-                            <Thermometer className="w-3.5 h-3.5 text-white" />
+
+
+            {/* Map Section */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Project Location</h3>
+                            <p className="text-gray-600 flex items-center gap-2">
+                                <MapPin className="w-4 h-4" style={{ color: colors.primary }} />
+                                {areaName}
+                            </p>
                         </div>
-                        <p className="text-white font-bold text-xs">Carbon Stock</p>
+                        <div className="flex gap-2">
+                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
+                                <Share2 className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
+                                <Download className="w-5 h-5 text-gray-600" />
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCalculationClick('carbon-stock', {
-                                formula: calculationFormulas.carbonStock.formula,
-                                total: calculationFormulas.carbonStock.total
-                            });
-                        }}
-                        className="p-1 rounded-lg hover:bg-white/20 transition-all"
-                    >
-                        <Info className="w-3 h-3 text-green-100" />
-                    </button>
                 </div>
-                <h3 className="text-xl font-normal mb-2 text-white">
-                    {formatNumber(dashboardIndicators?.carbonStock?.value || 0)}
-                    <span className="text-sm ml-1 text-green-100">{dashboardIndicators?.carbonStock?.unit || 'tCO₂/ha'}</span>
-                </h3>
-                <div className="flex items-center justify-between">
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
-                        Total: {formatNumber(totalCarbonStock)} tCO₂
-                    </span>
-                    {getTrendIcon(dashboardIndicators?.carbonStock?.trend || '')}
+                <div className="h-96">
+                    {coordinates.length > 0 ? (
+                        <MapContainer
+                            center={[coordinates[0]?.lat || 0, coordinates[0]?.lon || 0]}
+                            zoom={10}
+                            style={{ height: '100%', width: '100%' }}
+                            className="leaflet-container z-0"
+                        >
+                            <TileLayer
+                                attribution='&copy; OpenStreetMap contributors'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            {coordinates.length === 1 ? (
+                                <Marker position={[coordinates[0].lat, coordinates[0].lon]}>
+                                    <Popup>
+                                        <div className="p-2">
+                                            <h3 className="font-bold" style={{ color: colors.primary }}>{areaName}</h3>
+                                            <p className="text-sm text-gray-700">Lat: {coordinates[0].lat.toFixed(4)}</p>
+                                            <p className="text-sm text-gray-700">Lon: {coordinates[0].lon.toFixed(4)}</p>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            ) : (
+                                <Polygon
+                                    pathOptions={{ fillColor: colors.primary, color: colors.primary, fillOpacity: 0.3, weight: 2 }}
+                                    positions={coordinates.map((coord: any) => [coord.lat, coord.lon])}
+                                >
+                                    <Popup>
+                                        <div className="p-2">
+                                            <h3 className="font-bold" style={{ color: colors.primary }}>{areaName}</h3>
+                                            <p className="text-sm text-gray-700">Area: {areaCovered}</p>
+                                            <p className="text-sm text-gray-700">Points: {coordinates.length}</p>
+                                        </div>
+                                    </Popup>
+                                </Polygon>
+                            )}
+                        </MapContainer>
+                    ) : (
+                        <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                            <div className="text-center">
+                                <Map className="w-16 h-16 mx-auto mb-4 opacity-20" style={{ color: colors.primary }} />
+                                <p className="text-gray-500 font-medium">No location data available</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <div className="p-6 grid grid-cols-2 gap-4 bg-gray-50">
+                    <div className="p-4 rounded-xl bg-white border border-gray-200">
+                        <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
+                            <Globe className="w-4 h-4" style={{ color: colors.primary }} />
+                            Area Covered
+                        </p>
+                        <p className="font-bold text-lg text-gray-900">{areaCovered}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white border border-gray-200">
+                        <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
+                            <Target className="w-4 h-4" style={{ color: colors.primary }} />
+                            Monitoring Points
+                        </p>
+                        <p className="font-bold text-lg text-gray-900">{coordinates.length} coordinates</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Net Carbon Balance Card */}
-            <div
-                className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
-                onClick={() => handleMetricClick(dashboardIndicators?.carbonBalance, 'Net Carbon Balance', 'net-balance')}
-            >
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-white/20">
-                        <ActivityIcon className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <p className="text-white font-bold text-xs">Net Carbon Balance</p>
-                </div>
-                <h3 className="text-xl font-normal mb-2 text-white">
-                    {formatNumber(Math.abs(netCarbonBalance))}
-                    <span className="text-sm ml-1 text-green-100">tCO₂e</span>
-                </h3>
-                <div className="flex items-center justify-between">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${netCarbonBalance < 0 ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900'}`}>
-                        {netCarbonBalance < 0 ? 'Carbon Sink' : 'Carbon Source'}
-                    </span>
-                    <span className="text-green-100 text-[10px]">
-                        {netCarbonBalance < 0 ? '✓ Positive' : '⚠ Needs Attention'}
-                    </span>
-                </div>
-            </div>
 
-            {/* Vegetation Health Card */}
-            <div
-                className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
-                onClick={() => handleMetricClick(dashboardIndicators?.vegetationHealth, 'Vegetation Health', 'ndvi')}
-            >
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-white/20">
-                        <Sun className="w-3.5 h-3.5 text-white" />
+
+
+
+
+
+            {/* Environmental Overview */}
+            <div className="relative overflow-hidden rounded-2xl p-5 shadow-2xl" style={{ background: `linear-gradient(to right, ${colors.primary}, ${colors.darkGreen})` }}>
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
+
+                <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 className="text-xl font-bold mb-1 text-white">Environmental Overview</h2>
+                            <p className="text-green-100 text-sm">Real-time soil health and carbon metrics</p>
+                        </div>
+                        <button
+                            onClick={() => onCalculationClick('overview')}
+                            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 text-white text-xs"
+                        >
+                            <Calculator className="w-3.5 h-3.5" />
+                            Methodology
+                        </button>
                     </div>
-                    <p className="text-white font-bold text-xs">Vegetation Health (NDVI)</p>
-                </div>
-                <h3 className="text-xl font-normal mb-2 text-white">
-                    {dashboardIndicators?.vegetationHealth?.value.toFixed(3) || '0.000'}
-                </h3>
-                <div className="flex items-center justify-between">
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
-                        {dashboardIndicators?.vegetationHealth?.classification || 'N/A'}
-                    </span>
-                    {getTrendIcon(dashboardIndicators?.vegetationHealth?.trend || '')}
+                    {/* Key Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
+                        {/* SOC Card */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick(dashboardIndicators?.soilHealth, 'Soil Organic Carbon', 'soc')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Leaf className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">Soil Organic Carbon</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {dashboardIndicators?.soilHealth?.value.toFixed(2) || '0.00'}
+                                <span className="text-sm ml-1 text-green-100">{dashboardIndicators?.soilHealth?.unit || 'tC/ha'}</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    {dashboardIndicators?.soilHealth?.status || 'N/A'}
+                                </span>
+                                {getTrendIcon(dashboardIndicators?.soilHealth?.trend || '')}
+                            </div>
+                        </div>
+
+                        {/* Carbon Stock Card */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick(dashboardIndicators?.carbonStock, 'Carbon Stock', 'carbon-stock')}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-white/20">
+                                        <Thermometer className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                    <p className="text-white font-bold text-xs">Carbon Stock</p>
+                                </div>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onCalculationClick('carbon-stock', {
+                                            formula: calculationFormulas.carbonStock.formula,
+                                            total: calculationFormulas.carbonStock.total
+                                        });
+                                    }}
+                                    className="p-1 rounded-lg hover:bg-white/20 transition-all"
+                                >
+                                    <Info className="w-3 h-3 text-green-100" />
+                                </button>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(dashboardIndicators?.carbonStock?.value || 0)}
+                                <span className="text-sm ml-1 text-green-100">{dashboardIndicators?.carbonStock?.unit || 'tCO₂/ha'}</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    Total: {formatNumber(totalCarbonStock)} tCO₂
+                                </span>
+                                {getTrendIcon(dashboardIndicators?.carbonStock?.trend || '')}
+                            </div>
+                        </div>
+
+                        {/* Net Carbon Balance Card */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick(dashboardIndicators?.carbonBalance, 'Net Carbon Balance', 'net-balance')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <ActivityIcon className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">Net Carbon Balance</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(Math.abs(netCarbonBalance))}
+                                <span className="text-sm ml-1 text-green-100">tCO₂e</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${netCarbonBalance < 0 ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900'}`}>
+                                    {netCarbonBalance < 0 ? 'Carbon Sink' : 'Carbon Source'}
+                                </span>
+                                <span className="text-green-100 text-[10px]">
+                                    {netCarbonBalance < 0 ? '✓ Positive' : '⚠ Needs Attention'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Vegetation Health Card */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick(dashboardIndicators?.vegetationHealth, 'Vegetation Health', 'ndvi')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Sun className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">Vegetation Health (NDVI)</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {dashboardIndicators?.vegetationHealth?.value.toFixed(3) || '0.000'}
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    {dashboardIndicators?.vegetationHealth?.classification || 'N/A'}
+                                </span>
+                                {getTrendIcon(dashboardIndicators?.vegetationHealth?.trend || '')}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
             {/* Graphs Grid (2 columns) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -733,46 +828,46 @@ const OverviewTab = ({
                 {/* Monthly NDVI Max */}
 
             </div>
-                            {chartData?.monthlySocCO2Data && chartData.monthlySocCO2Data.length > 0 && (
-                    <GraphDisplay
-                        title="Monthly SOC CO₂ Metrics"
-                        description="SOC CO₂ per hectare and delta changes"
-                        icon={<LineChartIcon className="w-5 h-5" style={{ color: colors.primary }} />}
-                        onClick={() => { }}
-                        onInfoClick={() => onCalculationClick('monthly-soc-co2', {
-                            description: "Monthly SOC CO₂ (tCO₂/ha) and delta SOC CO₂ (tCO₂) tracking changes in soil carbon"
-                        })}
-                    >
-                        <ResponsiveContainer width="100%" height="100%">
-                            <RechartsLineChart data={chartData.monthlySocCO2Data}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="month" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
-                                <RechartsTooltip
-                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
-                                    formatter={customTooltipFormatter}
-                                />
-                                <RechartsLegend />
-                                <RechartsLine
-                                    type="monotone"
-                                    dataKey="socCO2"
-                                    stroke={graphColors.socCO2}
-                                    strokeWidth={2}
-                                    dot={{ fill: graphColors.socCO2, r: 4 }}
-                                    name="SOC CO₂ (tCO₂/ha)"
-                                />
-                                <RechartsLine
-                                    type="monotone"
-                                    dataKey="deltaSocCO2"
-                                    stroke={graphColors.deltaSocCO2}
-                                    strokeWidth={2}
-                                    dot={{ fill: graphColors.deltaSocCO2, r: 4 }}
-                                    name="Δ SOC CO₂ (tCO₂)"
-                                />
-                            </RechartsLineChart>
-                        </ResponsiveContainer>
-                    </GraphDisplay>
-                )}
+            {chartData?.monthlySocCO2Data && chartData.monthlySocCO2Data.length > 0 && (
+                <GraphDisplay
+                    title="Monthly SOC CO₂ Metrics"
+                    description="SOC CO₂ per hectare and delta changes"
+                    icon={<LineChartIcon className="w-5 h-5" style={{ color: colors.primary }} />}
+                    onClick={() => { }}
+                    onInfoClick={() => onCalculationClick('monthly-soc-co2', {
+                        description: "Monthly SOC CO₂ (tCO₂/ha) and delta SOC CO₂ (tCO₂) tracking changes in soil carbon"
+                    })}
+                >
+                    <ResponsiveContainer width="100%" height="100%">
+                        <RechartsLineChart data={chartData.monthlySocCO2Data}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis dataKey="month" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                            <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                            <RechartsTooltip
+                                contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                                formatter={customTooltipFormatter}
+                            />
+                            <RechartsLegend />
+                            <RechartsLine
+                                type="monotone"
+                                dataKey="socCO2"
+                                stroke={graphColors.socCO2}
+                                strokeWidth={2}
+                                dot={{ fill: graphColors.socCO2, r: 4 }}
+                                name="SOC CO₂ (tCO₂/ha)"
+                            />
+                            <RechartsLine
+                                type="monotone"
+                                dataKey="deltaSocCO2"
+                                stroke={graphColors.deltaSocCO2}
+                                strokeWidth={2}
+                                dot={{ fill: graphColors.deltaSocCO2, r: 4 }}
+                                name="Δ SOC CO₂ (tCO₂)"
+                            />
+                        </RechartsLineChart>
+                    </ResponsiveContainer>
+                </GraphDisplay>
+            )}
 
             {chartData?.monthlyNdviMaxData && chartData.monthlyNdviMaxData.length > 0 && (
                 <GraphDisplay
@@ -861,7 +956,7 @@ const OverviewTab = ({
                                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                                         }}
                                         formatter={(value: any) => [`${Number(value).toFixed(3)}`, 'NDVI']}
-                                        labelFormatter={(label) => `Month: ${label}`}
+                                        labelFormatter={(label) => `Year: ${label}`}
                                     />
                                     <Area
                                         type="monotone"
@@ -887,7 +982,7 @@ const OverviewTab = ({
                             </div>
                             <div className="text-right">
                                 <div className="text-xs italic">
-                                    {allGraphs?.ndvi_trend?.note || "Shows multi-year trend regardless of selected year"}
+                                    {allGraphs?.ndvi_trend?.note || ""}
                                 </div>
                             </div>
                         </div>
@@ -970,7 +1065,7 @@ const OverviewTab = ({
                             </div>
                             <div className="text-right">
                                 <div className="text-xs italic">
-                                    {allGraphs?.soc_trend?.note || "Shows multi-year trend regardless of selected year"}
+                                    {allGraphs?.soc_trend?.note || ""}
                                 </div>
                             </div>
                         </div>
@@ -1094,90 +1189,7 @@ const OverviewTab = ({
                 </div>
             </div>
 
-            {/* Map Section */}
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">Project Location</h3>
-                            <p className="text-gray-600 flex items-center gap-2">
-                                <MapPin className="w-4 h-4" style={{ color: colors.primary }} />
-                                {areaName}
-                            </p>
-                        </div>
-                        <div className="flex gap-2">
-                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                <Share2 className="w-5 h-5 text-gray-600" />
-                            </button>
-                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                <Download className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div className="h-96">
-                    {coordinates.length > 0 ? (
-                        <MapContainer
-                            center={[coordinates[0]?.lat || 0, coordinates[0]?.lon || 0]}
-                            zoom={10}
-                            style={{ height: '100%', width: '100%' }}
-                            className="leaflet-container z-0"
-                        >
-                            <TileLayer
-                                attribution='&copy; OpenStreetMap contributors'
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            />
-                            {coordinates.length === 1 ? (
-                                <Marker position={[coordinates[0].lat, coordinates[0].lon]}>
-                                    <Popup>
-                                        <div className="p-2">
-                                            <h3 className="font-bold" style={{ color: colors.primary }}>{areaName}</h3>
-                                            <p className="text-sm text-gray-700">Lat: {coordinates[0].lat.toFixed(4)}</p>
-                                            <p className="text-sm text-gray-700">Lon: {coordinates[0].lon.toFixed(4)}</p>
-                                        </div>
-                                    </Popup>
-                                </Marker>
-                            ) : (
-                                <Polygon
-                                    pathOptions={{ fillColor: colors.primary, color: colors.primary, fillOpacity: 0.3, weight: 2 }}
-                                    positions={coordinates.map((coord: any) => [coord.lat, coord.lon])}
-                                >
-                                    <Popup>
-                                        <div className="p-2">
-                                            <h3 className="font-bold" style={{ color: colors.primary }}>{areaName}</h3>
-                                            <p className="text-sm text-gray-700">Area: {areaCovered}</p>
-                                            <p className="text-sm text-gray-700">Points: {coordinates.length}</p>
-                                        </div>
-                                    </Popup>
-                                </Polygon>
-                            )}
-                        </MapContainer>
-                    ) : (
-                        <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                            <div className="text-center">
-                                <Map className="w-16 h-16 mx-auto mb-4 opacity-20" style={{ color: colors.primary }} />
-                                <p className="text-gray-500 font-medium">No location data available</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <div className="p-6 grid grid-cols-2 gap-4 bg-gray-50">
-                    <div className="p-4 rounded-xl bg-white border border-gray-200">
-                        <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
-                            <Globe className="w-4 h-4" style={{ color: colors.primary }} />
-                            Area Covered
-                        </p>
-                        <p className="font-bold text-lg text-gray-900">{areaCovered}</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-white border border-gray-200">
-                        <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
-                            <Target className="w-4 h-4" style={{ color: colors.primary }} />
-                            Monitoring Points
-                        </p>
-                        <p className="font-bold text-lg text-gray-900">{coordinates.length} coordinates</p>
-                    </div>
-                </div>
-            </div>
+
         </div>
     );
 };

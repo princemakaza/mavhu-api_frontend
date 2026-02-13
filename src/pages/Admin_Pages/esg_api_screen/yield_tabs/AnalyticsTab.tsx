@@ -1,98 +1,77 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 // Icons
 import {
     TrendingUp,
     TrendingDown,
     Activity,
+    Target,
+    BarChart3,
+    PieChart as PieChartIcon,
+    Filter,
+    Search,
+    Eye,
+    Info,
+    AlertTriangle,
+    DollarSign,
+    Clock,
+    ThermometerSun,
+    CloudRain,
+    Waves,
+    Mountain,
+    Sprout,
+    X,
+    Download,
+    Share2,
+    CheckCircle,
     Zap,
     Brain,
-    BarChart3,
-    LineChart as LineChartIcon,
-    ScatterChart as ScatterChartIcon,
-    Target,
-    GitBranch,
-    Cpu,
-    Shield,
-    AlertTriangle,
-    Database,
-    Cloud,
-    Droplet,
-    Thermometer,
-    Wind,
-    Trees,
-    Leaf,
-    Package,
-    DollarSign,
-    Percent,
-    Clock,
-    Map,
-    CheckCircle,
-    XCircle,
-    AlertCircle,
-    Info,
-    Download,
-    Maximize2,
-    Filter,
-    Settings,
-    RefreshCw,
-    X,
-    Share2,
-    Eye,
+    BadgeCheck,
+    Lightbulb,
+    ShieldCheck,
+    BarChartHorizontal,
+    Calendar,
     Award,
-    Sun,
-    ChevronRight,
-    ChevronDown,
-    BarChart2,
-    PieChart,
-    LineChart,
-    Activity as ActivityIcon,
-    AlertOctagon,
-    Target as TargetIcon,
-    TrendingUp as TrendingUpIcon,
-    CloudRain,
-    ThermometerSun,
-    Wind as WindIcon,
-    Droplets,
-    Sprout,
 } from "lucide-react";
 
-// Import service functions from crop_yield_service
+// Service functions – crop yield specific (updated)
 import {
+    CropYieldForecastResponse,
     getYieldForecastSummary,
     getRiskAssessmentSummary,
-    getEnvironmentalMetricsSummary,
-    getCarbonEmissionData,
-    getSatelliteIndicators,
     getConfidenceScoreBreakdown,
-    getNDVIIndicators,
-    getCalculationFactors,
-    getMonthlyCarbonData,
-    getMetricsByCategory,
-    getSummary,
     getSeasonalAdvisory,
+    getSummary,
+    getReportingPeriod,
+    getCropYieldYearlySummary,
+    getMetricsByCategory,
+    getYearOverYearChanges,
+    getMetricTimeSeries,
     getRecommendations,
 } from "../../../../services/Admin_Service/esg_apis/crop_yield_service";
 
-// Color Palette
+// Shared DataTable component (adjust import path as needed)
+import DataTable from "../soil_components/DataTable";
+
+// Green Color Palette – matching soil carbon / overview screens
 const COLORS = {
-    primary: '#22c55e',      // Green-500
-    primaryDark: '#16a34a',  // Green-600
-    primaryLight: '#86efac', // Green-300
-    secondary: '#10b981',    // Emerald-500
-    accent: '#84cc16',       // Lime-500
+    primary: '#22c55e',       // Green-500
+    primaryDark: '#15803d',   // Green-700
+    primaryLight: '#86efac',  // Green-300
+    secondary: '#16a34a',     // Green-600
+    accent: '#10b981',        // Emerald-500
     success: '#22c55e',
-    warning: '#eab308',      // Yellow-500
-    danger: '#ef4444',       // Red-500
-    info: '#3b82f6',         // Blue-500
-    water: '#3b82f6',        // Blue for water metrics
-    carbon: '#8b5cf6',       // Purple for carbon metrics
-    soil: '#d97706',         // Amber for soil metrics
-    vegetation: '#10b981',   // Emerald for vegetation
+    warning: '#eab308',
+    danger: '#ef4444',
+    info: '#3b82f6',
+    purple: '#8b5cf6',
 };
 
+// ----------------------------------------------------------------------
+// Interfaces
+// ----------------------------------------------------------------------
 interface AnalyticsTabProps {
-    cropYieldData: any;
+    cropYieldData: CropYieldForecastResponse | null;
     selectedCompany: any;
     formatNumber: (num: number) => string;
     formatCurrency: (num: number) => string;
@@ -105,6 +84,25 @@ interface AnalyticsTabProps {
     onMetricClick: (metric: any, modalType: string) => void;
 }
 
+// ----------------------------------------------------------------------
+// Helper: Pearson correlation coefficient
+// ----------------------------------------------------------------------
+function pearsonCorrelation(x: number[], y: number[]): number {
+    if (x.length !== y.length || x.length === 0) return 0;
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((acc, val, i) => acc + val * y[i], 0);
+    const sumX2 = x.reduce((acc, val) => acc + val * val, 0);
+    const sumY2 = y.reduce((acc, val) => acc + val * val, 0);
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    return denominator === 0 ? 0 : numerator / denominator;
+}
+
+// ----------------------------------------------------------------------
+// Main Component
+// ----------------------------------------------------------------------
 const AnalyticsTab = ({
     cropYieldData,
     selectedCompany,
@@ -114,889 +112,796 @@ const AnalyticsTab = ({
     getTrendIcon,
     onMetricClick,
 }: AnalyticsTabProps) => {
-    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-        yieldForecast: true,
-        riskAssessment: true,
-        environmentalMetrics: true,
-        carbonAnalysis: true,
-        mlInsights: true,
-        seasonalAdvisory: true,
-        recommendations: true,
-    });
-    const [selectedScenario, setSelectedScenario] = useState<'best' | 'worst' | 'baseline'>('baseline');
+    // State
+    const [selectedTable, setSelectedTable] = useState<'statistical' | 'correlation' | 'anomalies'>('statistical');
     const [selectedMetric, setSelectedMetric] = useState<any>(null);
-    const [showMetricModal, setShowMetricModal] = useState(false);
-    const [showInsightsModal, setShowInsightsModal] = useState(false);
-    const [activeAnalysis, setActiveAnalysis] = useState<string>('yield');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [activeInsightTab, setActiveInsightTab] = useState<'trends' | 'predictions' | 'correlations'>('trends');
+    const [showRecommendationsModal, setShowRecommendationsModal] = useState(false);
 
-    // Toggle section expansion
-    const toggleSection = (sectionId: string) => {
-        setExpandedSections(prev => ({
-            ...prev,
-            [sectionId]: !prev[sectionId]
-        }));
-    };
-
-    // =====================
-    // DATA IMPORTS FROM API
-    // =====================
-
-    // 1) YIELD FORECAST DATA
+    // --------------------------------------------------------------------
+    // 1. Extract all available data using service helpers
+    // --------------------------------------------------------------------
     const yieldForecast = cropYieldData ? getYieldForecastSummary(cropYieldData) : null;
-    const sensitivityAnalysis = yieldForecast?.sensitivityAnalysis;
-    const calculationFactors = cropYieldData ? getCalculationFactors(cropYieldData) : null;
-    const confidenceScore = cropYieldData ? getConfidenceScoreBreakdown(cropYieldData) : null;
-    const summaryData = cropYieldData ? getSummary(cropYieldData) : null;
-    const seasonalAdvisory = cropYieldData ? getSeasonalAdvisory(cropYieldData) : null;
-    const recommendations = cropYieldData ? getRecommendations(cropYieldData) : null;
-
-    // Predictive modeling results
-    const predictiveModelData = {
-        forecastedYield: yieldForecast?.forecastedYield || 0,
-        confidence: yieldForecast?.confidenceScore || 0,
-        calculationFormula: yieldForecast?.formula || 'N/A',
-        baseYield: calculationFactors?.base_yield || 0,
-        ndviFactor: calculationFactors?.ndvi_factor || 0,
-        waterEfficiency: calculationFactors?.water_efficiency || 0,
-        soilHealthFactor: calculationFactors?.soil_health_factor || 0,
-        climateFactor: calculationFactors?.climate_factor || 0,
-    };
-
-    // Scenario analysis data
-    const scenarioData = {
-        bestCase: {
-            yield: predictiveModelData.forecastedYield * 1.15,
-            probability: 30,
-            conditions: ['Optimal rainfall', 'No pest pressure', 'Ideal temperatures'],
-            factors: {
-                water: '95% efficiency',
-                temperature: '+2°C optimal',
-                ndvi: '0.8+ sustained',
-            },
-        },
-        worstCase: {
-            yield: predictiveModelData.forecastedYield * 0.85,
-            probability: 20,
-            conditions: ['Drought conditions', 'High pest pressure', 'Extreme temperatures'],
-            factors: {
-                water: '60% efficiency',
-                temperature: '+5°C heat stress',
-                ndvi: '0.5 or below',
-            },
-        },
-        baseline: {
-            yield: predictiveModelData.forecastedYield,
-            probability: 50,
-            conditions: ['Normal conditions', 'Average pest pressure', 'Seasonal temperatures'],
-            factors: {
-                water: `${predictiveModelData.waterEfficiency}% efficiency`,
-                temperature: 'Normal range',
-                ndvi: 'Seasonal average',
-            },
-        },
-    };
-
-    // 2) ENVIRONMENTAL IMPACT ANALYTICS DATA
-    const environmentalMetrics = cropYieldData ? getEnvironmentalMetricsSummary(cropYieldData) : null;
-    const carbonData = cropYieldData ? getCarbonEmissionData(cropYieldData) : null;
-
-    // Water usage vs yield correlation
-    const waterMetrics = cropYieldData ? getMetricsByCategory(cropYieldData, 'water') : {};
-
-    // Carbon footprint per unit yield
-    const carbonIntensity = environmentalMetrics?.keyPerformanceIndicators?.carbon_intensity || { value: 0, unit: 'kg CO₂e/ton' };
-
-    // Sustainability metrics dashboard
-    const sustainabilityMetrics = {
-        waterUseEfficiency: environmentalMetrics?.keyPerformanceIndicators?.water_use_efficiency || { value: 0, unit: 'kg/m³', status: 'N/A' },
-        energyProductivity: environmentalMetrics?.keyPerformanceIndicators?.energy_productivity || { value: 0, unit: 'kg/kWh', status: 'N/A' },
-        carbonIntensity: environmentalMetrics?.keyPerformanceIndicators?.carbon_intensity || { value: 0, unit: 'kg CO₂e/ton', status: 'N/A' },
-        soilHealthIndex: environmentalMetrics?.keyPerformanceIndicators?.soil_health_index || { value: 0, unit: 'index', status: 'N/A' },
-    };
-
-    // 3) MACHINE LEARNING INSIGHTS DATA
     const riskAssessment = cropYieldData ? getRiskAssessmentSummary(cropYieldData) : null;
-    const ndviIndicators = cropYieldData ? getNDVIIndicators(cropYieldData) : null;
+    const confidenceScore = cropYieldData ? getConfidenceScoreBreakdown(cropYieldData) : null;
+    const seasonalAdvisory = cropYieldData ? getSeasonalAdvisory(cropYieldData) : null;
+    const summary = cropYieldData ? getSummary(cropYieldData) : null;
+    const recommendations = cropYieldData ? getRecommendations(cropYieldData) : [];
+    const yearlySummary = cropYieldData ? getCropYieldYearlySummary(cropYieldData) : null;
+    const yoyChanges = cropYieldData ? getYearOverYearChanges(cropYieldData) : [];
+    const reportingPeriod = cropYieldData ? getReportingPeriod(cropYieldData) : null;
 
-    // Yield prediction accuracy metrics
-    const mlAccuracyMetrics = {
-        overallAccuracy: confidenceScore?.overall || 0,
-        forecastConfidence: confidenceScore?.forecast_confidence || 0,
-        dataQuality: confidenceScore?.data_quality || 0,
-        methodologyRigor: confidenceScore?.methodology_rigor || 0,
-        improvementAreas: confidenceScore?.improvement_areas || [],
-        interpretation: confidenceScore?.interpretation || 'N/A',
+    // Categorized metrics
+    const sugarCaneYieldMetrics = cropYieldData
+        ? getMetricsByCategory(cropYieldData, 'sugar_cane_yield')
+        : {};
+    const areaUnderCaneMetrics = cropYieldData
+        ? getMetricsByCategory(cropYieldData, 'area_under_cane')
+        : {};
+    const caneHarvestedMetrics = cropYieldData
+        ? getMetricsByCategory(cropYieldData, 'cane_harvested')
+        : {};
+    const sugarProductionMetrics = cropYieldData
+        ? getMetricsByCategory(cropYieldData, 'sugar_production')
+        : {};
+
+    // --------------------------------------------------------------------
+    // 2. Build time series for key metrics
+    //    (only if multiple years exist; otherwise single point)
+    // --------------------------------------------------------------------
+    const metricTimeSeries = useMemo(() => {
+        const series: Record<string, { years: string[]; values: number[]; unit: string; label: string }> = {};
+
+        // Company yield (tons/ha)
+        const companyYieldMetricId = Object.keys(sugarCaneYieldMetrics).find(
+            (key) => sugarCaneYieldMetrics[key]?.metric_name?.includes("Company")
+        );
+        if (companyYieldMetricId && cropYieldData) {
+            const ts = getMetricTimeSeries(cropYieldData, companyYieldMetricId);
+            if (ts) {
+                series.companyYield = {
+                    ...ts,
+                    label: 'Company Yield',
+                };
+            }
+        }
+
+        // Private yield (tons/ha)
+        const privateYieldMetricId = Object.keys(sugarCaneYieldMetrics).find(
+            (key) => sugarCaneYieldMetrics[key]?.metric_name?.includes("Private")
+        );
+        if (privateYieldMetricId && cropYieldData) {
+            const ts = getMetricTimeSeries(cropYieldData, privateYieldMetricId);
+            if (ts) {
+                series.privateYield = {
+                    ...ts,
+                    label: 'Private Yield',
+                };
+            }
+        }
+
+        // Total area (ha)
+        const totalAreaMetricId = Object.keys(areaUnderCaneMetrics).find(
+            (key) => areaUnderCaneMetrics[key]?.metric_name?.includes("Total")
+        );
+        if (totalAreaMetricId && cropYieldData) {
+            const ts = getMetricTimeSeries(cropYieldData, totalAreaMetricId);
+            if (ts) {
+                series.totalArea = {
+                    ...ts,
+                    label: 'Total Area',
+                };
+            }
+        }
+
+        // Company cane harvested (tons) – optional
+        const companyCaneId = Object.keys(caneHarvestedMetrics).find(
+            (key) => caneHarvestedMetrics[key]?.metric_name?.includes("Company")
+        );
+        if (companyCaneId && cropYieldData) {
+            const ts = getMetricTimeSeries(cropYieldData, companyCaneId);
+            if (ts) {
+                series.companyCane = {
+                    ...ts,
+                    label: 'Company Cane',
+                };
+            }
+        }
+
+        // Sugar production (tons) – optional
+        const companySugarId = Object.keys(sugarProductionMetrics).find(
+            (key) => sugarProductionMetrics[key]?.metric_name?.includes("Company")
+        );
+        if (companySugarId && cropYieldData) {
+            const ts = getMetricTimeSeries(cropYieldData, companySugarId);
+            if (ts) {
+                series.companySugar = {
+                    ...ts,
+                    label: 'Company Sugar',
+                };
+            }
+        }
+
+        return series;
+    }, [cropYieldData, sugarCaneYieldMetrics, areaUnderCaneMetrics, caneHarvestedMetrics, sugarProductionMetrics]);
+
+    // --------------------------------------------------------------------
+    // 3. Calculate statistical summaries for each time series
+    // --------------------------------------------------------------------
+    const statisticalData = useMemo(() => {
+        const stats: any[] = [];
+
+        const calculateStats = (values: number[]) => {
+            if (values.length === 0) return { mean: 0, median: 0, stdDev: 0, min: 0, max: 0 };
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const sorted = [...values].sort((a, b) => a - b);
+            const median = sorted[Math.floor(sorted.length / 2)];
+            const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+            const stdDev = Math.sqrt(variance);
+            return {
+                mean: parseFloat(mean.toFixed(2)),
+                median: parseFloat(median.toFixed(2)),
+                stdDev: parseFloat(stdDev.toFixed(2)),
+                min: Math.min(...values),
+                max: Math.max(...values),
+            };
+        };
+
+        Object.entries(metricTimeSeries).forEach(([key, ts]) => {
+            if (ts.values.length > 0) {
+                stats.push({
+                    metric: ts.label,
+                    unit: ts.unit,
+                    ...calculateStats(ts.values),
+                    n: ts.values.length,
+                    trend: ts.values.length > 1
+                        ? ts.values[ts.values.length - 1] > ts.values[0] ? 'up' : 'down'
+                        : 'stable',
+                    confidence: confidenceScore?.overall || 70,
+                });
+            }
+        });
+
+        // Also add Year-over-Year changes as a separate "metric"
+        if (yoyChanges.length > 0) {
+            const yoyValues = yoyChanges.map(c => c.numeric_change);
+            if (yoyValues.length > 0) {
+                stats.push({
+                    metric: 'YoY Change (%)',
+                    unit: '%',
+                    ...calculateStats(yoyValues),
+                    n: yoyValues.length,
+                    trend: yoyValues.length > 1 && yoyValues[yoyValues.length - 1] > yoyValues[0] ? 'up' : 'down',
+                    confidence: confidenceScore?.overall || 70,
+                });
+            }
+        }
+
+        return stats;
+    }, [metricTimeSeries, yoyChanges, confidenceScore]);
+
+    // --------------------------------------------------------------------
+    // 4. Correlation matrix (if at least two time series with same years)
+    // --------------------------------------------------------------------
+    const correlationMatrix = useMemo(() => {
+        const correlations: any[] = [];
+
+        // Correlate company yield vs private yield
+        if (metricTimeSeries.companyYield && metricTimeSeries.privateYield) {
+            const commonYears = metricTimeSeries.companyYield.years.filter(y =>
+                metricTimeSeries.privateYield.years.includes(y)
+            );
+            if (commonYears.length >= 2) {
+                const x = commonYears.map(y =>
+                    metricTimeSeries.companyYield.values[metricTimeSeries.companyYield.years.indexOf(y)]
+                );
+                const y = commonYears.map(y =>
+                    metricTimeSeries.privateYield.values[metricTimeSeries.privateYield.years.indexOf(y)]
+                );
+                const r = pearsonCorrelation(x, y);
+                correlations.push({
+                    pair: 'Company Yield vs Private Yield',
+                    correlation: r,
+                    pValue: Math.abs(r) > 0.8 ? 0.001 : Math.abs(r) > 0.6 ? 0.01 : 0.05,
+                    strength: r > 0.8 ? 'Very Strong' : r > 0.6 ? 'Strong' : r > 0.4 ? 'Moderate' : 'Weak',
+                    direction: r > 0 ? 'Positive' : 'Negative',
+                });
+            }
+        }
+
+        // Correlate company yield vs total area
+        if (metricTimeSeries.companyYield && metricTimeSeries.totalArea) {
+            const commonYears = metricTimeSeries.companyYield.years.filter(y =>
+                metricTimeSeries.totalArea.years.includes(y)
+            );
+            if (commonYears.length >= 2) {
+                const x = commonYears.map(y =>
+                    metricTimeSeries.companyYield.values[metricTimeSeries.companyYield.years.indexOf(y)]
+                );
+                const y = commonYears.map(y =>
+                    metricTimeSeries.totalArea.values[metricTimeSeries.totalArea.years.indexOf(y)]
+                );
+                const r = pearsonCorrelation(x, y);
+                correlations.push({
+                    pair: 'Company Yield vs Total Area',
+                    correlation: r,
+                    pValue: Math.abs(r) > 0.8 ? 0.001 : Math.abs(r) > 0.6 ? 0.01 : 0.05,
+                    strength: r > 0.8 ? 'Very Strong' : r > 0.6 ? 'Strong' : r > 0.4 ? 'Moderate' : 'Weak',
+                    direction: r > 0 ? 'Positive' : 'Negative',
+                });
+            }
+        }
+
+        return correlations;
+    }, [metricTimeSeries]);
+
+    // --------------------------------------------------------------------
+    // 5. Anomalies detection (outliers in yield or YoY changes)
+    // --------------------------------------------------------------------
+    const anomalies = useMemo(() => {
+        const anomaliesList: any[] = [];
+
+        // Detect outliers in company yield time series
+        if (metricTimeSeries.companyYield && metricTimeSeries.companyYield.values.length >= 3) {
+            const values = metricTimeSeries.companyYield.values;
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const stdDev = Math.sqrt(values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length);
+            values.forEach((val, idx) => {
+                const zScore = (val - mean) / (stdDev || 1);
+                if (Math.abs(zScore) > 2) {
+                    anomaliesList.push({
+                        period: metricTimeSeries.companyYield.years[idx],
+                        metric: 'Company Yield',
+                        value: val,
+                        unit: metricTimeSeries.companyYield.unit,
+                        zScore: zScore.toFixed(2),
+                        deviation: ((val - mean) / mean * 100).toFixed(1),
+                        severity: Math.abs(zScore) > 3 ? 'High' : 'Medium',
+                    });
+                }
+            });
+        }
+
+        // Detect anomalies in YoY changes
+        if (yoyChanges.length >= 3) {
+            const yoyValues = yoyChanges.map(c => c.numeric_change);
+            const mean = yoyValues.reduce((a, b) => a + b, 0) / yoyValues.length;
+            const stdDev = Math.sqrt(yoyValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / yoyValues.length);
+            yoyChanges.forEach((item, idx) => {
+                const val = item.numeric_change;
+                const zScore = (val - mean) / (stdDev || 1);
+                if (Math.abs(zScore) > 2) {
+                    anomaliesList.push({
+                        period: item.period,
+                        metric: `${item.metric} (YoY)`,
+                        value: val,
+                        unit: '%',
+                        zScore: zScore.toFixed(2),
+                        deviation: ((val - mean) / mean * 100).toFixed(1),
+                        severity: Math.abs(zScore) > 3 ? 'High' : 'Medium',
+                    });
+                }
+            });
+        }
+
+        return anomaliesList;
+    }, [metricTimeSeries, yoyChanges]);
+
+    // --------------------------------------------------------------------
+    // 6. Confidence Score Breakdown
+    // --------------------------------------------------------------------
+    const confidenceBreakdown = useMemo(() => {
+        const dataCoverageScore = reportingPeriod?.data_coverage_score || 0;
+        return [
+            {
+                label: 'Overall Confidence',
+                value: confidenceScore?.overall || 0,
+                formatted: `${confidenceScore?.overall || 0}%`,
+            },
+            {
+                label: 'Forecast Confidence',
+                value: confidenceScore?.forecast_confidence || 0,
+                formatted: `${confidenceScore?.forecast_confidence || 0}%`,
+            },
+            {
+                label: 'Risk Assessment Confidence',
+                value: confidenceScore?.risk_assessment_confidence || 0,
+                formatted: `${confidenceScore?.risk_assessment_confidence || 0}%`,
+            },
+            {
+                label: 'Data Coverage Score',
+                value: dataCoverageScore * 10, // scale 0-10 to percentage
+                formatted: `${dataCoverageScore}/10`,
+            },
+        ];
+    }, [confidenceScore, reportingPeriod]);
+
+    const overallConfidence = Math.round(
+        confidenceBreakdown.reduce((acc, item) => acc + item.value, 0) / confidenceBreakdown.length
+    );
+
+    // --------------------------------------------------------------------
+    // 7. Insights data
+    // --------------------------------------------------------------------
+    const insights = {
+        trends: [
+            {
+                title: 'Yield Trend',
+                description: statisticalData.find(s => s.metric === 'Company Yield')
+                    ? `Average: ${statisticalData.find(s => s.metric === 'Company Yield')?.mean} t/ha, Trend: ${statisticalData.find(s => s.metric === 'Company Yield')?.trend === 'up' ? 'Increasing' : 'Decreasing'}`
+                    : 'Insufficient historical data',
+                icon: <TrendingUp className="w-5 h-5 text-green-600" />,
+                impact: 'High',
+                value: statisticalData.find(s => s.metric === 'Company Yield')
+                    ? `${statisticalData.find(s => s.metric === 'Company Yield')?.mean.toFixed(1)} t/ha`
+                    : `${yearlySummary?.company_yield?.toFixed(1) || 'N/A'} t/ha`,
+            },
+            {
+                title: 'Risk Level',
+                description: `Overall risk: ${riskAssessment?.riskLevel || 'Low'} (${riskAssessment?.overallScore || 0}%)`,
+                icon: <AlertTriangle className="w-5 h-5 text-yellow-600" />,
+                impact: riskAssessment?.riskLevel === 'High' ? 'High' : 'Medium',
+                value: riskAssessment?.riskLevel || 'Low',
+            },
+            {
+                title: 'Seasonal Outlook',
+                description: seasonalAdvisory?.current_season || 'N/A',
+                icon: <Calendar className="w-5 h-5 text-emerald-600" />,
+                impact: 'Medium',
+                value: seasonalAdvisory?.next_season || 'N/A',
+            },
+        ],
+        predictions: [
+            {
+                title: 'Next Season Forecast',
+                description: `Predicted yield: ${yieldForecast?.nextSeasonForecast?.predicted_yield?.toFixed(1) || 'N/A'} ${yieldForecast?.unit || 't/ha'}`,
+                icon: <Target className="w-5 h-5 text-green-600" />,
+                timeframe: yieldForecast?.nextSeasonForecast?.year?.toString() || '2025',
+                value: `${yieldForecast?.nextSeasonForecast?.confidence || 0}% confidence`,
+            },
+            {
+                title: 'Outlook',
+                description: summary?.outlook || 'Stable production expected',
+                icon: <CloudRain className="w-5 h-5 text-emerald-600" />,
+                timeframe: 'Annual',
+                value: summary?.key_strengths?.[0] || 'Stable',
+            },
+        ],
+        correlations: correlationMatrix.length > 0
+            ? correlationMatrix.map(c => ({
+                title: c.pair,
+                description: `${c.direction} ${c.strength} correlation (r = ${c.correlation.toFixed(2)})`,
+                icon: <BarChart3 className="w-5 h-5 text-green-600" />,
+                significance: c.strength,
+                value: `r = ${c.correlation.toFixed(2)}`,
+            }))
+            : [
+                {
+                    title: 'Insufficient Data',
+                    description: 'More historical data required for correlation analysis',
+                    icon: <Info className="w-5 h-5 text-gray-600" />,
+                    significance: 'N/A',
+                    value: 'Add more years',
+                },
+            ],
     };
 
-    // Feature importance analysis
-    const featureImportanceData = [
-        { feature: 'NDVI (Vegetation Health)', importance: 35, impact: 'Positive', category: 'Satellite' },
-        { feature: 'Soil Organic Carbon', importance: 25, impact: 'Positive', category: 'Soil' },
-        { feature: 'Water Efficiency', importance: 20, impact: 'Positive', category: 'Resource' },
-        { feature: 'Climate Factors', importance: 15, impact: 'Variable', category: 'Climate' },
-        { feature: 'Management Practices', importance: 5, impact: 'Positive', category: 'Human' },
-    ];
-
-    // 4) COMPARATIVE ANALYSIS DATA
-    const industryComparison = yieldForecast?.comparison || null;
-
-    // Peer benchmarking data
-    const peerBenchmarkingData = [
-        { company: 'Industry Average', yield: industryComparison?.industry_average || 0, efficiency: 75, carbonIntensity: 150 },
-        { company: selectedCompany?.name || 'Your Company', yield: industryComparison?.company_yield || 0, efficiency: predictiveModelData.waterEfficiency, carbonIntensity: carbonIntensity.value },
-        { company: 'Top Performer', yield: (industryComparison?.industry_average || 0) * 1.2, efficiency: 90, carbonIntensity: 120 },
-        { company: 'Regional Average', yield: (industryComparison?.industry_average || 0) * 0.95, efficiency: 70, carbonIntensity: 160 },
-    ];
-
-    // Handle metric click
-    const handleMetricClick = (metric: any, title: string) => {
-        setSelectedMetric({ ...metric, title });
-        setShowMetricModal(true);
+    // --------------------------------------------------------------------
+    // 8. Table column definitions (matching GHG style)
+    // --------------------------------------------------------------------
+    const tableColumns = {
+        statistical: [
+            { key: 'metric', header: 'Metric', className: 'font-semibold' },
+            { key: 'unit', header: 'Unit' },
+            { key: 'n', header: 'N', accessor: (row: any) => row.n || '1' },
+            { key: 'mean', header: 'Mean', accessor: (row: any) => formatNumber(row.mean) },
+            { key: 'median', header: 'Median', accessor: (row: any) => formatNumber(row.median) },
+            { key: 'stdDev', header: 'Std Dev', accessor: (row: any) => formatNumber(row.stdDev) },
+            { key: 'min', header: 'Min', accessor: (row: any) => formatNumber(row.min) },
+            { key: 'max', header: 'Max', accessor: (row: any) => formatNumber(row.max) },
+            {
+                key: 'trend',
+                header: 'Trend',
+                accessor: (row: any) => (
+                    <div className="flex items-center gap-2">
+                        {getTrendIcon(row.trend)}
+                        <span className="capitalize text-gray-700">{row.trend}</span>
+                    </div>
+                ),
+            },
+        ],
+        correlation: [
+            { key: 'pair', header: 'Metric Pair' },
+            {
+                key: 'correlation',
+                header: 'Correlation',
+                accessor: (row: any) => row.correlation.toFixed(2),
+            },
+            {
+                key: 'pValue',
+                header: 'P-Value',
+                accessor: (row: any) => row.pValue.toFixed(3),
+            },
+            {
+                key: 'strength',
+                header: 'Strength',
+                accessor: (row: any) => {
+                    let bgColor = 'bg-gray-100 text-gray-800';
+                    if (row.strength.includes('Very')) bgColor = 'bg-green-100 text-green-800';
+                    else if (row.strength.includes('Strong')) bgColor = 'bg-emerald-100 text-emerald-800';
+                    else if (row.strength.includes('Moderate')) bgColor = 'bg-yellow-100 text-yellow-800';
+                    return (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${bgColor}`}>
+                            {row.strength}
+                        </span>
+                    );
+                },
+            },
+            {
+                key: 'direction',
+                header: 'Direction',
+                accessor: (row: any) => (
+                    <span className={row.direction === 'Positive' ? 'text-green-600' : 'text-red-600'}>
+                        {row.direction}
+                    </span>
+                ),
+            },
+        ],
+        anomalies: [
+            { key: 'period', header: 'Period' },
+            { key: 'metric', header: 'Metric' },
+            {
+                key: 'value',
+                header: 'Value',
+                accessor: (row: any) => `${formatNumber(row.value)} ${row.unit || ''}`,
+            },
+            {
+                key: 'zScore',
+                header: 'Z-Score',
+                accessor: (row: any) => (
+                    <span
+                        className={
+                            Math.abs(parseFloat(row.zScore)) > 3
+                                ? 'text-red-600 font-semibold'
+                                : 'text-yellow-600'
+                        }
+                    >
+                        {row.zScore}
+                    </span>
+                ),
+            },
+            {
+                key: 'deviation',
+                header: 'Deviation (%)',
+                accessor: (row: any) => (
+                    <span
+                        className={
+                            Math.abs(parseFloat(row.deviation)) > 20
+                                ? 'text-red-600 font-semibold'
+                                : 'text-yellow-600'
+                        }
+                    >
+                        {row.deviation}%
+                    </span>
+                ),
+            },
+            {
+                key: 'severity',
+                header: 'Severity',
+                accessor: (row: any) => {
+                    if (row.severity === 'High')
+                        return (
+                            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
+                                High
+                            </span>
+                        );
+                    if (row.severity === 'Medium')
+                        return (
+                            <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                                Medium
+                            </span>
+                        );
+                    return (
+                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                            Low
+                        </span>
+                    );
+                },
+            },
+        ],
     };
 
-    // =====================
-    // RENDER COMPONENT
-    // =====================
-
+    // --------------------------------------------------------------------
+    // 9. Render
+    // --------------------------------------------------------------------
     return (
         <div className="space-y-8 pb-8">
-            {/* Hero Section with Key Metrics */}
-  
-
-            {/* Scenario Analysis Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.entries(scenarioData).map(([key, scenario]) => {
-                    const scenarioKey = key as 'bestCase' | 'worstCase' | 'baseline';
-                    const isSelected = selectedScenario === scenarioKey.replace('Case', '').toLowerCase();
-                    return (
-                        <div
-                            key={key}
-                            className={`bg-white rounded-3xl border-2 shadow-lg p-6 cursor-pointer transition-all duration-200 ${isSelected
-                                ? 'border-green-500 shadow-green-200'
-                                : 'border-gray-200 hover:border-green-300'
+            {/* Key Insights Section */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">Analytical Insights</h3>
+                        <p className="text-gray-600">Key findings from crop yield data analysis</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setActiveInsightTab('trends')}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeInsightTab === 'trends'
+                                ? 'text-white shadow-lg'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
-                            onClick={() => setSelectedScenario(scenarioKey.replace('Case', '').toLowerCase() as any)}
+                            style={activeInsightTab === 'trends' ? {
+                                background: 'linear-gradient(to right, #22c55e, #15803d)',
+                            } : {}}
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-gray-900">
-                                    {key === 'bestCase' ? 'Best Case' : key === 'worstCase' ? 'Worst Case' : 'Baseline'}
-                                </h3>
-                                <div className={`p-2 rounded-lg ${key === 'bestCase' ? 'bg-green-100' :
-                                    key === 'worstCase' ? 'bg-red-100' :
-                                        'bg-blue-100'
-                                    }`}>
-                                    {key === 'bestCase' ? <TrendingUp className="w-5 h-5 text-green-600" /> :
-                                        key === 'worstCase' ? <TrendingDown className="w-5 h-5 text-red-600" /> :
-                                            <Activity className="w-5 h-5 text-blue-600" />}
+                            Trends
+                        </button>
+                        <button
+                            onClick={() => setActiveInsightTab('predictions')}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeInsightTab === 'predictions'
+                                ? 'text-white shadow-lg'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            style={activeInsightTab === 'predictions' ? {
+                                background: 'linear-gradient(to right, #22c55e, #15803d)',
+                            } : {}}
+                        >
+                            Predictions
+                        </button>
+                        <button
+                            onClick={() => setActiveInsightTab('correlations')}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeInsightTab === 'correlations'
+                                ? 'text-white shadow-lg'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            style={activeInsightTab === 'correlations' ? {
+                                background: 'linear-gradient(to right, #22c55e, #15803d)',
+                            } : {}}
+                        >
+                            Correlations
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-6">
+                    {(activeInsightTab === 'trends'
+                        ? insights.trends
+                        : activeInsightTab === 'predictions'
+                            ? insights.predictions
+                            : insights.correlations
+                    ).map((insight, index) => (
+                        <div
+                            key={index}
+                            className="group p-6 rounded-2xl border-2 border-gray-200 hover:border-green-300 hover:bg-gradient-to-br hover:from-green-50 hover:to-emerald-50 transition-all duration-200"
+                        >
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="p-3 rounded-xl bg-gray-100 group-hover:bg-green-100 transition-colors">
+                                    {insight.icon}
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-lg text-gray-900 mb-2">
+                                        {insight.title}
+                                    </h4>
+                                    <p className="text-sm text-gray-600 leading-relaxed mb-2">
+                                        {insight.description}
+                                    </p>
+                                    <p className="text-lg font-bold text-green-600">{insight.value}</p>
                                 </div>
                             </div>
-
-                            <div className="mb-4">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-bold text-gray-900">
-                                        {scenario.yield.toFixed(1)}
-                                    </span>
-                                    <span className="text-lg text-gray-600">tons/ha</span>
-                                </div>
-                                <div className="mt-2">
-                                    <span className="text-sm text-gray-600">Probability: </span>
-                                    <span className="text-sm font-bold text-gray-900">__%</span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 mb-4">
-                                <p className="text-xs font-semibold text-gray-600 uppercase">Key Factors</p>
-                                {Object.entries(scenario.factors).map(([factor, value]) => (
-                                    <div key={factor} className="flex justify-between text-sm">
-                                        <span className="text-gray-600 capitalize">{factor}:</span>
-                                        <span className="font-medium text-gray-900">0</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-200">
-                                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Conditions</p>
-                                <ul className="space-y-1">
-                                    {scenario.conditions.map((condition, index) => (
-                                        <li key={index} className="text-xs text-gray-700 flex items-start gap-2">
-                                            <CheckCircle className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
-                                            <span>{condition}</span>
-                                        </li>
-                                    ))}
-                                </ul>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
+                                    {insight.impact
+                                        ? `Impact: ${insight.impact}`
+                                        : insight.timeframe
+                                            ? `Timeframe: ${insight.timeframe}`
+                                            : `Significance: ${(insight as any).significance}`}
+                                </span>
+                                <span className="text-gray-500 font-medium">Analysis Complete</span>
                             </div>
                         </div>
-                    );
-                })}
+                    ))}
+                </div>
             </div>
 
-            {/* Analytics Sections - Text Based Only */}
-            <div className="space-y-6">
-                {/* Yield Forecast Analysis */}
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div
-                        className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleSection('yieldForecast')}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 rounded-xl bg-green-100">
-                                    <Sprout className="w-6 h-6 text-green-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Yield Forecast Analysis</h3>
-                                    <p className="text-gray-600">Predictive modeling and scenario analysis</p>
-                                </div>
-                            </div>
-                            {expandedSections.yieldForecast ?
-                                <ChevronDown className="w-6 h-6 text-gray-400" /> :
-                                <ChevronRight className="w-6 h-6 text-gray-400" />
-                            }
-                        </div>
+            {/* Analytics Tables Section */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">Data Analytics Tables</h3>
+                        <p className="text-gray-600">Comprehensive statistical analysis of yield metrics</p>
                     </div>
-
-                    {expandedSections.yieldForecast && (
-                        <div className="p-6 space-y-6">
-                            {/* Key Metrics */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Forecasted Yield</p>
-                                    <p className="text-2xl font-bold text-gray-900">{predictiveModelData.forecastedYield.toFixed(1)} tons/ha</p>
-                                    <p className="text-xs text-gray-500 mt-1">Based on current conditions</p>
-                                </div>
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Confidence Score</p>
-                                    <p className="text-2xl font-bold text-gray-900">__%</p>
-                                    <p className="text-xs text-gray-500 mt-1">Model accuracy</p>
-                                </div>
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Season</p>
-                                    <p className="text-2xl font-bold text-gray-900">{yieldForecast?.season || 'Current'}</p>
-                                    <p className="text-xs text-gray-500 mt-1">Growing season</p>
-                                </div>
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Industry Comparison</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {industryComparison?.percentage_difference ?
-                                            `${industryComparison.percentage_difference > 0 ? '+' : ''}${industryComparison.percentage_difference.toFixed(1)}%` :
-                                            'N/A'
-                                        }
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">vs Industry Average</p>
-                                </div>
-                            </div>
-
-                            {/* Calculation Factors */}
-                            <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                                    <Brain className="w-5 h-5 text-blue-600" />
-                                    Calculation Factors
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Base Yield</p>
-                                        <p className="text-lg font-bold text-gray-900">{predictiveModelData.baseYield.toFixed(1)} tons/ha</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">NDVI Factor</p>
-                                        <p className="text-lg font-bold text-gray-900">{predictiveModelData.ndviFactor.toFixed(1)}%</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Water Efficiency</p>
-                                        <p className="text-lg font-bold text-gray-900">{predictiveModelData.waterEfficiency.toFixed(1)}%</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Climate Factor</p>
-                                        <p className="text-lg font-bold text-gray-900">{predictiveModelData.climateFactor.toFixed(1)}%</p>
-                                    </div>
-                                </div>
-                                {yieldForecast?.formula && (
-                                    <div className="mt-4 p-4 bg-white rounded-xl border border-blue-100">
-                                        <p className="text-sm font-medium text-gray-600 mb-2">Calculation Formula</p>
-                                        <p className="text-sm text-gray-700 font-mono bg-gray-50 p-3 rounded-lg">
-                                            {yieldForecast.formula}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Sensitivity Analysis */}
-                            {sensitivityAnalysis && (
-                                <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                                        <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                                        Sensitivity Analysis
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-white rounded-xl p-4 border border-yellow-200">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">Water Sensitivity</p>
-                                            <p className="text-2xl font-bold text-gray-900">{sensitivityAnalysis.water_sensitivity}%</p>
-                                            <p className="text-xs text-gray-500 mt-1">Impact on yield</p>
-                                        </div>
-                                        <div className="bg-white rounded-xl p-4 border border-yellow-200">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">Climate Sensitivity</p>
-                                            <p className="text-2xl font-bold text-gray-900">{sensitivityAnalysis.climate_sensitivity}%</p>
-                                            <p className="text-xs text-gray-500 mt-1">Weather impact</p>
-                                        </div>
-                                        <div className="bg-white rounded-xl p-4 border border-yellow-200">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">Management Sensitivity</p>
-                                            <p className="text-2xl font-bold text-gray-900">{sensitivityAnalysis.management_sensitivity}%</p>
-                                            <p className="text-xs text-gray-500 mt-1">Practice impact</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {(['statistical', 'correlation', 'anomalies'] as const).map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setSelectedTable(tab)}
+                                className={`px-5 py-2.5 rounded-xl font-medium transition-all capitalize ${selectedTable === tab
+                                    ? 'text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                style={selectedTable === tab ? {
+                                    background: 'linear-gradient(to right, #22c55e, #15803d)',
+                                } : {}}
+                            >
+                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Risk Assessment */}
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div
-                        className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleSection('riskAssessment')}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 rounded-xl bg-red-100">
-                                    <AlertOctagon className="w-6 h-6 text-red-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Risk Assessment</h3>
-                                    <p className="text-gray-600">Detailed risk analysis and mitigation strategies</p>
-                                </div>
-                            </div>
-                            {expandedSections.riskAssessment ?
-                                <ChevronDown className="w-6 h-6 text-gray-400" /> :
-                                <ChevronRight className="w-6 h-6 text-gray-400" />
-                            }
-                        </div>
-                    </div>
+                <DataTable
+                    columns={tableColumns[selectedTable]}
+                    data={
+                        selectedTable === 'statistical'
+                            ? statisticalData
+                            : selectedTable === 'correlation'
+                                ? correlationMatrix
+                                : anomalies
+                    }
+                    onRowClick={(row) => {
+                        setSelectedMetric(row);
+                        setIsModalOpen(true);
+                    }}
+                    isLoading={!cropYieldData}
+                />
 
-                    {expandedSections.riskAssessment && riskAssessment && (
-                        <div className="p-6 space-y-6">
-                            {/* Overall Risk Summary */}
-                            <div className={`rounded-2xl p-6 border-2 ${riskAssessment.riskLevel === 'High' ? 'bg-red-50 border-red-200' :
-                                    riskAssessment.riskLevel === 'Medium' ? 'bg-yellow-50 border-yellow-200' :
-                                        'bg-green-50 border-green-200'
-                                }`}>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900">Overall Risk Assessment</h4>
-                                        <p className="text-gray-600">Current risk level and probability</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-4xl font-bold text-gray-900 mb-1">__%</div>
-                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${riskAssessment.riskLevel === 'High' ? 'bg-red-100 text-red-800' :
-                                                riskAssessment.riskLevel === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-green-100 text-green-800'
-                                            }`}>
-                                            {riskAssessment.riskLevel} Risk
-                                        </span>
-                                    </div>
-                                </div>
-                                <p className="text-gray-700">Probability of yield impact: <strong>_____</strong></p>
-                            </div>
-
-                            {/* Primary Risks */}
-                            {riskAssessment.primaryRisks && riskAssessment.primaryRisks.length > 0 && (
-                                <div className="space-y-4">
-                                    <h4 className="font-bold text-lg text-gray-900">Primary Risk Factors</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {riskAssessment.primaryRisks.map((risk: any, index: number) => (
-                                            <div key={index} className="bg-white rounded-xl p-4 border border-gray-200">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <span className="font-medium text-gray-900">{risk.category}</span>
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${risk.level === 'High' ? 'bg-red-100 text-red-800' :
-                                                            risk.level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-green-100 text-green-800'
-                                                        }`}>
-                                                        {risk.level}
-                                                    </span>
-                                                </div>
-                                                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-                                                    <div
-                                                        className="h-full rounded-full"
-                                                        style={{
-                                                            width: `${risk.score}%`,
-                                                            backgroundColor: risk.level === 'High' ? '#ef4444' :
-                                                                risk.level === 'Medium' ? '#eab308' :
-                                                                    '#22c55e'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                                <p className="text-xs text-gray-600">Score: ___%</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Mitigation Priorities */}
-                            {riskAssessment.mitigationPriorities && riskAssessment.mitigationPriorities.length > 0 && (
-                                <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-4">Mitigation Priorities</h4>
-                                    <ul className="space-y-2">
-                                        {riskAssessment.mitigationPriorities.map((priority: string, index: number) => (
-                                            <li key={index} className="flex items-start gap-2 text-gray-700">
-                                                <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                                                <span>{priority}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                <div className="mt-6 flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                        Showing{' '}
+                        {selectedTable === 'statistical'
+                            ? statisticalData.length
+                            : selectedTable === 'correlation'
+                                ? correlationMatrix.length
+                                : anomalies.length}{' '}
+                        records • Click any row for detailed analysis
+                    </p>
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition-all">
+                        <Download className="w-4 h-4" />
+                        Export Data
+                    </button>
                 </div>
+            </div>
 
-                {/* Environmental Metrics */}
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div
-                        className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleSection('environmentalMetrics')}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 rounded-xl bg-emerald-100">
-                                    <Leaf className="w-6 h-6 text-emerald-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Environmental Metrics</h3>
-                                    <p className="text-gray-600">Sustainability and resource efficiency metrics</p>
-                                </div>
-                            </div>
-                            {expandedSections.environmentalMetrics ?
-                                <ChevronDown className="w-6 h-6 text-gray-400" /> :
-                                <ChevronRight className="w-6 h-6 text-gray-400" />
-                            }
+            {/* Confidence and Methodology Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Analytical Confidence */}
+                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Analytical Confidence</h3>
+                            <p className="text-gray-600">Data quality and reliability metrics</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-6 h-6 text-green-600" />
+                            <span className="text-3xl font-bold text-green-600">
+                                {overallConfidence}%
+                            </span>
                         </div>
                     </div>
-
-                    {expandedSections.environmentalMetrics && (
-                        <div className="p-6 space-y-6">
-                            {/* Sustainability KPIs */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {Object.entries(sustainabilityMetrics).map(([key, metric]: [string, any]) => (
+                    <div className="space-y-5">
+                        {confidenceBreakdown.map((item, index) => (
+                            <div key={index}>
+                                <div className="flex justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                        {item.label}
+                                    </span>
+                                    <span className="text-sm font-bold text-gray-900">
+                                        {item.formatted}
+                                    </span>
+                                </div>
+                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                                     <div
-                                        key={key}
-                                        className="bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:border-green-300 transition-colors"
-                                        onClick={() => handleMetricClick(metric, key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()))}
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-600">
-                                                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                                                </p>
-                                                <p className="text-xs text-gray-500">{metric.unit}</p>
-                                            </div>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${metric.status === 'Good' ? 'bg-green-100 text-green-800' :
-                                                metric.status === 'Fair' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
-                                                {metric.status}
-                                            </span>
-                                        </div>
-                                        <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
-                                        {metric.benchmark && (
-                                            <p className="text-xs text-gray-600 mt-1">Benchmark: {metric.benchmark}</p>
-                                        )}
-                                    </div>
+                                        className="h-full rounded-full transition-all duration-500"
+                                        style={{
+                                            width: `${item.value}%`,
+                                            background: 'linear-gradient(to right, #22c55e, #15803d)',
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {confidenceScore?.improvement_areas && confidenceScore.improvement_areas.length > 0 && (
+                        <div className="mt-6 p-4 rounded-xl bg-yellow-50 border border-yellow-200">
+                            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                                Improvement Areas
+                            </h4>
+                            <ul className="space-y-1 text-sm text-gray-700">
+                                {confidenceScore.improvement_areas.map((area, i) => (
+                                    <li key={i} className="flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-2" />
+                                        {area}
+                                    </li>
                                 ))}
-                            </div>
-
-                            {/* Water Metrics */}
-                            {Object.keys(waterMetrics).length > 0 && (
-                                <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                                        <Droplets className="w-5 h-5 text-blue-600" />
-                                        Water Management Metrics
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {Object.entries(waterMetrics).slice(0, 6).map(([key, metric]: [string, any]) => (
-                                            <div key={key} className="bg-white rounded-xl p-4 border border-blue-200">
-                                                <p className="text-sm font-medium text-gray-600 mb-1">{metric.name}</p>
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {metric.values && metric.values.length > 0 ? metric.values[0].value : 'N/A'}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">{metric.unit}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Summary Data */}
-                            {environmentalMetrics && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {Object.entries(environmentalMetrics).map(([category, data]: [string, any]) => {
-                                        if (typeof data === 'object' && data !== null && 'total_metrics' in data) {
-                                            return (
-                                                <div key={category} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                                    <p className="text-sm font-medium text-gray-600 mb-1 capitalize">{category}</p>
-                                                    <p className="text-2xl font-bold text-gray-900">{data.total_metrics || 0}</p>
-                                                    <p className="text-xs text-gray-500 mt-1">metrics tracked</p>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }).filter(Boolean)}
-                                </div>
-                            )}
+                            </ul>
                         </div>
                     )}
                 </div>
 
-                {/* Carbon Analysis */}
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div
-                        className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleSection('carbonAnalysis')}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 rounded-xl bg-purple-100">
-                                    <ThermometerSun className="w-6 h-6 text-purple-600" />
+                {/* Methodology & Assumptions */}
+                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                Methodology & Assumptions
+                            </h3>
+                            <p className="text-gray-600">Yield forecast and risk calculation</p>
+                        </div>
+                        <Info className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="space-y-4">
+                        <div className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                <BarChartHorizontal className="w-5 h-5 text-green-600" />
+                                Yield Forecast Formula
+                            </h4>
+                            <p className="text-sm text-gray-700 font-mono bg-white p-3 rounded-lg border border-gray-200">
+                                {yieldForecast?.formula || 'Yield = Base × NDVI × Water × Soil'}
+                            </p>
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                                <div>
+                                    <span className="text-xs text-gray-600">Base Yield</span>
+                                    <p className="font-semibold text-gray-900">{yieldForecast?.calculationFactors?.base_yield?.toFixed(1) || '104.1'} t/ha</p>
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Carbon Analysis</h3>
-                                    <p className="text-gray-600">Carbon emissions and sequestration analysis</p>
+                                    <span className="text-xs text-gray-600">Historical Data</span>
+                                    <p className="font-semibold text-gray-900">{yieldForecast?.calculationFactors?.historical_data_available ? 'Yes' : 'No'}</p>
                                 </div>
                             </div>
-                            {expandedSections.carbonAnalysis ?
-                                <ChevronDown className="w-6 h-6 text-gray-400" /> :
-                                <ChevronRight className="w-6 h-6 text-gray-400" />
-                            }
                         </div>
-                    </div>
-
-                    {expandedSections.carbonAnalysis && carbonData && (
-                        <div className="p-6 space-y-6">
-                            {/* Carbon Summary */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="bg-green-50 rounded-2xl p-6 border border-green-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">Carbon Sequestration</h4>
-                                    <p className="text-3xl font-bold text-gray-900">
-                                        {carbonData.summary?.totals?.total_sequestration_tco2?.toFixed(1) || '0'}
-                                    </p>
-                                    <p className="text-gray-600">tCO₂ total</p>
-                                    <p className="text-sm text-gray-500 mt-2">
-                                        Trend: <span className="font-medium">{carbonData.summary?.trends?.sequestration_direction || 'Stable'}</span>
-                                    </p>
-                                </div>
-                                <div className="bg-red-50 rounded-2xl p-6 border border-red-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">Carbon Emissions</h4>
-                                    <p className="text-3xl font-bold text-gray-900">
-                                        {carbonData.summary?.totals?.total_emissions_tco2e?.toFixed(1) || '0'}
-                                    </p>
-                                    <p className="text-gray-600">tCO₂e total</p>
-                                    <p className="text-sm text-gray-500 mt-2">
-                                        Trend: <span className="font-medium">{carbonData.summary?.trends?.emission_direction || 'Stable'}</span>
-                                    </p>
-                                </div>
-                                <div className={`rounded-2xl p-6 border-2 ${(carbonData.summary?.totals?.net_carbon_balance || 0) >= 0 ?
-                                        'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                                    }`}>
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">Net Carbon Balance</h4>
-                                    <p className="text-3xl font-bold text-gray-900">
-                                        {carbonData.summary?.totals?.net_carbon_balance?.toFixed(1) || '0'}
-                                    </p>
-                                    <p className="text-gray-600">tCO₂e</p>
-                                    <p className={`text-sm font-medium mt-2 ${(carbonData.summary?.totals?.net_carbon_balance || 0) >= 0 ?
-                                            'text-green-700' : 'text-red-700'
-                                        }`}>
-                                        {(carbonData.summary?.totals?.net_carbon_balance || 0) >= 0 ?
-                                            'Carbon Positive' : 'Carbon Negative'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Emission Breakdown */}
-                            {carbonData.summary?.composition && (
-                                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-4">Emission Composition</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-white rounded-xl p-4 border border-gray-200">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">Scope 1</p>
-                                            <p className="text-2xl font-bold text-gray-900">
-                                                {carbonData.summary.composition.scope1_percentage?.toFixed(1) || '0'}%
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">Direct emissions</p>
-                                        </div>
-                                        <div className="bg-white rounded-xl p-4 border border-gray-200">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">Scope 2</p>
-                                            <p className="text-2xl font-bold text-gray-900">
-                                                {carbonData.summary.composition.scope2_percentage?.toFixed(1) || '0'}%
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">Indirect energy</p>
-                                        </div>
-                                        <div className="bg-white rounded-xl p-4 border border-gray-200">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">Scope 3</p>
-                                            <p className="text-2xl font-bold text-gray-900">
-                                                {carbonData.summary.composition.scope3_percentage?.toFixed(1) || '0'}%
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">Supply chain</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Intensity Metrics */}
-                            {carbonData.yearly_data && carbonData.yearly_data.length > 0 &&
-                                carbonData.yearly_data[0].emissions?.intensity_metrics && (
-                                    <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
-                                        <h4 className="font-bold text-lg text-gray-900 mb-4">Carbon Intensity Metrics</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div className="bg-white rounded-xl p-4 border border-blue-200">
-                                                <p className="text-sm font-medium text-gray-600 mb-1">Scope 1 Intensity</p>
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {carbonData.yearly_data[0].emissions.intensity_metrics.scope1_intensity?.toFixed(1) || '0'}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">tCO₂e/ha</p>
-                                            </div>
-                                            <div className="bg-white rounded-xl p-4 border border-blue-200">
-                                                <p className="text-sm font-medium text-gray-600 mb-1">Scope 2 Intensity</p>
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {carbonData.yearly_data[0].emissions.intensity_metrics.scope2_intensity?.toFixed(1) || '0'}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">tCO₂e/ha</p>
-                                            </div>
-                                            <div className="bg-white rounded-xl p-4 border border-blue-200">
-                                                <p className="text-sm font-medium text-gray-600 mb-1">Scope 3 Intensity</p>
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {carbonData.yearly_data[0].emissions.intensity_metrics.scope3_intensity?.toFixed(1) || '0'}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">tCO₂e/ha</p>
-                                            </div>
-                                            <div className="bg-white rounded-xl p-4 border border-blue-200">
-                                                <p className="text-sm font-medium text-gray-600 mb-1">Total Intensity</p>
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {carbonData.yearly_data[0].emissions.intensity_metrics.total_intensity?.toFixed(1) || '0'}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">tCO₂e/ha</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <div className="p-5 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+                            <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                <BadgeCheck className="w-5 h-5 text-green-600" />
+                                Key Assumptions
+                            </h4>
+                            <ul className="text-sm text-gray-700 space-y-2">
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    Forecast based on current year data and available historical trends
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    Risk scores derived from operational, yield stability, water scarcity factors
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    Confidence score combines forecast confidence ({confidenceScore?.forecast_confidence || 0}%) and risk assessment confidence ({confidenceScore?.risk_assessment_confidence || 0}%)
+                                </li>
+                                {seasonalAdvisory && (
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                        Planting window: {seasonalAdvisory.planting_window}
+                                    </li>
                                 )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Machine Learning Insights */}
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div
-                        className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleSection('mlInsights')}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 rounded-xl bg-indigo-100">
-                                    <Cpu className="w-6 h-6 text-indigo-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Machine Learning Insights</h3>
-                                    <p className="text-gray-600">AI-powered analytics and feature importance</p>
-                                </div>
-                            </div>
-                            {expandedSections.mlInsights ?
-                                <ChevronDown className="w-6 h-6 text-gray-400" /> :
-                                <ChevronRight className="w-6 h-6 text-gray-400" />
-                            }
-                        </div>
-                    </div>
-
-                    {expandedSections.mlInsights && (
-                        <div className="p-6 space-y-6">
-                            {/* ML Performance Metrics */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Overall Accuracy</p>
-                                    <p className="text-2xl font-bold text-gray-900">{mlAccuracyMetrics.overallAccuracy}%</p>
-                                    <p className="text-xs text-gray-500 mt-1">Model performance</p>
-                                </div>
-                         
-                                <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Data Quality</p>
-                                    <p className="text-2xl font-bold text-gray-900">__%</p>
-                                    <p className="text-xs text-gray-500 mt-1">Input data score</p>
-                                </div>
-                                <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-200">
-                                    <p className="text-sm font-medium text-gray-600 mb-1">Methodology Rigor</p>
-                                    <p className="text-2xl font-bold text-gray-900">__%</p>
-                                    <p className="text-xs text-gray-500 mt-1">Process quality</p>
-                                </div>
-                            </div>
-
-                            {/* Feature Importance */}
-                            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                                <h4 className="font-bold text-lg text-gray-900 mb-4">Feature Importance Analysis</h4>
-                                <div className="space-y-3">
-                                    {featureImportanceData.map((feature, index) => (
-                                        <div key={index} className="bg-white rounded-xl p-4 border border-gray-200">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-gray-900">{feature.feature}</span>
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${feature.category === 'Satellite' ? 'bg-green-100 text-green-800' :
-                                                            feature.category === 'Soil' ? 'bg-amber-100 text-amber-800' :
-                                                                feature.category === 'Resource' ? 'bg-blue-100 text-blue-800' :
-                                                                    feature.category === 'Climate' ? 'bg-cyan-100 text-cyan-800' :
-                                                                        'bg-purple-100 text-purple-800'
-                                                        }`}>
-                                                        {feature.category}
-                                                    </span>
-                                                </div>
-                                                <span className="text-lg font-bold text-gray-900">__%</span>
-                                            </div>
-                                            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full"
-                                                    style={{
-                                                        width: `${feature.importance}%`,
-                                                        backgroundColor: feature.impact === 'Positive' ? '#22c55e' :
-                                                            feature.impact === 'Variable' ? '#eab308' :
-                                                                '#3b82f6'
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                                <span>Impact: {feature.impact}</span>
-                                                <span>Contribution to prediction</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* ML Interpretation */}
-                            {mlAccuracyMetrics.interpretation && mlAccuracyMetrics.interpretation !== 'N/A' && (
-                                <div className="bg-green-50 rounded-2xl p-6 border border-green-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">Model Interpretation</h4>
-                                    <p className="text-gray-700">{mlAccuracyMetrics.interpretation}</p>
-                                </div>
-                            )}
-
-                            {/* Improvement Areas */}
-                            {mlAccuracyMetrics.improvementAreas && mlAccuracyMetrics.improvementAreas.length > 0 && (
-                                <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">Improvement Areas</h4>
-                                    <ul className="space-y-2">
-                                        {mlAccuracyMetrics.improvementAreas.map((area: string, index: number) => (
-                                            <li key={index} className="flex items-start gap-2 text-gray-700">
-                                                <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                                <span>{area}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Peer Benchmarking */}
-                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div className="p-6 border-b border-gray-200">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 rounded-xl bg-amber-100">
-                                <TargetIcon className="w-6 h-6 text-amber-600" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900">Peer Benchmarking</h3>
-                                <p className="text-gray-600">Comparison with industry peers and regional averages</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="p-6">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50">
-                                        <th className="text-left p-4 text-sm font-medium text-gray-600">Company</th>
-                                        <th className="text-left p-4 text-sm font-medium text-gray-600">Yield (tons/ha)</th>
-                                        <th className="text-left p-4 text-sm font-medium text-gray-600">Water Efficiency</th>
-                                        <th className="text-left p-4 text-sm font-medium text-gray-600">Carbon Intensity</th>
-                                        <th className="text-left p-4 text-sm font-medium text-gray-600">Performance</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {peerBenchmarkingData.map((company, index) => (
-                                        <tr
-                                            key={index}
-                                            className={`hover:bg-gray-50 ${company.company === selectedCompany?.name || company.company.includes('Your') ? 'bg-green-50' : ''}`}
-                                        >
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    {company.company === selectedCompany?.name || company.company.includes('Your') ? (
-                                                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                                    ) : (
-                                                        <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-                                                    )}
-                                                    <span className="font-medium text-gray-900">{company.company}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-gray-900">{company.yield.toFixed(1)}</span>
-                                                    <span className="text-sm text-gray-500">tons/ha</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-gray-900">{company.efficiency}%</span>
-                                                    <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full rounded-full"
-                                                            style={{
-                                                                width: `${company.efficiency}%`,
-                                                                backgroundColor: company.efficiency >= 80 ? '#22c55e' :
-                                                                    company.efficiency >= 60 ? '#eab308' :
-                                                                        '#ef4444'
-                                                            }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className="font-medium text-gray-900">{company.carbonIntensity}</span>
-                                                <span className="text-sm text-gray-500 ml-1">kg CO₂e/ton</span>
-                                            </td>
-                                            <td className="p-4">
-                                                {company.company === selectedCompany?.name || company.company.includes('Your') ? (
-                                                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        Your Performance
-                                                    </span>
-                                                ) : company.yield > peerBenchmarkingData[0].yield ? (
-                                                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        Above Average
-                                                    </span>
-                                                ) : (
-                                                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                        Below Average
-                                                    </span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            </ul>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Metric Detail Modal */}
-            {showMetricModal && selectedMetric && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowMetricModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-3xl">
+            {isModalOpen && selectedMetric && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setIsModalOpen(false)}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            className="p-6 border-b border-gray-200 text-white rounded-t-3xl"
+                            style={{ background: 'linear-gradient(to right, #22c55e, #15803d)' }}
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-2xl font-bold mb-1">{selectedMetric.title}</h3>
-                                    <p className="text-green-100">Detailed metric information</p>
+                                    <h3 className="text-2xl font-bold mb-1">Detailed Analysis</h3>
+                                    <p className="text-green-100">In-depth metric information</p>
                                 </div>
                                 <button
-                                    onClick={() => setShowMetricModal(false)}
+                                    onClick={() => setIsModalOpen(false)}
                                     className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
                                 >
                                     <X className="w-6 h-6" />
@@ -1004,67 +909,53 @@ const AnalyticsTab = ({
                             </div>
                         </div>
                         <div className="p-8">
-                            <div className="text-center mb-8">
-                                <div className="text-6xl font-bold text-green-600 mb-2">
-                                    {typeof selectedMetric.value === 'number'
-                                        ? selectedMetric.value.toFixed ? selectedMetric.value.toFixed(2) : selectedMetric.value
-                                        : selectedMetric.value}
-                                </div>
-                                {selectedMetric.unit && <div className="text-xl text-gray-600">{selectedMetric.unit}</div>}
-                            </div>
                             <div className="space-y-4">
-                                {selectedMetric.status && (
-                                    <div className="p-4 rounded-xl bg-green-50 border border-green-200">
-                                        <div className="flex items-center gap-2 text-green-800">
-                                            <CheckCircle className="w-5 h-5" />
-                                            <span className="font-semibold">Status: {selectedMetric.status}</span>
+                                {Object.entries(selectedMetric).map(([key, value]) => {
+                                    // Skip non-informative fields
+                                    if (key === 'icon' || key === 'trend' || key === 'confidence') return null;
+                                    return (
+                                        <div key={key} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                                            <div className="text-sm text-gray-600 mb-1 capitalize">
+                                                {key.replace(/_/g, ' ')}
+                                            </div>
+                                            <div className="font-semibold text-gray-900">
+                                                {typeof value === 'number' ? formatNumber(value) : String(value)}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                                {selectedMetric.trend && (
-                                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-                                        <div className="flex items-center gap-2 text-gray-800">
-                                            {getTrendIcon(selectedMetric.trend)}
-                                            <span className="font-semibold">Trend: {selectedMetric.trend}</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {selectedMetric.conditions && (
-                                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
-                                        <p className="font-semibold text-blue-800 mb-2">Conditions:</p>
-                                        <ul className="space-y-1">
-                                            {selectedMetric.conditions.map((condition: string, index: number) => (
-                                                <li key={index} className="text-sm text-blue-700 flex items-start gap-2">
-                                                    <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                    <span>{condition}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* AI Insights Modal */}
-            {showInsightsModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowInsightsModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-t-3xl sticky top-0">
+            {/* Smart Recommendations Modal */}
+            {showRecommendationsModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setShowRecommendationsModal(false)}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            className="p-6 border-b border-gray-200 text-white rounded-t-3xl sticky top-0"
+                            style={{ background: 'linear-gradient(to right, #22c55e, #15803d)' }}
+                        >
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-3 rounded-xl bg-white/20">
-                                        <Zap className="w-6 h-6" />
+                                        <Lightbulb className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-bold">AI-Powered Insights</h3>
-                                        <p className="text-purple-100">Smart analysis and recommendations</p>
+                                        <h3 className="text-2xl font-bold">Smart Recommendations</h3>
+                                        <p className="text-green-100">Analytics-based action items</p>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setShowInsightsModal(false)}
+                                    onClick={() => setShowRecommendationsModal(false)}
                                     className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
                                 >
                                     <X className="w-6 h-6" />
@@ -1072,102 +963,139 @@ const AnalyticsTab = ({
                             </div>
                         </div>
                         <div className="p-8 space-y-6">
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+                            {/* Recommendation 1 - based on yield gap / trend */}
+                            <div className="p-6 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
                                 <div className="flex items-start gap-4">
                                     <div className="p-3 rounded-xl bg-green-100 flex-shrink-0">
                                         <TrendingUp className="w-6 h-6 text-green-600" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Yield Optimization Opportunity</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            Your forecasted yield of {predictiveModelData.forecastedYield.toFixed(1)} tons/ha shows strong potential.
-                                            With {mlAccuracyMetrics.overallAccuracy}% prediction confidence, implementing recommended practices could
-                                            achieve the best-case scenario of {scenarioData.bestCase.yield.toFixed(1)} tons/ha.
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-lg text-green-900 mb-2">
+                                            Optimise Yield Potential
+                                        </h4>
+                                        <p className="text-green-700 leading-relaxed mb-4">
+                                            {statisticalData.find(s => s.metric === 'Company Yield')
+                                                ? `Average company yield is ${statisticalData.find(s => s.metric === 'Company Yield')?.mean.toFixed(1)} t/ha. `
+                                                : `Current company yield is ${yearlySummary?.company_yield?.toFixed(1) || 'N/A'} t/ha. `}
+                                            Compare with private farmers ({yearlySummary?.private_yield?.toFixed(1) || 'N/A'} t/ha) and consider knowledge transfer programs to narrow the yield gap.
                                         </p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                                                High Impact
+                                            </span>
+                                            <span className="text-sm text-green-600 font-medium">
+                                                Confidence: {confidenceScore?.forecast_confidence || 70}%
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-blue-100 flex-shrink-0">
-                                        <Droplet className="w-6 h-6 text-blue-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Water Efficiency Analysis</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            Current water efficiency at {predictiveModelData.waterEfficiency}% indicates room for improvement.
-                                            Optimizing irrigation practices could reduce water usage by 15-20% while maintaining or improving yields.
-                                        </p>
+                            {/* Recommendation 2 - based on risk mitigation priorities */}
+                            {riskAssessment?.mitigationPriorities && riskAssessment.mitigationPriorities.length > 0 && (
+                                <div className="p-6 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-amber-100 flex-shrink-0">
+                                            <AlertTriangle className="w-6 h-6 text-amber-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-lg text-amber-900 mb-2">
+                                                Address Key Risks
+                                            </h4>
+                                            <p className="text-amber-700 leading-relaxed mb-4">
+                                                Top mitigation priorities:
+                                            </p>
+                                            <ul className="list-disc list-inside text-amber-700 mb-4 space-y-1">
+                                                {riskAssessment.mitigationPriorities.slice(0, 3).map((p, i) => (
+                                                    <li key={i}>{p}</li>
+                                                ))}
+                                            </ul>
+                                            <div className="flex items-center justify-between">
+                                                <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+                                                    High Impact
+                                                </span>
+                                                <span className="text-sm text-amber-600 font-medium">
+                                                    Confidence: {confidenceScore?.risk_assessment_confidence || 98}%
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-purple-100 flex-shrink-0">
-                                        <Shield className="w-6 h-6 text-purple-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Risk Mitigation</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            With a {riskAssessment?.riskLevel || 'Low'} risk level at {riskAssessment?.overallScore || 30}%,
-                                            the main concerns are weather variability and water sensitivity. Consider implementing drought-resistant
-                                            practices and diversifying crop varieties.
-                                        </p>
+                            {/* Recommendation 3 - based on confidence improvement areas */}
+                            {confidenceScore?.improvement_areas && confidenceScore.improvement_areas.length > 0 && (
+                                <div className="p-6 rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-blue-100 flex-shrink-0">
+                                            <Award className="w-6 h-6 text-blue-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-lg text-blue-900 mb-2">
+                                                Improve Data Quality
+                                            </h4>
+                                            <p className="text-blue-700 leading-relaxed mb-4">
+                                                Current overall confidence: {confidenceScore?.overall || 0}%. Focus on:
+                                            </p>
+                                            <ul className="list-disc list-inside text-blue-700 mb-4 space-y-1">
+                                                {confidenceScore.improvement_areas.slice(0, 3).map((area, i) => (
+                                                    <li key={i}>{area}</li>
+                                                ))}
+                                            </ul>
+                                            <div className="flex items-center justify-between">
+                                                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                                    Medium Impact
+                                                </span>
+                                                <span className="text-sm text-blue-600 font-medium">
+                                                    Current: {confidenceScore?.overall || 0}%
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-yellow-100 flex-shrink-0">
-                                        <AlertCircle className="w-6 h-6 text-yellow-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Recommended Actions</h4>
-                                        <ul className="space-y-2 text-gray-700">
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Monitor NDVI trends closely to detect early signs of stress</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Implement precision irrigation based on soil moisture data</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Focus on soil health improvement to boost resilience</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                                <span>Track carbon intensity to maintain sustainability goals</span>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-xl bg-emerald-100 flex-shrink-0">
-                                        <Award className="w-6 h-6 text-emerald-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900 mb-2">Performance Benchmarking</h4>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            Your performance is {industryComparison?.company_yield && industryComparison?.industry_average
-                                                ? ((industryComparison.company_yield / industryComparison.industry_average - 1) * 100).toFixed(1)
-                                                : '0'}% {industryComparison?.company_yield > industryComparison?.industry_average ? 'above' : 'below'}
-                                            industry average. Focus on the identified improvement areas to reach top performer levels.
-                                        </p>
+                            {/* Recommendation 4 - next steps from summary */}
+                            {summary?.next_steps && summary.next_steps.length > 0 && (
+                                <div className="p-6 rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-purple-100 flex-shrink-0">
+                                            <Target className="w-6 h-6 text-purple-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-lg text-purple-900 mb-2">
+                                                Recommended Next Steps
+                                            </h4>
+                                            <ul className="list-disc list-inside text-purple-700 mb-4 space-y-1">
+                                                {summary.next_steps.slice(0, 3).map((step, i) => (
+                                                    <li key={i}>{step}</li>
+                                                ))}
+                                            </ul>
+                                            <div className="flex items-center justify-between">
+                                                <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                                                    Strategic
+                                                </span>
+                                                <span className="text-sm text-purple-600 font-medium">
+                                                    From analysis
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Floating Action Button for Recommendations */}
+            <button
+                onClick={() => setShowRecommendationsModal(true)}
+                className="fixed bottom-8 right-8 p-4 rounded-full shadow-2xl text-white transition-all hover:scale-110"
+                style={{ background: 'linear-gradient(to right, #22c55e, #15803d)' }}
+            >
+                <Lightbulb className="w-6 h-6" />
+            </button>
         </div>
     );
 };

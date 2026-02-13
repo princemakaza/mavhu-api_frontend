@@ -25,6 +25,7 @@ import {
     getCropYieldForecastData,
     type CropYieldForecastParams,
     type CropYieldForecastResponse,
+    type YearOverYearChange,
 } from "../../../services/Admin_Service/esg_apis/crop_yield_service";
 
 // Import tab components
@@ -50,7 +51,7 @@ const Shimmer = () => (
     <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-gray-100/50 to-transparent"></div>
 );
 
-// Helper function to parse data_range string (mirrors GhgEmissionScreen)
+// Helper: parse data_range string into numeric years
 const parseDataRange = (dataRange: string | undefined): number[] => {
     if (!dataRange) return [];
 
@@ -74,7 +75,6 @@ const parseDataRange = (dataRange: string | undefined): number[] => {
         for (let year = start; year <= end; year++) {
             years.push(year);
         }
-
         return years;
     } catch (error) {
         console.error('Error parsing data_range:', error, dataRange);
@@ -82,11 +82,16 @@ const parseDataRange = (dataRange: string | undefined): number[] => {
     }
 };
 
-// Helper function to get end year from data_range
-const getEndYearFromDataRange = (dataRange: string | undefined): number | null => {
-    if (!dataRange) return null;
-    const years = parseDataRange(dataRange);
-    return years.length > 0 ? Math.max(...years) : null;
+// Helper: extract numeric years from reporting_period.data_available_years (strings)
+const extractNumericYears = (yearStrings: string[]): number[] => {
+    const years = new Set<number>();
+    yearStrings.forEach(str => {
+        const match = str.match(/\b\d{4}\b/g);
+        if (match) {
+            match.forEach(y => years.add(parseInt(y, 10)));
+        }
+    });
+    return Array.from(years).sort((a, b) => b - a); // descending, latest first
 };
 
 const CropYieldCarbonEmissionScreen = () => {
@@ -118,7 +123,14 @@ const CropYieldCarbonEmissionScreen = () => {
     const formatPercent = (num: number) => `${num.toFixed(1)}%`;
 
     // Get trend icon
-    const getTrendIcon = (trend: string) => {
+    const getTrendIcon = (trend: string | number) => {
+        if (typeof trend === 'number') {
+            return trend > 0
+                ? <TrendingUp className="w-4 h-4 text-green-600" />
+                : trend < 0
+                    ? <TrendingDown className="w-4 h-4 text-red-600" />
+                    : <Activity className="w-4 h-4 text-yellow-600" />;
+        }
         if (trend.toLowerCase().includes('improving') || trend.toLowerCase().includes('increase') || trend.toLowerCase().includes('up')) {
             return <TrendingUp className="w-4 h-4 text-green-600" />;
         } else if (trend.toLowerCase().includes('declining') || trend.toLowerCase().includes('decrease') || trend.toLowerCase().includes('down')) {
@@ -140,14 +152,14 @@ const CropYieldCarbonEmissionScreen = () => {
         }
     };
 
-    // Get available years from company's data_range (mirrors GhgEmissionScreen)
-    const getAvailableYearsForCompany = (company: Company | undefined): number[] => {
+    // Get available years from company's data_range (used before data is loaded)
+    const getAvailableYearsFromCompany = (company: Company | undefined): number[] => {
         if (!company) return [];
 
         if (company.data_range) {
             const years = parseDataRange(company.data_range);
             if (years.length > 0) {
-                return years.sort((a, b) => b - a); // Sort descending (latest first)
+                return years.sort((a, b) => b - a);
             }
         }
 
@@ -174,49 +186,42 @@ const CropYieldCarbonEmissionScreen = () => {
 
             const selectedCompany = companies.find(c => c._id === selectedCompanyId);
 
-            if (selectedCompany) {
-                const years = getAvailableYearsForCompany(selectedCompany);
-                setAvailableYears(years);
+            // Determine year to fetch
+            let yearToFetch: number;
+            if (selectedYear !== null) {
+                yearToFetch = selectedYear;
+            } else {
+                // Use latest from company data_range or current year
+                const yearsFromCompany = getAvailableYearsFromCompany(selectedCompany);
+                yearToFetch = yearsFromCompany.length > 0 ? yearsFromCompany[0] : new Date().getFullYear();
+            }
 
-                if (years.length > 0) {
-                    const latest = years[0]; // First in descending sorted array
-                    setLatestYear(latest);
+            const params: CropYieldForecastParams = {
+                companyId: selectedCompanyId,
+                year: yearToFetch,
+            };
 
-                    const yearToFetch = selectedYear !== null ? selectedYear : latest;
+            const data = await getCropYieldForecastData(params);
+            setCropYieldData(data);
 
-                    const params: CropYieldForecastParams = {
-                        companyId: selectedCompanyId,
-                        year: yearToFetch,
-                    };
-
-                    const data = await getCropYieldForecastData(params);
-                    setCropYieldData(data);
-
-                    if (selectedYear === null) {
-                        setSelectedYear(latest);
-                    }
-                } else {
-                    const currentYear = new Date().getFullYear();
-                    const data = await getCropYieldForecastData({
-                        companyId: selectedCompanyId,
-                        year: currentYear,
-                    });
-                    setCropYieldData(data);
-
-                    setAvailableYears([currentYear]);
-                    setLatestYear(currentYear);
-                    setSelectedYear(currentYear);
+            // Update available years from the API response
+            if (data.data.reporting_period.data_available_years) {
+                const numericYears = extractNumericYears(data.data.reporting_period.data_available_years);
+                setAvailableYears(numericYears);
+                const latest = numericYears.length > 0 ? numericYears[0] : yearToFetch;
+                setLatestYear(latest);
+                if (selectedYear === null) {
+                    setSelectedYear(latest);
                 }
             } else {
-                const currentYear = new Date().getFullYear();
-                const data = await getCropYieldForecastData({
-                    companyId: selectedCompanyId,
-                    year: currentYear,
-                });
-                setCropYieldData(data);
-                setAvailableYears([currentYear]);
-                setLatestYear(currentYear);
-                setSelectedYear(currentYear);
+                // Fallback to company-based years
+                const yearsFromCompany = getAvailableYearsFromCompany(selectedCompany);
+                setAvailableYears(yearsFromCompany);
+                const latest = yearsFromCompany.length > 0 ? yearsFromCompany[0] : yearToFetch;
+                setLatestYear(latest);
+                if (selectedYear === null) {
+                    setSelectedYear(latest);
+                }
             }
         } catch (err: any) {
             setError(err.message || "Failed to fetch crop yield forecast data");
@@ -234,7 +239,8 @@ const CropYieldCarbonEmissionScreen = () => {
 
     const handleCompanyChange = (companyId: string) => {
         setSelectedCompanyId(companyId);
-        setSelectedYear(null); // Reset year when changing company
+        setSelectedYear(null);
+        setCropYieldData(null);
         setShowCompanySelector(false);
         navigate(`/admin_crop_yield_carbon/${companyId}`);
     };
@@ -254,49 +260,60 @@ const CropYieldCarbonEmissionScreen = () => {
         console.log("Calculation clicked:", calculationType, data);
     };
 
-    // Calculate summary metrics
+    // Derive summary metrics from the real API response
     const summaryMetrics = useMemo(() => {
         if (!cropYieldData) return null;
 
-        return {
-            totalYield: 1250000,
-            yieldChange: 8.5,
-            carbonSequestration: 45000,
-            sequestrationChange: 12.2,
-            waterUsage: 320000,
-            waterChange: -3.2,
-            cropDiversity: 4.2,
-            diversityChange: 2.1,
-        };
-    }, [cropYieldData]);
+        const yearly = cropYieldData.data.crop_yield_metrics.yearly_summary;
+        const changes = cropYieldData.data.crop_yield_metrics.year_over_year_changes;
 
-    // Mock data for coordinates, area, etc.
-    const mockCoordinates = [
+        // Helper to find YoY change for a specific metric and period that includes the selected year
+        const getChangeForMetric = (metricName: string, targetYear: number): number | null => {
+            const targetPeriod = `${targetYear - 1}→${targetYear}`;
+            const entry = changes.find(c => c.metric === metricName && c.period === targetPeriod);
+            return entry ? entry.numeric_change : null;
+        };
+
+        const currentYear = selectedYear || latestYear || new Date().getFullYear();
+
+        return {
+            // Total Cane Milled (tons)
+            totalYield: yearly.total_cane_milled,
+            yieldChange: getChangeForMetric("Total Cane Milled", currentYear) ?? 0,
+
+            // Company yield (tons/ha)
+            companyYield: yearly.company_yield,
+            companyYieldChange: getChangeForMetric("Company Yield (tons/ha)", currentYear) ?? 0,
+
+            // Private yield
+            privateYield: yearly.private_yield,
+
+            // Total area (ha)
+            totalArea: yearly.total_area,
+
+            // Cane to sugar ratio (%)
+            caneToSugarRatio: yearly.cane_to_sugar_ratio,
+
+            // Total sugar produced (company)
+            totalSugar: yearly.total_sugar_produced_company,
+
+            // Total molasses
+            totalMolasses: yearly.total_molasses_produced,
+        };
+    }, [cropYieldData, selectedYear, latestYear]);
+
+    // Get selected company
+    const selectedCompany = companies.find(c => c._id === selectedCompanyId);
+
+    // Mock coordinates – could be replaced with real data from company.area_of_interest_metadata
+    const mockCoordinates = selectedCompany?.area_of_interest_metadata?.coordinates.map(c => ({ lat: c.lat, lon: c.lon })) || [
         { lat: 40.7128, lon: -74.0060 },
         { lat: 40.7129, lon: -74.0061 },
         { lat: 40.7127, lon: -74.0059 },
         { lat: 40.7128, lon: -74.0060 },
     ];
-
-    const areaName = "Primary Farm Fields";
-    const areaCovered = "1,200 acres";
-
-    useEffect(() => {
-        if (location.state?.companyId) {
-            setSelectedCompanyId(location.state.companyId);
-            setShowCompanySelector(false);
-        }
-        fetchCompanies();
-    }, [location.state]);
-
-    useEffect(() => {
-        if (selectedCompanyId && companies.length > 0) {
-            fetchCropYieldData();
-        }
-    }, [selectedCompanyId, selectedYear]);
-
-    // Get selected company
-    const selectedCompany = companies.find(c => c._id === selectedCompanyId);
+    const areaName = selectedCompany?.area_of_interest_metadata?.name || "Primary Farm Fields";
+    const areaCovered = selectedCompany?.area_of_interest_metadata?.area_covered || "1,200 acres";
 
     // Prepare shared data for tabs
     const sharedData = {
@@ -325,10 +342,25 @@ const CropYieldCarbonEmissionScreen = () => {
             lime: LIME,
             background: BACKGROUND_GRAY,
         },
+        summaryMetrics, // pass real metrics to tabs
     };
 
+    useEffect(() => {
+        if (location.state?.companyId) {
+            setSelectedCompanyId(location.state.companyId);
+            setShowCompanySelector(false);
+        }
+        fetchCompanies();
+    }, [location.state]);
+
+    useEffect(() => {
+        if (selectedCompanyId && companies.length > 0) {
+            fetchCropYieldData();
+        }
+    }, [selectedCompanyId, selectedYear]);
+
     // Loading State
-    if (loading) {
+    if (loading && !cropYieldData) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
                 <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -389,7 +421,7 @@ const CropYieldCarbonEmissionScreen = () => {
                             <div className="grid md:grid-cols-2 gap-4">
                                 {companies.map((company) => {
                                     const dataRangeYears = parseDataRange(company.data_range);
-                                    const endYear = getEndYearFromDataRange(company.data_range);
+                                    const endYear = dataRangeYears.length > 0 ? Math.max(...dataRangeYears) : null;
 
                                     return (
                                         <button
@@ -403,9 +435,9 @@ const CropYieldCarbonEmissionScreen = () => {
                                             <div className="flex-1">
                                                 <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
                                                 <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
-                                                <div className="flex items-center gap-2 mt-2">
+                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
                                                     <div
-                                                        className="text-xs px-2 py-1 rounded-full"
+                                                        className="text-xs px-2 py-1 rounded-full capitalize"
                                                         style={{
                                                             background: company.esg_data_status === 'complete'
                                                                 ? 'rgba(34, 197, 94, 0.2)'
@@ -480,7 +512,7 @@ const CropYieldCarbonEmissionScreen = () => {
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap">
-                                {/* Year Selector — same pattern as GhgEmissionScreen */}
+                                {/* Year Selector — uses numeric years from API response */}
                                 {availableYears.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-gray-500" />
@@ -558,13 +590,14 @@ const CropYieldCarbonEmissionScreen = () => {
                     </div>
                 )}
 
-                {/* Quick Stats Bar */}
+                {/* Quick Stats Bar — now driven by real data from the API */}
                 {summaryMetrics && !error && (
                     <div className="mx-4 sm:mx-6 mt-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Total Cane Milled */}
                             <div className="p-4 rounded-lg bg-green-50 border border-green-100">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Total Yield</span>
+                                    <span className="text-sm font-medium text-gray-600">Total Cane Milled</span>
                                     <Target className="w-4 h-4 text-green-600" />
                                 </div>
                                 <div className="flex items-baseline gap-2">
@@ -572,65 +605,60 @@ const CropYieldCarbonEmissionScreen = () => {
                                     <span className="text-sm font-medium text-green-600">tons</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.yieldChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.yieldChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.yieldChange))}
+                                    {getTrendIcon(summaryMetrics.yieldChange)}
+                                    <span className={summaryMetrics.yieldChange > 0 ? 'text-green-600' : summaryMetrics.yieldChange < 0 ? 'text-red-600' : 'text-gray-600'}>
+                                        {summaryMetrics.yieldChange !== 0 ? `${summaryMetrics.yieldChange > 0 ? '+' : ''}${summaryMetrics.yieldChange}%` : '0%'}
                                     </span>
                                     <span className="text-gray-600">vs last year</span>
                                 </div>
                             </div>
 
+                            {/* Company Yield (tons/ha) */}
                             <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Carbon Sequestration</span>
+                                    <span className="text-sm font-medium text-gray-600">Company Yield</span>
                                     <Leaf className="w-4 h-4 text-blue-600" />
                                 </div>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.carbonSequestration)}</span>
-                                    <span className="text-sm font-medium text-blue-600">tCO₂</span>
+                                    <span className="text-2xl font-bold text-gray-900">{summaryMetrics.companyYield.toFixed(2)}</span>
+                                    <span className="text-sm font-medium text-blue-600">t/ha</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.sequestrationChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.sequestrationChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.sequestrationChange))}
+                                    {getTrendIcon(summaryMetrics.companyYieldChange)}
+                                    <span className={summaryMetrics.companyYieldChange > 0 ? 'text-green-600' : summaryMetrics.companyYieldChange < 0 ? 'text-red-600' : 'text-gray-600'}>
+                                        {summaryMetrics.companyYieldChange !== 0 ? `${summaryMetrics.companyYieldChange > 0 ? '+' : ''}${summaryMetrics.companyYieldChange}%` : '0%'}
                                     </span>
                                     <span className="text-gray-600">vs last year</span>
                                 </div>
                             </div>
 
+                            {/* Total Area Under Cane */}
                             <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Water Usage</span>
+                                    <span className="text-sm font-medium text-gray-600">Total Area</span>
                                     <Activity className="w-4 h-4 text-purple-600" />
                                 </div>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.waterUsage)}</span>
-                                    <span className="text-sm font-medium text-purple-600">m³</span>
+                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.totalArea)}</span>
+                                    <span className="text-sm font-medium text-purple-600">ha</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.waterChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.waterChange > 0 ? 'text-red-600' : 'text-green-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.waterChange))}
-                                    </span>
-                                    <span className="text-gray-600">vs last year</span>
+                                <div className="text-xs text-gray-500 mt-2">
+                                    Private yield: {summaryMetrics.privateYield.toFixed(2)} t/ha
                                 </div>
                             </div>
 
+                            {/* Cane to Sugar Ratio */}
                             <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-100">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-600">Crop Diversity</span>
+                                    <span className="text-sm font-medium text-gray-600">Cane to Sugar</span>
                                     <Shield className="w-4 h-4 text-yellow-600" />
                                 </div>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-gray-900">{summaryMetrics.cropDiversity.toFixed(1)}</span>
-                                    <span className="text-sm font-medium text-yellow-600">index</span>
+                                    <span className="text-2xl font-bold text-gray-900">{summaryMetrics.caneToSugarRatio.toFixed(2)}</span>
+                                    <span className="text-sm font-medium text-yellow-600">%</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-2 text-sm">
-                                    {getTrendIcon(summaryMetrics.diversityChange > 0 ? 'up' : 'down')}
-                                    <span className={summaryMetrics.diversityChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {formatPercent(Math.abs(summaryMetrics.diversityChange))}
-                                    </span>
-                                    <span className="text-gray-600">vs last year</span>
+                                <div className="text-xs text-gray-500 mt-2">
+                                    Sugar: {formatNumber(summaryMetrics.totalSugar)} tons
                                 </div>
                             </div>
                         </div>

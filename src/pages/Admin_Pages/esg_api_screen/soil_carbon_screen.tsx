@@ -30,6 +30,7 @@ import OverviewTab from "./soil_tabs/OverviewTab";
 import AnalyticsTab from "./soil_tabs/AnalyticsTab";
 import ReportsTab from "./soil_tabs/ReportsTab";
 
+
 // Color Palette
 const PRIMARY_GREEN = '#22c55e';       // Green-500
 const SECONDARY_GREEN = '#16a34a';     // Green-600

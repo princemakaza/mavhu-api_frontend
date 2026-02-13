@@ -1,147 +1,94 @@
-import React, { useState } from 'react';
+import { useState } from "react";
 import {
-    Leaf,
-    Trees,
-    AlertTriangle,
-    Target,
-    Shield,
-    Factory,
-    Globe,
-    MapPin,
-    Maximize2,
-    Download,
-    Share2,
-    Info,
-    PieChart as PieChartIcon,
-    AreaChart as AreaChartIcon,
-    LineChart as LineChartIcon,
-    BarChart as BarChartIcon,
-    Radar,
-    Activity,
-    CheckCircle,
-    AlertCircle,
-    X,
-    ChevronRight,
-    Circle,
-    Square,
-    Triangle,
-    Bird,
-    Flower,
-    Fish,
-    Bug,
-    Rabbit as RabbitIcon,
-    Feather,
-    Droplet,
-    Sun,
-    Wind,
-    Thermometer,
-    Cloud,
-    Calculator,
-    Settings,
-    ArrowRight,
-    Building,
-} from 'lucide-react';
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    Filler
+} from 'chart.js';
 import {
-    BiodiversityLandUseResponse,
-    getDeforestationAnalysis,
-    getLandUseMetrics,
-    getEnvironmentalImpact,
-    getSocialGovernance,
-    getBiodiversityCarbonEmissionAccounting,
-    getYearlyCarbonData,
-    getKeyStatistics,
-    getAreaOfInterestMetadata,
-    getForestCoveragePercentage,
-    getProtectedAreaPercentage,
-    getWaterManagement,
-    getWasteManagement,
-    getIncidentManagement,
-    getSoilHealth,
-    getCommunityEngagement,
-    getGovernanceStrength,
-    getNDVIMonthlyTrends,
-    getCarbonBalance,
-    getTotalCarbonEmissions,
-    getCarbonSequestration,
-    getScopeBreakdown,
-    getCoordinatesForMapping,
-    getDataAvailabilitySummary,
-    getNotableMetrics,
-    getEnvironmentalMetrics,
-    getSocialMetrics,
-    getGovernanceMetrics,
-    getBiodiversityGraphData,
-    getAllBiodiversityGraphData,
-    getBiodiversityMetadata,
-    getCurrentBiodiversityYear,
-    getBaselineBiodiversityYear,
-    getDataCompleteness,
-    isBiodiversityCarbonDataAvailable,
-    getBiodiversitySummaryAssessment
-} from '../../../../services/Admin_Service/esg_apis/biodiversity_api_service';
-
-/**
- * AREA OF INTEREST DATA FLOW:
- * 
- * This component uses area_of_interest_metadata from the selectedCompany prop:
- * 
- * selectedCompany.area_of_interest_metadata = {
- *   name: string,              // Name of the area (e.g., "Chiredzi Conservation Area")
- *   area_covered: string,      // Total area (e.g., "2,500 hectares")
- *   coordinates: Coordinate[]  // Array of lat/lon points for map display
- * }
- * 
- * Coordinate interface:
- * {
- *   lat: number,    // Latitude
- *   lon: number,    // Longitude
- *   _id?: string    // Optional MongoDB ID
- * }
- * 
- * Priority for coordinates:
- * 1. selectedCompany.area_of_interest_metadata.coordinates (primary source)
- * 2. Props coordinates (fallback)
- * 3. Mapped coordinates from biodiversityData (final fallback)
- * 
- * Map Behavior:
- * - Single coordinate: Shows a marker with popup
- * - Multiple coordinates: Shows a polygon boundary with popup
- * - Zoom level: 13 for better area visibility
- * - Popup includes: Area name, size, coordinates, forest coverage, protected area, biodiversity index
- */
-
-// Import chart components
-import {
-    ResponsiveContainer,
-    AreaChart as RechartsAreaChart,
-    Area,
-    LineChart as RechartsLineChart,
-    Line,
-    BarChart as RechartsBarChart,
-    Bar,
     PieChart as RechartsPieChart,
-    Pie,
     Cell,
-    RadarChart,
-    Radar as RechartsRadar,
-    PolarGrid,
-    PolarAngleAxis,
-    PolarRadiusAxis,
-    CartesianGrid,
+    ResponsiveContainer,
+    LineChart as RechartsLineChart,
+    Line as RechartsLine,
     XAxis,
     YAxis,
+    CartesianGrid,
     Tooltip as RechartsTooltip,
     Legend as RechartsLegend,
-    ComposedChart,
-    ScatterChart,
-    Scatter,
-    ZAxis
-} from 'recharts';
 
-// Import map components
+    BarChart,
+    Bar,
+    Pie,
+    ComposedChart,
+} from "recharts";
 import { MapContainer, TileLayer, Marker, Popup, Polygon } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+
+// Icons
+import {
+
+    Activity as ActivityIcon,
+    ArrowRight,
+    Trees,
+    MapPin,
+    Eye,
+    TrendingUp,
+    TrendingDown,
+    Building,
+    Target,
+    Globe,
+    PieChart as PieChartIcon,
+    AreaChart as AreaChartIcon,
+    BarChart3,
+    LineChart as LineChartIcon,
+    Map,
+    Info,
+    Shield,
+    CheckCircle,
+    AlertCircle,
+    X,
+    Maximize2,
+    Download,
+    Share2,
+
+    Calculator,
+    Cloud,
+    Users,
+    Settings,
+    AlertTriangle,
+    Flame,
+    LandPlot,
+    Sprout,
+} from "lucide-react";
+
+// Service functions and types (updated)
+import {
+    BiodiversityLandUseResponse,
+    getReportingPeriod,
+    getCurrentYear,
+    getBaselineYear,
+    getMetricSnapshot,
+    getAreaOfInterestMetadata,
+    getCoordinatesForMapping,
+    getSummaryStatistics,
+    getKeyPerformanceIndicators,
+    getDataQuality,
+    getSourceInformation,
+    getAudit,
+    getGriReferences,
+
+    type Company,
+    type YearlyMetricSnapshot,
+} from "../../../../services/Admin_Service/esg_apis/biodiversity_api_service";
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -151,148 +98,72 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Color Palette (matched to CropYieldCarbonEmissionScreen)
-const PRIMARY_GREEN = '#22c55e';
-const SECONDARY_GREEN = '#16a34a';
-const LIGHT_GREEN = '#86efac';
-const DARK_GREEN = '#15803d';
-const EMERALD = '#10b981';
-const LIME = '#84cc16';
-const BACKGROUND_GRAY = '#f9fafb';
+// Register ChartJS components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    Filler
+);
 
-// Create DESIGN_SYSTEM with the exact green colors from parent
-const DESIGN_SYSTEM = {
-    // Primary brand colors - using exact colors from parent
-    primary: {
-        main: PRIMARY_GREEN,      // '#22c55e'
-        light: LIGHT_GREEN,       // '#86efac'
-        dark: DARK_GREEN,         // '#15803d'
-        50: '#f0fdf4',           // lightest green
-        100: '#dcfce7',          // light green
-        200: '#bbf7d0',          // medium light green
-    },
-    // Secondary accent colors - using secondary green
-    secondary: {
-        main: SECONDARY_GREEN,    // '#16a34a'
-        light: LIME,              // '#84cc16'
-        dark: DARK_GREEN,         // '#15803d'
-        50: '#f7fee7',           // lightest lime
-        100: '#ecfccb',          // light lime
-    },
-    // Additional green variants from parent
-    variants: {
-        emerald: EMERALD,         // '#10b981'
-        lime: LIME,               // '#84cc16'
-        lightGreen: LIGHT_GREEN,  // '#86efac'
-        background: BACKGROUND_GRAY, // '#f9fafb'
-    },
-    // Status colors
-    status: {
-        success: PRIMARY_GREEN,   // '#22c55e'
-        warning: '#f59e0b',       // Amber 500
-        danger: '#ef4444',        // Red 500
-        info: '#3b82f6',          // Blue 500
-    },
-    // Contextual colors
-    context: {
-        forest: PRIMARY_GREEN,    // '#22c55e'
-        water: '#06b6d4',         // Cyan 500
-        protected: '#8b5cf6',     // Violet 500
-        agricultural: '#f59e0b',  // Amber 500
-        soil: '#92400e',          // Amber 900
-        biodiversity: EMERALD,    // '#10b981'
-    },
-    // Chart colors - coordinated palette using parent colors
-    charts: {
-        primary: [PRIMARY_GREEN, EMERALD, LIGHT_GREEN, '#4ade80', '#86efac'],
-        secondary: [SECONDARY_GREEN, DARK_GREEN, LIME, '#a3e635', '#d9f99d'],
-        mixed: [PRIMARY_GREEN, SECONDARY_GREEN, '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'],
-        gradient: {
-            emerald: `linear-gradient(135deg, ${PRIMARY_GREEN} 0%, ${EMERALD} 100%)`,
-            amber: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
-            blue: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
-            multi: `linear-gradient(135deg, ${PRIMARY_GREEN} 0%, ${EMERALD} 50%, ${LIGHT_GREEN} 100%)`,
-        }
-    },
-    // Neutral colors
-    neutral: {
-        50: '#f9fafb',
-        100: '#f3f4f6',
-        200: '#e5e7eb',
-        300: '#d1d5db',
-        400: '#9ca3af',
-        500: '#6b7280',
-        600: '#4b5563',
-        700: '#374151',
-        800: '#1f2937',
-        900: '#111827',
-    }
-};
-
-interface GraphDisplayProps {
-    title: string;
-    description: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-    onClick?: () => void;
-    onInfoClick?: () => void;
-}
-
-const GraphDisplay: React.FC<GraphDisplayProps> = ({ title, description, icon, children, onClick, onInfoClick }) => {
+// Local GraphDisplay component (styled like soil carbon version)
+const GraphDisplay = ({ title, description, icon, children, onClick, onInfoClick }: any) => {
     return (
         <div
-            className="bg-white rounded-2xl border shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden"
-            style={{ borderColor: DESIGN_SYSTEM.neutral[200] }}
+            className="bg-white rounded-3xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden"
             onClick={onClick}
         >
-            <div className="p-4 border-b" style={{
-                borderColor: DESIGN_SYSTEM.neutral[200],
-                background: DESIGN_SYSTEM.variants.background
-            }}>
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">{title}</h3>
-                        <p className="text-sm text-gray-600">{description}</p>
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-green-100">
+                            {icon}
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+                            <p className="text-gray-600 text-sm">{description}</p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        {onInfoClick && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onInfoClick();
-                                }}
-                                className="p-2 rounded-lg hover:bg-green-100 transition-all"
-                                style={{ color: DESIGN_SYSTEM.primary.main }}
-                            >
-                                <Info className="w-5 h-5" />
-                            </button>
-                        )}
-                        {icon}
-                    </div>
+                    {onInfoClick && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onInfoClick();
+                            }}
+                            className="p-2 rounded-lg hover:bg-green-200 transition-all"
+                        >
+                            <Info className="w-5 h-5" style={{ color: '#22c55e' }} />
+                        </button>
+                    )}
                 </div>
             </div>
-            <div className="p-4 h-80">{children}</div>
+            <div className="p-8 h-80">
+                {children}
+            </div>
         </div>
     );
 };
 
 interface OverviewTabProps {
     biodiversityData: BiodiversityLandUseResponse | null;
-    selectedCompany: any; // Company object from parent component with area_of_interest_metadata
+    selectedCompany: Company | null;
     formatNumber: (num: number) => string;
     formatCurrency: (num: number) => string;
     formatPercent: (num: number) => string;
-    getTrendIcon: (trend: string) => React.ReactNode;
+    getTrendIcon: (trend: string) => JSX.Element;
     selectedYear: number | null;
     availableYears: number[];
     loading: boolean;
     isRefreshing: boolean;
     onMetricClick: (metric: any, modalType: string) => void;
     onCalculationClick: (calculationType: string, data?: any) => void;
-    coordinates?: any[];
-    areaName?: string;
-    areaCovered?: string;
-    colors?: {
+    colors: {
         primary: string;
         secondary: string;
         lightGreen: string;
@@ -303,716 +174,200 @@ interface OverviewTabProps {
     };
 }
 
-const OverviewTab: React.FC<OverviewTabProps> = ({
+const OverviewTab = ({
     biodiversityData,
     selectedCompany,
     formatNumber,
+    formatCurrency,
     formatPercent,
     getTrendIcon,
     onMetricClick,
     onCalculationClick,
-    selectedYear,
-    availableYears,
-    loading,
-    isRefreshing,
-    coordinates = [],
-    areaName = "Area of Interest",
-    areaCovered = "N/A",
-    colors
-}) => {
-    const [selectedGraph, setSelectedGraph] = useState<any>(null);
-    const [selectedMetric, setSelectedMetric] = useState<any>(null);
-    const [showMetricModal, setShowMetricModal] = useState(false);
+    colors,
+}: OverviewTabProps) => {
+    // Extract data using accessors
+    const reportingPeriod = biodiversityData ? getReportingPeriod(biodiversityData) : null;
+    const currentYear = biodiversityData ? getCurrentYear(biodiversityData) : new Date().getFullYear();
+    const baselineYear = biodiversityData ? getBaselineYear(biodiversityData) : currentYear - 3;
+    const summaryStats = biodiversityData ? getSummaryStatistics(biodiversityData) : null;
+    const kpi = biodiversityData ? getKeyPerformanceIndicators(biodiversityData) : null;
+    const dataQuality = biodiversityData ? getDataQuality(biodiversityData) : null;
+    const sourceInfo = biodiversityData ? getSourceInformation(biodiversityData) : null;
+    const audit = biodiversityData ? getAudit(biodiversityData) : null;
+    const griRefs = biodiversityData ? getGriReferences(biodiversityData) : [];
 
-    // Use provided colors or default to DESIGN_SYSTEM
-    const currentColors = colors || {
-        primary: PRIMARY_GREEN,
-        secondary: SECONDARY_GREEN,
-        lightGreen: LIGHT_GREEN,
-        darkGreen: DARK_GREEN,
-        emerald: EMERALD,
-        lime: LIME,
-        background: BACKGROUND_GRAY,
+    // Coordinates and area info (priority: selectedCompany, then API data)
+    const areaOfInterest = selectedCompany?.area_of_interest_metadata ||
+        (biodiversityData ? getAreaOfInterestMetadata(biodiversityData) : null);
+    const coordinates = areaOfInterest?.coordinates || [];
+    const areaName = areaOfInterest?.name || "Project Area";
+    const areaCovered = areaOfInterest?.area_covered || "N/A";
+
+    // Get all analysis years
+    const years = reportingPeriod?.analysis_years || [];
+
+    // Helper to extract numeric value for a metric in a given year
+    const getYearlyValue = (year: number, category: string, metricName: string): number | null => {
+        if (!biodiversityData) return null;
+        const snapshot = getMetricSnapshot(biodiversityData, year, category as any, metricName);
+        return snapshot?.numeric_value ?? null;
     };
 
-    if (!biodiversityData) {
-        return (
-            <div className="text-center py-12">
-                <Leaf className="w-16 h-16 mx-auto mb-4" style={{ color: DESIGN_SYSTEM.neutral[300] }} />
-                <h3 className="text-xl font-semibold mb-2" style={{ color: DESIGN_SYSTEM.neutral[700] }}>No Data Available</h3>
-                <p style={{ color: DESIGN_SYSTEM.neutral[500] }}>Select a company to view biodiversity and land use data</p>
-            </div>
-        );
-    }
+    // Build chart data arrays
+    const chartData = {
+        // Agricultural Land Trend (Area Under Cane)
+        caneAreaData: years.map(year => ({
+            year,
+            value: getYearlyValue(year, 'agricultural_land', 'Area Under Cane') ?? 0,
+        })).filter(d => d.value > 0),
 
-    // Get data using helper functions
-    const deforestationAnalysis = getDeforestationAnalysis(biodiversityData);
-    const landUseMetrics = getLandUseMetrics(biodiversityData);
-    const environmentalImpact = getEnvironmentalImpact(biodiversityData);
-    const socialGovernance = getSocialGovernance(biodiversityData);
-    const carbonEmissionAccounting = getBiodiversityCarbonEmissionAccounting(biodiversityData);
-    const yearlyCarbonData = getYearlyCarbonData(biodiversityData);
-    const keyStatistics = getKeyStatistics(biodiversityData);
-    const areaOfInterestMetadata = getAreaOfInterestMetadata(biodiversityData);
-    const forestCoveragePercent = getForestCoveragePercentage(biodiversityData);
-    const protectedAreaPercent = getProtectedAreaPercentage(biodiversityData);
-    const waterManagement = getWaterManagement(biodiversityData);
-    const wasteManagement = getWasteManagement(biodiversityData);
-    const incidentManagement = getIncidentManagement(biodiversityData);
-    const soilHealth = getSoilHealth(biodiversityData);
-    const communityEngagement = getCommunityEngagement(biodiversityData);
-    const governanceStrength = getGovernanceStrength(biodiversityData);
-    const ndviMonthlyTrends = getNDVIMonthlyTrends(biodiversityData, selectedYear);
-    const carbonBalance = getCarbonBalance(biodiversityData, selectedYear);
-    const totalCarbonEmissions = getTotalCarbonEmissions(biodiversityData, selectedYear);
-    const carbonSequestration = getCarbonSequestration(biodiversityData, selectedYear);
-    const scopeBreakdown = getScopeBreakdown(biodiversityData, selectedYear);
-    const mappedCoordinates = getCoordinatesForMapping(biodiversityData);
-    const dataAvailabilitySummary = getDataAvailabilitySummary(biodiversityData);
-    const notableMetrics = getNotableMetrics(biodiversityData);
-    const environmentalMetrics = getEnvironmentalMetrics(biodiversityData);
-    const socialMetrics = getSocialMetrics(biodiversityData);
-    const governanceMetrics = getGovernanceMetrics(biodiversityData);
-    const graphData = getBiodiversityGraphData(biodiversityData, selectedYear);
-    const allGraphData = getAllBiodiversityGraphData(biodiversityData);
-    const metadata = getBiodiversityMetadata(biodiversityData);
-    const currentYear = getCurrentBiodiversityYear(biodiversityData);
-    const baselineYear = getBaselineBiodiversityYear(biodiversityData);
-    const dataCompleteness = getDataCompleteness(biodiversityData);
-    const isCarbonDataAvailable = isBiodiversityCarbonDataAvailable(biodiversityData);
-    const summaryAssessment = getBiodiversitySummaryAssessment(biodiversityData);
+        // Total Agricultural Land (Cane + Orchards)
+        totalAgriData: years.map(year => ({
+            year,
+            value: getYearlyValue(year, 'agricultural_land', 'Total Agricultural Land (Cane + Orchards)') ?? 0,
+        })).filter(d => d.value > 0),
 
-    // Extract area of interest from selectedCompany
-    const companyAreaOfInterest = selectedCompany?.area_of_interest_metadata;
-    const companyCoordinates = companyAreaOfInterest?.coordinates || [];
-    const companyAreaName = companyAreaOfInterest?.name || areaName;
-    const companyAreaCovered = companyAreaOfInterest?.area_covered || areaCovered;
+        // LPG Distributed
+        lpgData: years.map(year => ({
+            year,
+            value: getYearlyValue(year, 'fuelwood_substitution', 'LPG Distributed (kg)') ?? 0,
+        })).filter(d => d.value > 0),
 
-    // Use company coordinates first, then provided coordinates, then fallback to mapped coordinates
-    const finalCoordinates = companyCoordinates.length > 0 
-        ? companyCoordinates 
-        : coordinates.length > 0 
-            ? coordinates 
-            : mappedCoordinates;
+        // Surveyed Land Area (only 2024,2025 likely)
+        surveyedData: years.map(year => ({
+            year,
+            value: getYearlyValue(year, 'land_tenure', 'Total Surveyed Land Area') ?? 0,
+        })).filter(d => d.value > 0),
 
-    // Calculate map center from final coordinates
-    const mapCenter: [number, number] = finalCoordinates.length > 0 
-        ? [finalCoordinates[0].lat, finalCoordinates[0].lon] 
-        : [0, 0];
+        // Cane vs Orchards for latest year
+        landUseComposition: (() => {
+            const latestYear = years.length ? Math.max(...years) : currentYear;
+            const totalAgri = getYearlyValue(latestYear, 'agricultural_land', 'Total Agricultural Land (Cane + Orchards)') ?? 0;
+            const cane = getYearlyValue(latestYear, 'agricultural_land', 'Area Under Cane') ?? 0;
+            const orchards = getYearlyValue(latestYear, 'agricultural_land', 'Area Under Fruit Orchards') ?? 0;
+            const surveyed = getYearlyValue(latestYear, 'land_tenure', 'Total Surveyed Land Area') ?? 0;
+            const nonAgri = surveyed > totalAgri ? surveyed - totalAgri : 0;
 
-    // Prepare chart data with real API data where available
-    const prepareChartData = () => {
-        // Mock data for biodiversity metrics (since API doesn't provide these)
-        const mockMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return [
+                { name: 'Cane', value: cane, color: colors.primary },
+                { name: 'Orchards', value: orchards, color: colors.emerald },
+                { name: 'Non-Agricultural', value: nonAgri, color: colors.lime },
+            ].filter(item => item.value > 0);
+        })(),
 
-        return {
-            // NDVI Trend Data (from API if available, otherwise mock)
-            ndviTrendData: ndviMonthlyTrends && ndviMonthlyTrends.length > 0
-                ? ndviMonthlyTrends.map((value: number, index: number) => ({
-                    month: mockMonths[index] || `Month ${index + 1}`,
-                    ndvi: value,
-                    avgNDVI: value
-                }))
-                : mockMonths.map(month => ({
-                    month,
-                    ndvi: 0,
-                    avgNDVI: 0
-                })),
-
-            // Land Use Composition
-            landUseData: [
-                {
-                    name: 'Forest',
-                    value: landUseMetrics.current_year.forest_area || 0,
-                    color: currentColors.primary
-                },
-                {
-                    name: 'Agricultural',
-                    value: landUseMetrics.current_year.agricultural_area || 0,
-                    color: DESIGN_SYSTEM.context.agricultural
-                },
-                {
-                    name: 'Protected',
-                    value: landUseMetrics.current_year.protected_area || 0,
-                    color: DESIGN_SYSTEM.context.protected
-                },
-                {
-                    name: 'Other',
-                    value: (landUseMetrics.current_year.total_area || 0) -
-                        ((landUseMetrics.current_year.forest_area || 0) +
-                            (landUseMetrics.current_year.agricultural_area || 0) +
-                            (landUseMetrics.current_year.protected_area || 0)),
-                    color: DESIGN_SYSTEM.neutral[400]
-                }
-            ],
-
-            // Carbon Balance Data (from API)
-            carbonBalanceData: yearlyCarbonData?.map((data: any) => ({
-                year: data.year,
-                sequestration: data.sequestration?.total_tco2 || 0,
-                emissions: data.emissions?.total_tco2e || 0,
-                netBalance: data.emissions?.net_balance || 0
-            })) || [],
-
-            // Deforestation Risk Timeline (mock since API doesn't provide timeline)
-            deforestationRiskData: [
-                { year: baselineYear || 2020, riskScore: 25, forestArea: deforestationAnalysis.forest_coverage.previous || 0, ndviScore: 0.6 },
-                { year: (baselineYear || 2020) + 1, riskScore: 30, forestArea: (deforestationAnalysis.forest_coverage.previous || 0) * 0.95, ndviScore: 0.58 },
-                { year: currentYear || 2024, riskScore: deforestationAnalysis.forest_coverage.change_percent || 0, forestArea: deforestationAnalysis.forest_coverage.current || 0, ndviScore: 0.65 }
-            ],
-
-            // Biodiversity Components Radar Data (mock)
-            biodiversityComponentsData: [
-                { component: 'Habitat Integrity', score: 0, fullMark: 100 },
-                { component: 'Species Diversity', score: 0, fullMark: 100 },
-                { component: 'Ecosystem Services', score: 0, fullMark: 100 },
-                { component: 'Genetic Diversity', score: 0, fullMark: 100 },
-                { component: 'Landscape Connectivity', score: 0, fullMark: 100 },
-                { component: 'Water Quality', score: 0, fullMark: 100 },
-            ],
-
-            // Environmental Impact Data
-            environmentalImpactData: [
-                {
-                    category: 'Water',
-                    score: waterManagement.efficiency || 0,
-                    risk: 'medium'
-                },
-                {
-                    category: 'Waste',
-                    score: (wasteManagement.recycled_waste || 0) * 100,
-                    risk: wasteManagement.trend || 'medium'
-                },
-                {
-                    category: 'Incidents',
-                    score: 100 - ((incidentManagement.total_incidents || 0) * 10),
-                    risk: incidentManagement.trend || 'medium'
-                },
-                {
-                    category: 'Soil',
-                    score: (soilHealth.organic_matter || 0) * 20,
-                    risk: soilHealth.trend || 'medium'
-                },
-            ],
-
-            // Species Diversity Data (mock)
-            speciesDiversityData: [
-                { category: 'Birds', value: 0, icon: <Bird className="w-4 h-4" />, color: '#3b82f6' },
-                { category: 'Plants', value: 0, icon: <Flower className="w-4 h-4" />, color: currentColors.emerald },
-                { category: 'Mammals', value: 0, icon: <RabbitIcon className="w-4 h-4" />, color: currentColors.lime },
-                { category: 'Reptiles', value: 0, icon: <Square className="w-4 h-4" />, color: currentColors.lightGreen },
-                { category: 'Fish', value: 0, icon: <Fish className="w-4 h-4" />, color: '#06b6d4' },
-                { category: 'Insects', value: 0, icon: <Bug className="w-4 h-4" />, color: '#8b5cf6' },
-            ],
-
-            // Monthly Carbon Data (from API)
-            monthlyCarbonData: yearlyCarbonData && yearlyCarbonData.length > 0
-                ? (yearlyCarbonData.find((d: any) => d.year === (selectedYear || currentYear))?.sequestration?.monthly_data || []).map((monthData: any) => ({
-                    month: monthData.month_name || monthData.month,
-                    biomassC: monthData.biomass_c_t_per_ha || 0,
-                    biomassCO2: monthData.biomass_co2 || 0,
-                    socCO2: monthData.soc_co2 || 0,
-                    totalCO2: monthData.total_co2 || 0
-                }))
-                : mockMonths.map(month => ({
-                    month,
-                    biomassC: 0,
-                    biomassCO2: 0,
-                    socCO2: 0,
-                    totalCO2: 0
-                })),
-
-            // Land Use Change Over Time (mock)
-            landUseChangeData: [
-                { year: baselineYear || 2020, forest: 85, agricultural: 10, protected: 5, other: 0 },
-                { year: (baselineYear || 2020) + 1, forest: 82, agricultural: 12, protected: 6, other: 0 },
-                { year: (baselineYear || 2020) + 2, forest: 80, agricultural: 14, protected: 6, other: 0 },
-                { year: currentYear || 2024, forest: deforestationAnalysis.forest_coverage.coverage_percent || 78, agricultural: 16, protected: protectedAreaPercent || 6, other: 0 },
-            ],
-
-            // Habitat Health Index (mock)
-            habitatHealthData: mockMonths.map(month => ({
-                month,
-                healthIndex: Math.random() * 0,
-                speciesCount: Math.floor(Math.random() * 0) + 0,
-                vegetationCover: Math.random() * 0
-            }))
-        };
+        // Agricultural Land Comparison (stacked bar: cane + orchards)
+        agriComparisonData: years.map(year => ({
+            year,
+            cane: getYearlyValue(year, 'agricultural_land', 'Area Under Cane') ?? 0,
+            orchards: getYearlyValue(year, 'agricultural_land', 'Area Under Fruit Orchards') ?? 0,
+        })).filter(d => d.cane > 0 || d.orchards > 0),
     };
 
-    const chartData = prepareChartData();
+    // Latest values for hero cards
+    const latestYear = years.length ? Math.max(...years) : currentYear;
+    const latestTotalAgri = getYearlyValue(latestYear, 'agricultural_land', 'Total Agricultural Land (Cane + Orchards)') ?? 0;
+    const latestLpg = getYearlyValue(latestYear, 'fuelwood_substitution', 'LPG Distributed (kg)') ?? 0;
+    const latestSurveyed = getYearlyValue(latestYear, 'land_tenure', 'Total Surveyed Land Area') ?? 0;
+    const baselineTotalAgri = getYearlyValue(baselineYear, 'agricultural_land', 'Total Agricultural Land (Cane + Orchards)') ?? latestTotalAgri;
+    const agriChangePercent = baselineTotalAgri ? ((latestTotalAgri - baselineTotalAgri) / baselineTotalAgri) * 100 : 0;
 
-    // Helper function to get color based on score
-    const getScoreColor = (score: number) => {
-        if (score >= 80) return currentColors.primary;
-        if (score >= 60) return currentColors.secondary;
-        if (score >= 40) return currentColors.lime;
-        return DESIGN_SYSTEM.status.danger;
+    // Graph colors
+    const graphColors = {
+        cane: colors.primary,
+        orchards: colors.emerald,
+        lpg: colors.lime,
+        surveyed: colors.secondary,
+        nonAgri: colors.lightGreen,
     };
 
-    const getRiskColor = (level: string) => {
-        switch (level.toLowerCase()) {
-            case 'low': return currentColors.primary;
-            case 'medium': return currentColors.lime;
-            case 'high': return DESIGN_SYSTEM.status.danger;
-            default: return DESIGN_SYSTEM.neutral[600];
+    // Custom tooltip
+    const customTooltipFormatter = (value: any, name: string) => {
+        if (name === 'cane' || name === 'orchards' || name === 'value') {
+            return [`${formatNumber(value)} ha`, name];
         }
-    };
-
-    const handleMetricClick = (metric: any, title: string) => {
-        setSelectedMetric({ ...metric, title });
-        setShowMetricModal(true);
-    };
-
-    const handleCalculationClick = (calculationType: string, data?: any) => {
-        onCalculationClick(calculationType, data);
-    };
-
-    // Custom Tooltip Component
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-white p-4 rounded-xl shadow-lg border" style={{ borderColor: DESIGN_SYSTEM.neutral[200] }}>
-                    <p className="font-semibold mb-2" style={{ color: DESIGN_SYSTEM.neutral[800] }}>{label}</p>
-                    {payload.map((entry: any, index: number) => (
-                        <p key={index} className="text-sm" style={{ color: entry.color }}>
-                            {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value}
-                        </p>
-                    ))}
-                </div>
-            );
+        if (name === 'lpg' || name === 'LPG') {
+            return [`${formatNumber(value)} kg`, name];
         }
-        return null;
+        return [`${value}`, name];
     };
 
-    // Define graphs with unified styling
-    const graphs = [
-        {
-            id: 'ndvi-trend',
-            title: 'NDVI Trend Analysis',
-            description: 'Normalized Difference Vegetation Index monthly variation',
-            icon: <LineChartIcon className="w-5 h-5" style={{ color: currentColors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={chartData.ndviTrendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={DESIGN_SYSTEM.neutral[200]} />
-                        <XAxis
-                            dataKey="month"
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <YAxis
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                            domain={[0, 1]}
-                        />
-                        <RechartsTooltip content={<CustomTooltip />} />
-                        <RechartsLegend
-                            wrapperStyle={{ paddingTop: '20px' }}
-                            iconType="circle"
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="ndvi"
-                            stroke={currentColors.primary}
-                            name="NDVI Index"
-                            strokeWidth={3}
-                            dot={{ fill: currentColors.primary, r: 5, strokeWidth: 2, stroke: '#fff' }}
-                            activeDot={{ r: 7 }}
-                        />
-                    </RechartsLineChart>
-                </ResponsiveContainer>
-            ),
-            info: 'NDVI > 0.4 indicates healthy vegetation; trends show ecosystem changes'
-        },
-        {
-            id: 'land-use-composition',
-            title: 'Land Use Composition',
-            description: 'Current land use distribution',
-            icon: <PieChartIcon className="w-5 h-5" style={{ color: currentColors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                        <Pie
-                            data={chartData.landUseData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                            outerRadius={90}
-                            fill="#8884d8"
-                            dataKey="value"
-                            stroke="#fff"
-                            strokeWidth={3}
-                        >
-                            {chartData.landUseData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                        </Pie>
-                        <RechartsTooltip content={<CustomTooltip />} />
-                    </RechartsPieChart>
-                </ResponsiveContainer>
-            ),
-            info: 'Land use breakdown showing forest cover, agricultural land, and protected areas'
-        },
-        {
-            id: 'species-diversity',
-            title: 'Species Diversity',
-            description: 'Biodiversity across different taxa',
-            icon: <RabbitIcon className="w-5 h-5" style={{ color: currentColors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={chartData.speciesDiversityData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={DESIGN_SYSTEM.neutral[200]} />
-                        <XAxis
-                            dataKey="category"
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <YAxis
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <RechartsTooltip content={<CustomTooltip />} />
-                        <Bar
-                            dataKey="value"
-                            radius={[8, 8, 0, 0]}
-                        >
-                            {chartData.speciesDiversityData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                        </Bar>
-                    </RechartsBarChart>
-                </ResponsiveContainer>
-            ),
-            info: 'Species count across different taxa groups - indicator of biodiversity richness'
-        },
-        {
-            id: 'carbon-balance',
-            title: 'Carbon Balance Trend',
-            description: 'Sequestration vs Emissions over time',
-            icon: <Activity className="w-5 h-5" style={{ color: currentColors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData.carbonBalanceData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={DESIGN_SYSTEM.neutral[200]} />
-                        <XAxis
-                            dataKey="year"
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <YAxis
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <RechartsTooltip content={<CustomTooltip />} />
-                        <RechartsLegend
-                            wrapperStyle={{ paddingTop: '20px' }}
-                            iconType="circle"
-                        />
-                        <Bar
-                            dataKey="emissions"
-                            fill={DESIGN_SYSTEM.status.danger}
-                            name="Emissions"
-                            radius={[8, 8, 0, 0]}
-                            opacity={0.7}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="sequestration"
-                            stroke={currentColors.primary}
-                            name="Sequestration"
-                            strokeWidth={3}
-                            dot={{ fill: currentColors.primary, r: 6, strokeWidth: 2, stroke: '#fff' }}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="netBalance"
-                            stroke={DESIGN_SYSTEM.status.info}
-                            name="Net Balance"
-                            strokeWidth={3}
-                            strokeDasharray="5 5"
-                            dot={{ fill: DESIGN_SYSTEM.status.info, r: 5 }}
-                        />
-                    </ComposedChart>
-                </ResponsiveContainer>
-            ),
-            info: 'Net balance = Sequestration - Emissions. Positive = Carbon sink'
-        },
-        {
-            id: 'biodiversity-components',
-            title: 'Biodiversity Components',
-            description: 'Multi-dimensional assessment',
-            icon: <Radar className="w-5 h-5" style={{ color: currentColors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={chartData.biodiversityComponentsData}>
-                        <PolarGrid stroke={DESIGN_SYSTEM.neutral[300]} />
-                        <PolarAngleAxis
-                            dataKey="component"
-                            style={{ fontSize: '12px', fontWeight: 600 }}
-                            stroke={DESIGN_SYSTEM.neutral[600]}
-                        />
-                        <PolarRadiusAxis stroke={DESIGN_SYSTEM.neutral[300]} />
-                        <RechartsRadar
-                            name="Score"
-                            dataKey="score"
-                            stroke={currentColors.primary}
-                            fill={currentColors.primary}
-                            fillOpacity={0.5}
-                            strokeWidth={3}
-                        />
-                        <RechartsTooltip content={<CustomTooltip />} />
-                    </RadarChart>
-                </ResponsiveContainer>
-            ),
-            info: 'Comprehensive biodiversity assessment across multiple dimensions'
-        },
-        {
-            id: 'habitat-health',
-            title: 'Habitat Health Index',
-            description: 'Monthly habitat health tracking',
-            icon: <Leaf className="w-5 h-5" style={{ color: currentColors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={chartData.habitatHealthData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={DESIGN_SYSTEM.neutral[200]} />
-                        <XAxis
-                            dataKey="month"
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <YAxis
-                            stroke={DESIGN_SYSTEM.neutral[400]}
-                            style={{ fontSize: '12px', fontWeight: 500 }}
-                        />
-                        <RechartsTooltip content={<CustomTooltip />} />
-                        <RechartsLegend />
-                        <Line
-                            type="monotone"
-                            dataKey="healthIndex"
-                            stroke={currentColors.primary}
-                            name="Health Index"
-                            strokeWidth={3}
-                            dot={{ fill: currentColors.primary, r: 4 }}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="speciesCount"
-                            stroke={DESIGN_SYSTEM.status.info}
-                            name="Species Count"
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                        />
-                    </RechartsLineChart>
-                </ResponsiveContainer>
-            ),
-            info: 'Habitat health index based on vegetation cover, species diversity, and ecosystem services'
+    // Handle clicks
+    const handleMetricClick = (metric: any, title: string, calcType?: string) => {
+        if (calcType) {
+            onCalculationClick(calcType, metric);
         }
-    ];
-
-    // Calculate summary metrics
-    const summaryMetrics = {
-        forestCoverage: deforestationAnalysis.forest_coverage.coverage_percent || 0,
-        protectedArea: protectedAreaPercent || 0,
-        biodiversityIndex: 78, // Mock value - in reality would calculate from API data
-        speciesRichness: keyStatistics?.biodiversity_metrics?.endangered_species_count || 0,
-        carbonSequestration: carbonSequestration,
-        deforestationRisk: Math.abs(deforestationAnalysis.forest_coverage.change_percent || 0),
-        waterEfficiency: waterManagement.efficiency || 0,
-        wasteRecycled: (wasteManagement.recycled_waste || 0) * 100
     };
 
     return (
         <div className="space-y-8 pb-8">
             {/* Company Details Card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-                <div className="p-4 border-b border-gray-200" style={{ background: currentColors.background }}>
+                <div className="p-4 border-b border-gray-200" style={{ background: `linear-gradient(to right, ${colors.primary}15, ${colors.emerald}15)` }}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="p-2 rounded-xl bg-white border border-gray-200 shadow-sm">
-                                <Building className="w-5 h-5" style={{ color: currentColors.primary }} />
+                                <Building className="w-5 h-5" style={{ color: colors.primary }} />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-gray-900 mb-0.5">
-                                    {selectedCompany?.name || "Company"}
-                                </h2>
-                                <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className="text-lg font-bold text-gray-900 mb-0.5">{selectedCompany?.name || "Company"}</h2>
+                                <div className="flex items-center gap-2">
                                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800 font-medium">
-                                        {selectedCompany?.industry || "Environmental"}
+                                        {selectedCompany?.industry || "Industry"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-800 font-medium">
                                         {selectedCompany?.country || "Country"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800 font-medium">
-                                        {currentYear || new Date().getFullYear()}
+                                        {selectedCompany?.esg_data_status || "ESG Status"}
                                     </span>
                                 </div>
                             </div>
                         </div>
                         <div className="text-right">
                             <p className="text-[10px] text-gray-600 mb-0.5">Data Quality</p>
-                            <p className="font-medium text-xs" style={{ color: currentColors.primary }}>
-                                {dataCompleteness?.overall_percentage || 0}%
+                            <p className="font-medium text-xs text-gray-900">
+                                {dataQuality?.quality_score ?? 'N/A'}%
                             </p>
                         </div>
                     </div>
                 </div>
-
                 <div className="p-4">
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Total Area</p>
-                            <p className="font-bold text-sm text-gray-900">{companyAreaCovered}</p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Registration Number</p>
+                            <p className="font-bold text-sm text-gray-900">{selectedCompany?.registrationNumber || "N/A"}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Location Points</p>
-                            <p className="font-bold text-sm text-gray-900">{finalCoordinates.length} {finalCoordinates.length === 1 ? 'point' : 'points'}</p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Contact Email</p>
+                            <p className="font-bold text-sm text-gray-900">{selectedCompany?.email || "N/A"}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Monitoring Period</p>
-                            <p className="font-bold text-sm text-gray-900">{baselineYear}-{currentYear}</p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Latest ESG Report</p>
+                            <p className="font-bold text-sm text-gray-900">{selectedCompany?.latest_esg_report_year || "N/A"}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Data Completeness</p>
-                            <p className="font-bold text-sm" style={{ color: currentColors.primary }}>
-                                {dataCompleteness?.overall_percentage || 0}%
-                            </p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Years Covered</p>
+                            <p className="font-bold text-sm text-green-700">{years.length}</p>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            {/* Hero Section */}
-            <div
-                className="relative overflow-hidden rounded-2xl p-5 shadow-2xl"
-                style={{
-                    background: `linear-gradient(to right, ${currentColors.darkGreen}, ${currentColors.primary})`
-                }}
-            >
-                <div
-                    className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl"
-                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-                ></div>
-                <div
-                    className="absolute bottom-0 left-0 w-72 h-72 rounded-full blur-3xl"
-                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-                ></div>
-
-                <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <h2 className="text-xl font-bold mb-1 text-white">Biodiversity & Land Use Dashboard</h2>
-                            <p className="text-emerald-50 text-sm">Comprehensive ecosystem health monitoring</p>
+                    {selectedCompany?.description && (
+                        <div className="mt-3 p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <p className="text-[10px] text-gray-600 mb-1 font-medium">Company Description</p>
+                            <p className="text-xs text-gray-700 leading-relaxed">{selectedCompany.description}</p>
                         </div>
-                        <button
-                            onClick={() => onCalculationClick("overview")}
-                            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 text-white text-xs"
-                        >
-                            <Calculator className="w-3.5 h-3.5" />
-                            How Calculated?
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {/* Forest Coverage Card */}
-                        <div
-                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
-                            onClick={() => handleMetricClick(deforestationAnalysis, 'Forest Coverage Analysis')}
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 rounded-lg bg-white/20">
-                                    <Trees className="w-3.5 h-3.5 text-white" />
-                                </div>
-                                <p className="text-white font-bold text-xs">Forest Coverage</p>
-                            </div>
-                            <h3 className="text-xl font-normal mb-2 text-white">
-                                {summaryMetrics.forestCoverage.toFixed(1)}%
-                            </h3>
-                            <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${summaryMetrics.forestCoverage >= 80 ? 'bg-green-400 text-green-900' :
-                                    summaryMetrics.forestCoverage >= 60 ? 'bg-yellow-400 text-yellow-900' :
-                                        'bg-red-400 text-red-900'
-                                    }`}
-                            >
-                                {summaryMetrics.forestCoverage >= 80 ? 'Excellent' :
-                                    summaryMetrics.forestCoverage >= 60 ? 'Good' :
-                                        summaryMetrics.forestCoverage >= 40 ? 'Fair' : 'Poor'}
-                            </span>
-                        </div>
-
-                        {/* Biodiversity Index Card */}
-                        <div
-                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
-                            onClick={() => handleMetricClick({ value: summaryMetrics.biodiversityIndex, unit: 'score' }, 'Biodiversity Index')}
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 rounded-lg bg-white/20">
-                                    <Leaf className="w-3.5 h-3.5 text-white" />
-                                </div>
-                                <p className="text-white font-bold text-xs">Biodiversity Index</p>
-                            </div>
-                            <h3 className="text-xl font-normal mb-2 text-white">
-                                {summaryMetrics.biodiversityIndex}/100
-                            </h3>
-                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
-                                Score
-                            </span>
-                        </div>
-
-                        {/* Carbon Sequestration Card */}
-                        <div
-                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
-                            onClick={() => handleMetricClick({ value: summaryMetrics.carbonSequestration, unit: 'tCO₂' }, 'Carbon Sequestration')}
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 rounded-lg bg-white/20">
-                                    <Cloud className="w-3.5 h-3.5 text-white" />
-                                </div>
-                                <p className="text-white font-bold text-xs">Carbon Sequestration</p>
-                            </div>
-                            <h3 className="text-xl font-normal mb-2 text-white">
-                                {formatNumber(summaryMetrics.carbonSequestration)}
-                            </h3>
-                            <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${summaryMetrics.carbonSequestration > 0 ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900'
-                                    }`}
-                            >
-                                {summaryMetrics.carbonSequestration > 0 ? 'Positive' : 'Negative'}
-                            </span>
-                        </div>
-
-                        {/* Protected Area Card */}
-                        <div
-                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all"
-                            onClick={() => handleMetricClick({ value: summaryMetrics.protectedArea, unit: '%' }, 'Protected Area Coverage')}
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 rounded-lg bg-white/20">
-                                    <Shield className="w-3.5 h-3.5 text-white" />
-                                </div>
-                                <p className="text-white font-bold text-xs">Protected Area</p>
-                            </div>
-                            <h3 className="text-xl font-normal mb-2 text-white">
-                                {summaryMetrics.protectedArea.toFixed(1)}%
-                            </h3>
-                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
-                                Protected
-                            </span>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
             {/* Map Section */}
             <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                <div className="p-6 border-b border-gray-200" style={{ background: currentColors.background }}>
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">Area of Interest</h3>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Project Location</h3>
                             <p className="text-gray-600 flex items-center gap-2">
-                                <MapPin className="w-4 h-4" style={{ color: currentColors.primary }} />
-                                {companyAreaName}
+                                <MapPin className="w-4 h-4" style={{ color: colors.primary }} />
+                                {areaName}
                             </p>
                         </div>
                         <div className="flex gap-2">
@@ -1026,10 +381,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                     </div>
                 </div>
                 <div className="h-96">
-                    {finalCoordinates.length > 0 ? (
+                    {coordinates.length > 0 ? (
                         <MapContainer
-                            center={mapCenter}
-                            zoom={13}
+                            center={[coordinates[0]?.lat || 0, coordinates[0]?.lon || 0]}
+                            zoom={10}
                             style={{ height: '100%', width: '100%' }}
                             className="leaflet-container z-0"
                         >
@@ -1037,86 +392,36 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 attribution='&copy; OpenStreetMap contributors'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             />
-                            {finalCoordinates.length === 1 ? (
-                                <Marker position={[finalCoordinates[0].lat, finalCoordinates[0].lon]}>
+                            {coordinates.length === 1 ? (
+                                <Marker position={[coordinates[0].lat, coordinates[0].lon]}>
                                     <Popup>
                                         <div className="p-2">
-                                            <h3 className="font-bold mb-2" style={{ color: currentColors.primary }}>{companyAreaName}</h3>
-                                            <div className="space-y-1">
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Area:</span> {companyAreaCovered}
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Latitude:</span> {finalCoordinates[0].lat.toFixed(6)}
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Longitude:</span> {finalCoordinates[0].lon.toFixed(6)}
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Forest Coverage:</span> {summaryMetrics.forestCoverage.toFixed(1)}%
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Protected Area:</span> {summaryMetrics.protectedArea.toFixed(1)}%
-                                                </p>
-                                            </div>
+                                            <h3 className="font-bold" style={{ color: colors.primary }}>{areaName}</h3>
+                                            <p className="text-sm text-gray-700">Lat: {coordinates[0].lat.toFixed(4)}</p>
+                                            <p className="text-sm text-gray-700">Lon: {coordinates[0].lon.toFixed(4)}</p>
                                         </div>
                                     </Popup>
                                 </Marker>
                             ) : (
                                 <Polygon
-                                    pathOptions={{
-                                        fillColor: currentColors.primary,
-                                        color: currentColors.primary,
-                                        fillOpacity: 0.3,
-                                        weight: 2
-                                    }}
-                                    positions={finalCoordinates.map((coord: any) => [coord.lat, coord.lon])}
+                                    pathOptions={{ fillColor: colors.primary, color: colors.primary, fillOpacity: 0.3, weight: 2 }}
+                                    positions={coordinates.map((coord: any) => [coord.lat, coord.lon])}
                                 >
                                     <Popup>
                                         <div className="p-2">
-                                            <h3 className="font-bold mb-2" style={{ color: currentColors.primary }}>{companyAreaName}</h3>
-                                            <div className="space-y-1">
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Area:</span> {companyAreaCovered}
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Coordinates:</span> {finalCoordinates.length} points
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Forest Coverage:</span> {summaryMetrics.forestCoverage.toFixed(1)}%
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Protected Area:</span> {summaryMetrics.protectedArea.toFixed(1)}%
-                                                </p>
-                                                <p className="text-sm text-gray-700">
-                                                    <span className="font-semibold">Biodiversity Index:</span> {summaryMetrics.biodiversityIndex}/100
-                                                </p>
-                                            </div>
+                                            <h3 className="font-bold" style={{ color: colors.primary }}>{areaName}</h3>
+                                            <p className="text-sm text-gray-700">Area: {areaCovered}</p>
+                                            <p className="text-sm text-gray-700">Points: {coordinates.length}</p>
                                         </div>
                                     </Popup>
                                 </Polygon>
                             )}
                         </MapContainer>
                     ) : (
-                        <div
-                            className="h-full flex items-center justify-center"
-                            style={{
-                                background: `linear-gradient(135deg, ${DESIGN_SYSTEM.neutral[50]} 0%, ${DESIGN_SYSTEM.neutral[100]} 100%)`
-                            }}
-                        >
+                        <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
                             <div className="text-center">
-                                <MapPin
-                                    className="w-16 h-16 mx-auto mb-4 opacity-20"
-                                    style={{ color: currentColors.primary }}
-                                />
-                                <p className="font-medium" style={{ color: DESIGN_SYSTEM.neutral[500] }}>
-                                    No location data available
-                                </p>
-                                <p className="text-sm mt-2" style={{ color: DESIGN_SYSTEM.neutral[400] }}>
-                                    {selectedCompany?.name 
-                                        ? `No area of interest configured for ${selectedCompany.name}`
-                                        : 'Please select a company with location data'}
-                                </p>
+                                <Map className="w-16 h-16 mx-auto mb-4 opacity-20" style={{ color: colors.primary }} />
+                                <p className="text-gray-500 font-medium">No location data available</p>
                             </div>
                         </div>
                     )}
@@ -1124,91 +429,334 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="p-6 grid grid-cols-2 gap-4 bg-gray-50">
                     <div className="p-4 rounded-xl bg-white border border-gray-200">
                         <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
-                            <Globe className="w-4 h-4" style={{ color: currentColors.primary }} />
+                            <Globe className="w-4 h-4" style={{ color: colors.primary }} />
                             Area Covered
                         </p>
-                        <p className="font-bold text-lg text-gray-900">{companyAreaCovered}</p>
-                        {selectedCompany?.name && (
-                            <p className="text-xs text-gray-500 mt-1">{selectedCompany.name}</p>
-                        )}
+                        <p className="font-bold text-lg text-gray-900">{areaCovered}</p>
                     </div>
                     <div className="p-4 rounded-xl bg-white border border-gray-200">
                         <p className="text-xs text-gray-600 mb-1 flex items-center gap-2">
-                            <Target className="w-4 h-4" style={{ color: currentColors.primary }} />
+                            <Target className="w-4 h-4" style={{ color: colors.primary }} />
                             Monitoring Points
                         </p>
-                        <p className="font-bold text-lg text-gray-900">{finalCoordinates.length} {finalCoordinates.length === 1 ? 'point' : 'points'}</p>
-                        {finalCoordinates.length > 1 && (
-                            <p className="text-xs text-gray-500 mt-1">Polygon boundary</p>
-                        )}
+                        <p className="font-bold text-lg text-gray-900">{coordinates.length} coordinates</p>
                     </div>
                 </div>
             </div>
 
-            {/* Graphs Grid */}
+            {/* Environmental Overview (Hero) */}
+            <div className="relative overflow-hidden rounded-2xl p-5 shadow-2xl" style={{ background: `linear-gradient(to right, ${colors.primary}, ${colors.darkGreen})` }}>
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
+
+                <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 className="text-xl font-bold mb-1 text-white">Biodiversity & Land Use Overview</h2>
+                            <p className="text-green-100 text-sm">Key metrics from the latest reporting year ({latestYear})</p>
+                        </div>
+                        <button
+                            onClick={() => onCalculationClick('overview')}
+                            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 text-white text-xs"
+                        >
+                            <Calculator className="w-3.5 h-3.5" />
+                            Methodology
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {/* Total Agricultural Land */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick({ value: latestTotalAgri, unit: 'ha' }, 'Total Agricultural Land', 'agricultural-land')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <LandPlot className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">Agricultural Land</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(latestTotalAgri)} <span className="text-sm ml-1 text-green-100">ha</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    {baselineYear} baseline
+                                </span>
+                                <span className="text-green-100 text-[10px] flex items-center gap-1">
+                                    {agriChangePercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                    {Math.abs(agriChangePercent).toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* LPG Distributed (fuelwood substitution) */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick({ value: latestLpg, unit: 'kg' }, 'LPG Distributed', 'lpg')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Flame className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">LPG Distributed</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(latestLpg)} <span className="text-sm ml-1 text-green-100">kg</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    Fuelwood substitution
+                                </span>
+                                {getTrendIcon(latestLpg > (getYearlyValue(baselineYear, 'fuelwood_substitution', 'LPG Distributed (kg)') ?? 0) ? 'up' : 'down')}
+                            </div>
+                        </div>
+
+                        {/* Surveyed Land Area */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick({ value: latestSurveyed, unit: 'ha' }, 'Surveyed Land Area', 'surveyed')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <MapPin className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">Surveyed Land</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(latestSurveyed)} <span className="text-sm ml-1 text-green-100">ha</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    Total area
+                                </span>
+                                {getTrendIcon(latestSurveyed > (getYearlyValue(baselineYear, 'land_tenure', 'Total Surveyed Land Area') ?? 0) ? 'up' : 'down')}
+                            </div>
+                        </div>
+
+                        {/* Trees Planted (from summary) */}
+                        <div
+                            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 cursor-pointer hover:bg-white/20 transition-all group"
+                            onClick={() => handleMetricClick({ value: summaryStats?.total_trees_planted || 0, unit: 'trees' }, 'Trees Planted', 'trees')}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 rounded-lg bg-white/20">
+                                    <Trees className="w-3.5 h-3.5 text-white" />
+                                </div>
+                                <p className="text-white font-bold text-xs">Trees Planted</p>
+                            </div>
+                            <h3 className="text-xl font-normal mb-2 text-white">
+                                {formatNumber(summaryStats?.total_trees_planted || 0)} <span className="text-sm ml-1 text-green-100">trees</span>
+                            </h3>
+                            <div className="flex items-center justify-between">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-medium">
+                                    Cumulative
+                                </span>
+                                <span className="text-green-100 text-[10px]">since {baselineYear}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Graphs Grid (2 columns) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {graphs.map((graph) => (
+                {/* Graph 1: Agricultural Land Trend (Area Under Cane) */}
+                {chartData.caneAreaData.length > 0 && (
                     <GraphDisplay
-                        key={graph.id}
-                        title={graph.title}
-                        description={graph.description}
-                        icon={graph.icon}
-                        onClick={() => setSelectedGraph(graph)}
-                        onInfoClick={() => handleCalculationClick(graph.id, { description: graph.info })}
+                        title="Agricultural Land Trend"
+                        description="Area Under Cane (hectares) over years"
+                        icon={<LineChartIcon className="w-6 h-6" style={{ color: colors.primary }} />}
+                        onClick={() => { }}
+                        onInfoClick={() => onCalculationClick('cane-trend', { description: 'Yearly sugarcane cultivation area' })}
                     >
-                        {graph.component}
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RechartsLineChart data={chartData.caneAreaData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="year" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <RechartsTooltip
+                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                                    formatter={(value: any) => [`${formatNumber(value)} ha`, 'Area']}
+                                />
+                                <RechartsLine
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke={graphColors.cane}
+                                    strokeWidth={3}
+                                    dot={{ fill: graphColors.cane, r: 6 }}
+                                    name="Cane Area"
+                                />
+                            </RechartsLineChart>
+                        </ResponsiveContainer>
                     </GraphDisplay>
-                ))}
+                )}
+
+                {/* Graph 2: LPG Distribution Trend */}
+                {chartData.lpgData.length > 0 && (
+                    <GraphDisplay
+                        title="LPG Distribution"
+                        description="Fuelwood substitution (kg) over years"
+                        icon={<BarChart3 className="w-6 h-6" style={{ color: colors.primary }} />}
+                        onClick={() => { }}
+                        onInfoClick={() => onCalculationClick('lpg-trend', { description: 'LPG distributed to reduce deforestation' })}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData.lpgData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="year" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <RechartsTooltip
+                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                                    formatter={(value: any) => [`${formatNumber(value)} kg`, 'LPG']}
+                                />
+                                <Bar dataKey="value" fill={graphColors.lpg} radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </GraphDisplay>
+                )}
+
+                {/* Graph 3: Land Use Composition (Pie) */}
+                {chartData.landUseComposition.length > 0 && (
+                    <GraphDisplay
+                        title="Land Use Composition"
+                        description="Breakdown of surveyed land (latest year)"
+                        icon={<PieChartIcon className="w-6 h-6" style={{ color: colors.primary }} />}
+                        onClick={() => { }}
+                        onInfoClick={() => onCalculationClick('land-use', { description: 'Agricultural vs non-agricultural land' })}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPieChart>
+                                <Pie
+                                    data={chartData.landUseComposition}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                    stroke="#fff"
+                                    strokeWidth={2}
+                                >
+                                    {chartData.landUseComposition.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <RechartsTooltip
+                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                                    formatter={(value: any) => [`${formatNumber(value)} ha`, '']}
+                                />
+                            </RechartsPieChart>
+                        </ResponsiveContainer>
+                    </GraphDisplay>
+                )}
+
+                {/* Graph 4: Surveyed Land Area Trend */}
+                {chartData.surveyedData.length > 0 && (
+                    <GraphDisplay
+                        title="Surveyed Land Area"
+                        description="Total surveyed area (hectares)"
+                        icon={<AreaChartIcon className="w-6 h-6" style={{ color: colors.primary }} />}
+                        onClick={() => { }}
+                        onInfoClick={() => onCalculationClick('surveyed-trend', { description: 'Formally surveyed land area' })}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData.surveyedData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="year" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <RechartsTooltip
+                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                                    formatter={(value: any) => [`${formatNumber(value)} ha`, 'Surveyed']}
+                                />
+                                <Bar dataKey="value" fill={graphColors.surveyed} radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </GraphDisplay>
+                )}
+
+                {/* Graph 5: Agricultural Land Comparison (Cane vs Orchards) */}
+                {chartData.agriComparisonData.length > 0 && (
+                    <GraphDisplay
+                        title="Agricultural Land Comparison"
+                        description="Cane vs Orchards area over years"
+                        icon={<BarChart3 className="w-6 h-6" style={{ color: colors.primary }} />}
+                        onClick={() => { }}
+                        onInfoClick={() => onCalculationClick('agri-comparison', { description: 'Breakdown of agricultural land types' })}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData.agriComparisonData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="year" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                                <RechartsTooltip
+                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+                                    formatter={customTooltipFormatter}
+                                />
+                                <RechartsLegend />
+                                <Bar dataKey="cane" fill={graphColors.cane} name="Cane" radius={[8, 8, 0, 0]} />
+                                <Bar dataKey="orchards" fill={graphColors.orchards} name="Orchards" radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </GraphDisplay>
+                )}
             </div>
 
-            {/* Key Statistics Summary */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold" style={{ color: currentColors.primary }}>
-                        Key Statistics
-                    </h3>
-                    <Globe className="w-5 h-5" style={{ color: DESIGN_SYSTEM.neutral[500] }} />
+            {/* Full-width GRI References / Data Quality Section */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-xl bg-green-100">
+                                <Shield className="w-6 h-6" style={{ color: colors.primary }} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Data Quality & GRI References</h3>
+                                <p className="text-gray-600 text-sm">Verification status and reporting frameworks</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                    <div className="text-center">
-                        <p className="text-3xl font-bold" style={{ color: currentColors.primary }}>
-                            {keyStatistics.total_metrics_analyzed || 0}
-                        </p>
-                        <p className="text-sm mt-1" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                            Metrics Analyzed
-                        </p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-3xl font-bold" style={{ color: DESIGN_SYSTEM.status.info }}>
-                            {keyStatistics.years_covered || 0}
-                        </p>
-                        <p className="text-sm mt-1" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                            Years Covered
-                        </p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-3xl font-bold" style={{ color: currentColors.emerald }}>
-                            {keyStatistics.biodiversity_metrics?.endangered_species_count || 0}
-                        </p>
-                        <p className="text-sm mt-1" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                            Endangered Species
-                        </p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-3xl font-bold" style={{ color: DESIGN_SYSTEM.status.danger }}>
-                            {keyStatistics.risk_metrics?.deforestation_alerts_count || 0}
-                        </p>
-                        <p className="text-sm mt-1" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                            Deforestation Alerts
-                        </p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-3xl font-bold" style={{ color: currentColors.secondary }}>
-                            {keyStatistics.social_governance_metrics?.community_programs || 0}
-                        </p>
-                        <p className="text-sm mt-1" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                            Community Programs
-                        </p>
+                <div className="p-8">
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 className="font-semibold text-gray-900 mb-4">Data Quality</h4>
+                            <div className="space-y-3">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Verification Status</span>
+                                    <span className="font-medium capitalize" style={{ color: colors.primary }}>
+                                        {dataQuality?.verification_status || 'unverified'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Validation Status</span>
+                                    <span className="font-medium capitalize" style={{ color: colors.secondary }}>
+                                        {dataQuality?.validation_status || 'not_validated'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Validation Errors</span>
+                                    <span className="font-medium">{dataQuality?.validation_errors?.length || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-gray-900 mb-4">GRI References</h4>
+                            <div className="space-y-2">
+                                {griRefs.length > 0 ? griRefs.map((ref, idx) => (
+                                    <div key={idx} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                        <p className="font-medium text-sm text-gray-800">{ref.standard}</p>
+                                        <p className="text-xs text-gray-600">Metric: {ref.metric_name}</p>
+                                        <p className="text-xs" style={{ color: ref.compliance_status === 'compliant' ? colors.primary : colors.lime }}>
+                                            {ref.compliance_status}
+                                        </p>
+                                    </div>
+                                )) : (
+                                    <p className="text-gray-500">No GRI references available</p>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1218,243 +766,122 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h3 className="text-2xl font-bold text-gray-900 mb-1">Calculation Methodology</h3>
-                        <p className="text-gray-600">Understand how biodiversity metrics are calculated</p>
+                        <p className="text-gray-600">How biodiversity and land use metrics are derived</p>
                     </div>
-                    <Settings className="w-8 h-8" style={{ color: currentColors.primary }} />
+                    <Settings className="w-8 h-8" style={{ color: colors.primary }} />
                 </div>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div
                         className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 cursor-pointer hover:border-green-300 transition-all group"
-                        onClick={() =>
-                            onCalculationClick("forest-coverage", {
-                                formula: "Forest Area / Total Area × 100",
-                                description: "Percentage of land covered by forest",
-                            })
-                        }
+                        onClick={() => onCalculationClick('agricultural-land', {
+                            formula: 'Sum of cane and orchards area',
+                            description: 'Total agricultural land under cultivation'
+                        })}
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-3 rounded-xl bg-green-100">
-                                <Trees className="w-6 h-6" style={{ color: currentColors.primary }} />
+                                <LandPlot className="w-6 h-6" style={{ color: colors.primary }} />
                             </div>
-                            <h4 className="font-bold text-lg text-gray-900">Forest Coverage</h4>
+                            <h4 className="font-bold text-lg text-gray-900">Agricultural Land</h4>
                         </div>
-                        <p className="text-gray-700 mb-4">Percentage of land covered by forests</p>
+                        <p className="text-gray-700 mb-4">Area under cane + fruit orchards</p>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm" style={{ color: currentColors.primary, fontWeight: 500 }}>
-                                Formula: Forest/Total × 100
-                            </span>
-                            <Info className="w-5 h-5" style={{ color: currentColors.primary, opacity: 0, transition: 'opacity 0.2s' }} />
+                            <span className="text-sm text-green-600 font-medium">Annual reported figures</span>
+                            <Info className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </div>
 
                     <div
                         className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 cursor-pointer hover:border-blue-300 transition-all group"
-                        onClick={() =>
-                            onCalculationClick("carbon-sequestration", {
-                                formula: "Biomass Growth × Carbon Content",
-                                description: "Carbon captured by vegetation",
-                            })
-                        }
+                        onClick={() => onCalculationClick('lpg', {
+                            formula: 'Cumulative distribution',
+                            description: 'LPG provided to reduce firewood consumption'
+                        })}
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-3 rounded-xl bg-blue-100">
-                                <Cloud className="w-6 h-6" style={{ color: currentColors.primary }} />
+                                <Flame className="w-6 h-6" style={{ color: colors.primary }} />
                             </div>
-                            <h4 className="font-bold text-lg text-gray-900">Carbon Sequestration</h4>
+                            <h4 className="font-bold text-lg text-gray-900">Fuelwood Substitution</h4>
                         </div>
-                        <p className="text-gray-700 mb-4">CO2 captured by vegetation growth</p>
+                        <p className="text-gray-700 mb-4">LPG distributed (kg) to households</p>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-blue-600 font-medium">
-                                Formula: Biomass × C Content
-                            </span>
+                            <span className="text-sm text-blue-600 font-medium">Annual reported totals</span>
                             <Info className="w-5 h-5 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </div>
 
                     <div
                         className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 cursor-pointer hover:border-purple-300 transition-all group"
-                        onClick={() =>
-                            onCalculationClick("biodiversity-index", {
-                                formula: "Weighted sum of species indicators",
-                                description: "Composite biodiversity health score",
-                            })
-                        }
+                        onClick={() => onCalculationClick('surveyed', {
+                            formula: 'Formal land surveys',
+                            description: 'Total surveyed area within the estate'
+                        })}
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-3 rounded-xl bg-purple-100">
-                                <Leaf className="w-6 h-6" style={{ color: currentColors.primary }} />
+                                <MapPin className="w-6 h-6" style={{ color: colors.primary }} />
                             </div>
-                            <h4 className="font-bold text-lg text-gray-900">Biodiversity Index</h4>
+                            <h4 className="font-bold text-lg text-gray-900">Surveyed Land</h4>
                         </div>
-                        <p className="text-gray-700 mb-4">Composite ecosystem health score</p>
+                        <p className="text-gray-700 mb-4">Area formally surveyed (ha)</p>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-purple-600 font-medium">
-                                Formula: Weighted indicators
-                            </span>
+                            <span className="text-sm text-purple-600 font-medium">Annual figures</span>
                             <Info className="w-5 h-5 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </div>
                 </div>
                 <div className="mt-6">
                     <button
-                        onClick={() => onCalculationClick('full-methodology')}
+                        onClick={() => onCalculationClick('full-methodology', {
+                            note: 'All data extracted from annual reports and integrated reports.'
+                        })}
                         className="w-full py-4 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 hover:border-green-300 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all duration-200 flex items-center justify-center gap-2"
                     >
                         <span className="font-semibold text-gray-700">View Complete Methodology</span>
-                        <ArrowRight className="w-5 h-5" style={{ color: currentColors.primary }} />
+                        <ArrowRight className="w-5 h-5 text-green-600" />
                     </button>
                 </div>
             </div>
 
-            {/* Notes Section */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border p-6" style={{ borderColor: currentColors.lightGreen }}>
-                <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-green-100">
-                        <Info className="w-5 h-5" style={{ color: currentColors.primary }} />
+            {/* API & Data Information */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">API & Data Information</h3>
+                        <p className="text-gray-600">System versions and data sources</p>
                     </div>
-                    <div className="flex-1">
-                        <h4 className="font-bold mb-2" style={{ color: currentColors.darkGreen }}>
-                            Biodiversity & Land Use Notes
-                        </h4>
-                        <div className="space-y-2">
-                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                <span className="font-semibold">Land use changes via NDVI/NBI:</span> Shows seasonal vegetation patterns and land cover changes.
-                            </p>
-                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                <span className="font-semibold">Biodiversity metrics:</span> Habitat integrity and species diversity proxies indicate ecosystem health.
-                            </p>
-                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                <span className="font-semibold">HVE notes:</span> No deforestation reported. Ensures no ecosystem harm; monitors restoration progress.
-                            </p>
-                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                <span className="font-semibold">Investors:</span> ESG due diligence (e.g., avoids fines under EMCA Zimbabwe).
-                            </p>
-                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                <span className="font-semibold">Farmers:</span> Access to biodiversity credits and sustainable certification.
-                            </p>
-                            <p className="text-sm" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                <span className="font-semibold">Revenue:</span> Data licensing to government and mining sectors for compliance.
-                            </p>
-                        </div>
+                    <Shield className="w-8 h-8" style={{ color: colors.primary }} />
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                        <p className="text-sm text-gray-600 mb-2">API Version</p>
+                        <p className="font-bold text-lg text-gray-900">{biodiversityData?.data.metadata.api_version || "N/A"}</p>
+                    </div>
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                        <p className="text-sm text-gray-600 mb-2">Calculation Version</p>
+                        <p className="font-bold text-lg text-gray-900">{biodiversityData?.data.metadata.calculation_version || "N/A"}</p>
+                    </div>
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                        <p className="text-sm text-gray-600 mb-2">GEE Adapter</p>
+                        <p className="font-bold text-lg text-gray-900">{biodiversityData?.data.metadata.gee_adapter_version || "N/A"}</p>
+                    </div>
+                    <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+                        <p className="text-sm text-gray-600 mb-2">Data Sources</p>
+                        <p className="font-bold text-lg text-green-700">{sourceInfo?.source_files?.length || 0} files</p>
+                    </div>
+                </div>
+                <div className="mt-6 p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                    <p className="text-sm text-gray-600 mb-3 font-medium">Source Files</p>
+                    <div className="flex flex-wrap gap-2">
+                        {sourceInfo?.source_files?.map((file, idx) => (
+                            <span key={idx} className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 font-medium">
+                                {file.name} ({file.year})
+                            </span>
+                        )) || <span className="text-gray-500">No source files available</span>}
                     </div>
                 </div>
             </div>
-
-            {/* Graph Modal */}
-            {selectedGraph && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-                    onClick={() => setSelectedGraph(null)}
-                >
-                    <div
-                        className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="p-6 border-b border-gray-200" style={{ background: currentColors.background }}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                                        {selectedGraph.title}
-                                    </h3>
-                                    <p className="text-gray-600">{selectedGraph.description}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button className="p-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                        <Download className="w-5 h-5 text-gray-600" />
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedGraph(null)}
-                                        className="p-3 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 transition-all"
-                                    >
-                                        <X className="w-5 h-5 text-gray-600" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="h-[500px]">{selectedGraph.component}</div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Metric Detail Modal */}
-            {showMetricModal && selectedMetric && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-                    onClick={() => setShowMetricModal(false)}
-                >
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <div
-                            className="p-6 border-b border-gray-200 text-white rounded-t-3xl"
-                            style={{
-                                background: `linear-gradient(to right, ${currentColors.primary}, ${currentColors.emerald})`
-                            }}
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-2xl font-bold mb-1">{selectedMetric.title}</h3>
-                                    <p className="text-emerald-50">Detailed metric information</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowMetricModal(false)}
-                                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="mb-8">
-                                <div className="text-center">
-                                    <div className="text-6xl font-bold" style={{ color: currentColors.primary }}>
-                                        {typeof selectedMetric.value === 'number' ? selectedMetric.value.toFixed(2) : selectedMetric.value}
-                                    </div>
-                                    {selectedMetric.unit && (
-                                        <div className="text-xl" style={{ color: DESIGN_SYSTEM.neutral[600] }}>
-                                            {selectedMetric.unit}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <div
-                                    className="p-4 rounded-xl border"
-                                    style={{
-                                        backgroundColor: `${currentColors.primary}10`,
-                                        borderColor: `${currentColors.primary}30`
-                                    }}
-                                >
-                                    <div className="flex items-center gap-2" style={{ color: currentColors.darkGreen }}>
-                                        <CheckCircle className="w-5 h-5" />
-                                        <span className="font-semibold">Current Status</span>
-                                    </div>
-                                    <p className="mt-2" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                        This metric indicates the current state of {selectedMetric.title.toLowerCase()} within the monitored area.
-                                    </p>
-                                </div>
-                                {selectedMetric.description && (
-                                    <div
-                                        className="p-4 rounded-xl border"
-                                        style={{
-                                            backgroundColor: `${DESIGN_SYSTEM.status.info}10`,
-                                            borderColor: `${DESIGN_SYSTEM.status.info}30`
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-2" style={{ color: DESIGN_SYSTEM.status.info }}>
-                                            <Info className="w-5 h-5" />
-                                            <span className="font-semibold">Description</span>
-                                        </div>
-                                        <p className="mt-2" style={{ color: DESIGN_SYSTEM.neutral[700] }}>
-                                            {selectedMetric.description}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
