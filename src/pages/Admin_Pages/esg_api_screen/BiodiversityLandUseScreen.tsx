@@ -14,19 +14,14 @@ import {
     BarChart3,
     PieChart,
     FileText,
-    Globe,
-    Target,
-    Shield,
     Trees,
-
-    Rabbit,
 } from "lucide-react";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
     getBiodiversityLandUseData,
+    getAvailableYears,
     type BiodiversityLandUseResponse,
     type BiodiversityLandUseParams,
-    getAvailableBiodiversityYears,
 } from "../../../services/Admin_Service/esg_apis/biodiversity_api_service";
 
 // Import tab components
@@ -121,15 +116,15 @@ const BiodiversityLandUseScreen = () => {
 
     // Get trend icon
     const getTrendIcon = (trend: string) => {
-        if (trend.toLowerCase().includes('improving') || 
-            trend.toLowerCase().includes('increase') || 
+        if (trend.toLowerCase().includes('improving') ||
+            trend.toLowerCase().includes('increase') ||
             trend.toLowerCase().includes('up') ||
             trend.toLowerCase().includes('positive')) {
             return <TrendingUp className="w-4 h-4 text-green-600" />;
-        } else if (trend.toLowerCase().includes('declining') || 
-                   trend.toLowerCase().includes('decrease') || 
-                   trend.toLowerCase().includes('down') ||
-                   trend.toLowerCase().includes('negative')) {
+        } else if (trend.toLowerCase().includes('declining') ||
+            trend.toLowerCase().includes('decrease') ||
+            trend.toLowerCase().includes('down') ||
+            trend.toLowerCase().includes('negative')) {
             return <TrendingDown className="w-4 h-4 text-red-600" />;
         }
         return <Activity className="w-4 h-4 text-yellow-600" />;
@@ -200,6 +195,14 @@ const BiodiversityLandUseScreen = () => {
                     const data = await getBiodiversityLandUseData(params);
                     setBiodiversityData(data);
 
+                    // Also use getAvailableYears from the response if available
+                    const responseYears = getAvailableYears(data);
+                    if (responseYears.length > 0) {
+                        const sortedResponseYears = [...responseYears].sort((a, b) => b - a);
+                        setAvailableYears(sortedResponseYears);
+                        setLatestYear(sortedResponseYears[0]);
+                    }
+
                     if (selectedYear === null) {
                         setSelectedYear(latest);
                     }
@@ -211,9 +214,17 @@ const BiodiversityLandUseScreen = () => {
                     });
                     setBiodiversityData(data);
 
-                    setAvailableYears([currentYear]);
-                    setLatestYear(currentYear);
-                    setSelectedYear(currentYear);
+                    const responseYears = getAvailableYears(data);
+                    if (responseYears.length > 0) {
+                        const sortedResponseYears = [...responseYears].sort((a, b) => b - a);
+                        setAvailableYears(sortedResponseYears);
+                        setLatestYear(sortedResponseYears[0]);
+                        setSelectedYear(sortedResponseYears[0]);
+                    } else {
+                        setAvailableYears([currentYear]);
+                        setLatestYear(currentYear);
+                        setSelectedYear(currentYear);
+                    }
                 }
             } else {
                 const currentYear = new Date().getFullYear();
@@ -222,9 +233,18 @@ const BiodiversityLandUseScreen = () => {
                     year: currentYear,
                 });
                 setBiodiversityData(data);
-                setAvailableYears([currentYear]);
-                setLatestYear(currentYear);
-                setSelectedYear(currentYear);
+
+                const responseYears = getAvailableYears(data);
+                if (responseYears.length > 0) {
+                    const sortedResponseYears = [...responseYears].sort((a, b) => b - a);
+                    setAvailableYears(sortedResponseYears);
+                    setLatestYear(sortedResponseYears[0]);
+                    setSelectedYear(sortedResponseYears[0]);
+                } else {
+                    setAvailableYears([currentYear]);
+                    setLatestYear(currentYear);
+                    setSelectedYear(currentYear);
+                }
             }
         } catch (err: any) {
             setError(err.message || "Failed to fetch biodiversity data");
@@ -266,8 +286,6 @@ const BiodiversityLandUseScreen = () => {
     const summaryMetrics = useMemo(() => {
         if (!biodiversityData) return null;
 
-        // Mock metrics based on biodiversity data structure
-        // You can replace these with actual calculations from your data
         return {
             protectedArea: 12500, // hectares
             protectedAreaChange: 5.2,

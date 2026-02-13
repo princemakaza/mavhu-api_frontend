@@ -41,7 +41,8 @@ import { getCompanies, type Company } from "../../../services/Admin_Service/comp
 import OverviewTab from "./ghg_tabs/OverviewTab";
 import DetailsTab from "./ghg_tabs/DetailsTab";
 import LocationTab from "./ghg_tabs/LocationTab";
-
+import GHGAnalyticsTab from "./ghg_tabs/GHGAnalyticsTab";
+import GHGReportsTab from "./ghg_tabs/ReportsTab";
 // Register ChartJS components
 ChartJS.register(
     CategoryScale,
@@ -129,7 +130,6 @@ const GhgEmissionScreen = () => {
     const { companyId: paramCompanyId } = useParams<{ companyId: string }>();
     const location = useLocation();
     const navigate = useNavigate();
-
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -140,7 +140,7 @@ const GhgEmissionScreen = () => {
     const [availableYears, setAvailableYears] = useState<number[]>([]);
     const [latestYear, setLatestYear] = useState<number | null>(null);
     const [showCompanySelector, setShowCompanySelector] = useState(!paramCompanyId);
-    const [activeTab, setActiveTab] = useState<"overview" | "details" | "location">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "reports" >("overview");
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showCalculationModal, setShowCalculationModal] = useState(false);
     const [selectedCalculation, setSelectedCalculation] = useState<any>(null);
@@ -488,105 +488,84 @@ const GhgEmissionScreen = () => {
 
             <main className="flex-1">
                 {/* Header */}
-                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
-                    <div className="px-4 sm:px-6 py-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => navigate("/company-management")}
-                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
-                                    style={{ color: PRIMARY_GREEN }}
-                                >
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                <div>
-                                    <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
-                                        GHG Emissions Dashboard
-                                    </h1>
-                                    {selectedCompany && (
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-xs text-gray-600">{selectedCompany.name} • {selectedCompany.industry}</p>
-                                            {selectedCompany.data_range && (
-                                                <div className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-                                                    Data range: {selectedCompany.data_range}
-                                                </div>
-                                            )}
+
+                                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
+                                    <div className="px-4 sm:px-6 py-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => navigate("/company-management")}
+                                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                                    style={{ color: PRIMARY_GREEN }}
+                                                >
+                                                    <ChevronLeft className="w-5 h-5" />
+                                                </button>
+                                                <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
+                                                    GHG Emissions
+                                                </h1>
+                                            </div>
+                
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                {availableYears.length > 0 && (
+                                                    <select
+                                                        value={selectedYear || ""}
+                                                        onChange={(e) => handleYearChange(e.target.value)}
+                                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    >
+                                                        {availableYears.map((year) => (
+                                                            <option key={year} value={year}>
+                                                                {year}
+                                                                {year === latestYear ? ' (Latest)' : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                                <button
+                                                    onClick={handleRefresh}
+                                                    disabled={isRefreshing}
+                                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                                    style={{ color: PRIMARY_GREEN }}
+                                                >
+                                                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                                </button>
+                                                <button
+                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
+                                                    style={{
+                                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                                    }}
+                                                >
+                                                    <Download className="w-3.5 h-3.5" />
+                                                    Export
+                                                </button>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {/* Year Selector */}
-                                {availableYears.length > 0 && (
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="w-4 h-4 text-gray-500" />
-                                        <select
-                                            value={selectedYear || ""}
-                                            onChange={(e) => handleYearChange(e.target.value)}
-                                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 min-w-[120px]"
-                                        >
-                                            {availableYears.map((year) => (
-                                                <option key={year} value={year}>
-                                                    {year}
-                                                    {year === latestYear ? ' (Latest)' : ''}
-                                                </option>
+                
+                                        {/* Tabs */}
+                                        <div className="flex space-x-2 overflow-x-auto pb-1">
+                                            {[
+                                                { id: "overview", label: "Overview" },
+                                                { id: "analytics", label: "Analytics" },
+                                                { id: "reports", label: "Reports" }
+                                            ].map((tab) => (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => setActiveTab(tab.id as any)}
+                                                    className={`px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
+                                                        ? 'text-white shadow-md'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                                        }`}
+                                                    style={activeTab === tab.id ? {
+                                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                                    } : {}}
+                                                >
+                                                    {tab.label}
+                                                </button>
                                             ))}
-                                        </select>
+                                        </div>
                                     </div>
-                                )}
-                                
-                                <button
-                                    onClick={handleRefresh}
-                                    disabled={isRefreshing}
-                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
-                                    style={{ color: PRIMARY_GREEN }}
-                                >
-                                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                                </button>
-                                <button
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
-                                    style={{
-                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
-                                    }}
-                                >
-                                    <Download className="w-3.5 h-3.5" />
-                                    Export
-                                </button>
-                                <button
-                                    onClick={() => setShowCalculationModal(true)}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-green-500 text-green-600 hover:bg-green-50 transition-colors text-sm font-medium"
-                                >
-                                    <Calculator className="w-3.5 h-3.5" />
-                                    Calculations
-                                </button>
-                            </div>
-                        </div>
+                                </header>
 
-                        {/* Tabs */}
-                        <div className="flex space-x-2 overflow-x-auto pb-1">
-                            {[
-                                { id: "overview", label: "Overview" },
-                                { id: "details", label: "Details" },
-                                { id: "location", label: "Location" }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as any)}
-                                    className={`px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
-                                        ? 'text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                                        }`}
-                                    style={activeTab === tab.id ? {
-                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
-                                    } : {}}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </header>
+
 
                 {/* Error Message */}
                 {error && (
@@ -605,17 +584,14 @@ const GhgEmissionScreen = () => {
                             {...sharedData}
                         />
                     )}
-                    {activeTab === "details" && (
-                        <DetailsTab
+                    {activeTab === "analytics" && (
+                        <GHGAnalyticsTab
                             {...sharedData}
                         />
                     )}
-                    {activeTab === "location" && (
-                        <LocationTab
+                    {activeTab === "reports" && (
+                        <GHGReportsTab
                             {...sharedData}
-                            coordinates={coordinates}
-                            areaName={areaName}
-                            areaCovered={areaCovered}
                         />
                     )}
 

@@ -239,24 +239,25 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
     const scopeData = [
         {
-            name: "Direct Emissions",
+            name: "Scope 1",
             value: scope1Value,
             color: COLORS.scope1,
             percentage: totalScope > 0 ? (scope1Value / totalScope) * 100 : 0,
         },
         {
-            name: "Energy Emissions",
+            name: "Scope 2",
             value: scope2Value,
             color: COLORS.scope2,
             percentage: totalScope > 0 ? (scope2Value / totalScope) * 100 : 0,
         },
         {
-            name: "Supply Chain",
+            name: "Scope 3",
             value: scope3Value,
             color: COLORS.scope3,
             percentage: totalScope > 0 ? (scope3Value / totalScope) * 100 : 0,
         },
     ];
+
 
     // ── Reduction journey (simplified yearly trend) ────────────────────────
     const reductionData = (() => {
@@ -409,10 +410,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <stop offset="5%" stopColor={COLORS.biomass} stopOpacity={0.4} />
                                 <stop offset="95%" stopColor={COLORS.biomass} stopOpacity={0.02} />
                             </linearGradient>
-                            <linearGradient id="grad_soc" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={COLORS.soc} stopOpacity={0.4} />
-                                <stop offset="95%" stopColor={COLORS.soc} stopOpacity={0.02} />
-                            </linearGradient>
+
                             <linearGradient id="grad_netstock" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor={COLORS.netStock} stopOpacity={0.4} />
                                 <stop offset="95%" stopColor={COLORS.netStock} stopOpacity={0.02} />
@@ -430,95 +428,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         />
                         <RechartsLegend />
                         <Area type="monotone" dataKey="biomass_co2_total_t" name="Biomass CO₂" stroke={COLORS.biomass} fill="url(#grad_biomass)" strokeWidth={2} />
-                        <Area type="monotone" dataKey="soc_co2_total_t" name="SOC CO₂" stroke={COLORS.soc} fill="url(#grad_soc)" strokeWidth={2} />
                         <Area type="monotone" dataKey="net_co2_stock_t" name="Net CO₂ Stock" stroke={COLORS.netStock} fill="url(#grad_netstock)" strokeWidth={2} />
                     </AreaChart>
                 </ResponsiveContainer>
             ),
         },
-        // ── Graph 2 – Monthly CO₂ Changes (Deltas) ───────────────────────
-        {
-            id: "monthly-co2-changes",
-            title: "Monthly CO₂ Changes",
-            description: "Monthly deltas in biomass, SOC, and net CO₂",
-            icon: <LineChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={graph2Data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
-                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
-                        <RechartsTooltip
-                            contentStyle={tooltipStyle}
-                            formatter={(value: any, name: string) => [
-                                `${formatNumber(Number(value))} t`,
-                                name,
-                            ]}
-                        />
-                        <RechartsLegend />
-                        <RechartsLine type="monotone" dataKey="delta_biomass_co2_t" name="Δ Biomass CO₂" stroke={COLORS.deltaBiomass} strokeWidth={2} dot={{ r: 3 }} />
-                        <RechartsLine type="monotone" dataKey="delta_soc_co2_t" name="Δ SOC CO₂" stroke={COLORS.deltaSoc} strokeWidth={2} dot={{ r: 3 }} />
-                        <RechartsLine type="monotone" dataKey="net_co2_change_t" name="Net CO₂ Change" stroke={COLORS.netChange} strokeWidth={2} dot={{ r: 3 }} />
-                    </RechartsLineChart>
-                </ResponsiveContainer>
-            ),
-        },
-        // ── Graph 3 – Biomass Breakdown (per hectare) ────────────────────
-        {
-            id: "biomass-breakdown",
-            title: "Biomass Breakdown",
-            description: "Above-ground, below-ground & total biomass carbon per hectare",
-            icon: <BarChart3 className="w-5 h-5" style={{ color: colors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={graph3Data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
-                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
-                        <RechartsTooltip
-                            contentStyle={tooltipStyle}
-                            formatter={(value: any, name: string) => [
-                                `${Number(value).toFixed(2)} t/ha`,
-                                name,
-                            ]}
-                        />
-                        <RechartsLegend />
-                        <RechartsBar dataKey="agb_t_per_ha" name="Above Ground" fill={COLORS.agb} radius={[3, 3, 0, 0]} />
-                        <RechartsBar dataKey="bgb_t_per_ha" name="Below Ground" fill={COLORS.bgb} radius={[3, 3, 0, 0]} />
-                        <RechartsBar dataKey="biomass_c_t_per_ha" name="Total Biomass C" fill={COLORS.bioCarbon} radius={[3, 3, 0, 0]} />
-                    </RechartsBarChart>
-                </ResponsiveContainer>
-            ),
-        },
-        // ── Graph 4 – Vegetation Health (NDVI) ────────────────────────────
-        {
-            id: "vegetation-health",
-            title: "Vegetation Health (NDVI)",
-            description: "Monthly maximum NDVI for vegetation monitoring",
-            icon: <AreaChartIcon className="w-5 h-5" style={{ color: colors.primary }} />,
-            component: (
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={graph4Data}>
-                        <defs>
-                            <linearGradient id="grad_ndvi" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={COLORS.ndvi} stopOpacity={0.5} />
-                                <stop offset="95%" stopColor={COLORS.ndvi} stopOpacity={0.05} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="month" stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} />
-                        <YAxis stroke="#6b7280" tick={{ fill: "#6b7280", fontSize: 11 }} domain={[0, 1]} />
-                        <RechartsTooltip
-                            contentStyle={tooltipStyle}
-                            formatter={(value: any) => [Number(value).toFixed(3), "NDVI Max"]}
-                        />
-                        <RechartsLegend />
-                        <Area type="monotone" dataKey="ndvi_max" name="NDVI Max" stroke={COLORS.ndvi} fill="url(#grad_ndvi)" strokeWidth={2} />
-                    </AreaChart>
-                </ResponsiveContainer>
-            ),
-        },
-        // ── Scope Comparison (Bar) ────────────────────────────────────────
+
         {
             id: "scope-comparison",
             title: "Emissions Comparison",
@@ -587,78 +502,166 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className="space-y-8 pb-8">
             {/* ─── Company Details Card ───────────────────────────────────── */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-                <div
-                    className="p-4 border-b border-gray-200"
-                    style={{
-                        background: `linear-gradient(to right, ${colors.primary}15, ${colors.emerald}15)`,
-                    }}
-                >
+                <div className="p-4 border-b border-gray-200" style={{ background: `linear-gradient(to right, ${colors.primary}15, ${colors.emerald}15)` }}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="p-2 rounded-xl bg-white border border-gray-200 shadow-sm">
                                 <Building className="w-5 h-5" style={{ color: colors.primary }} />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-gray-900 mb-0.5">
-                                    {companyInfo?.name || selectedCompany?.name || "Company"}
-                                </h2>
-                                <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className="text-lg font-bold text-gray-900 mb-0.5">{selectedCompany?.name || "Company"}</h2>
+                                <div className="flex items-center gap-2">
                                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800 font-medium">
-                                        {companyInfo?.industry || selectedCompany?.industry || "Industry"}
+                                        {selectedCompany?.industry || "Industry"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-800 font-medium">
-                                        {companyInfo?.country || selectedCompany?.country || "Country"}
+                                        {selectedCompany?.country || "Country"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800 font-medium">
-                                        {companyInfo?.esg_data_status || selectedCompany?.esg_data_status || "ESG Status"}
+                                        {selectedCompany?.esg_data_status || "ESG Status"}
                                     </span>
-                                    {(companyInfo?.esg_reporting_framework || selectedCompany?.esg_reporting_framework || []).map(
-                                        (fw: string, i: number) => (
-                                            <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-medium">
-                                                {fw}
-                                            </span>
-                                        )
-                                    )}
                                 </div>
                             </div>
                         </div>
                         <div className="text-right">
                             <p className="text-[10px] text-gray-600 mb-0.5">Last Updated</p>
                             <p className="font-medium text-xs text-gray-900">
-                                {new Date(
-                                    ghgData?.data?.metadata?.generated_at || new Date()
-                                ).toLocaleDateString()}
+                                {new Date(ghgData?.data?.metadata?.generated_at || new Date()).toLocaleDateString()}
                             </p>
                         </div>
                     </div>
                 </div>
-
                 <div className="p-4">
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Reporting Year</p>
-                            <p className="font-bold text-sm text-gray-900">{currentYear || "N/A"}</p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Registration Number</p>
+                            <p className="font-bold text-sm text-gray-900">{selectedCompany?.registrationNumber || "N/A"}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Total Area</p>
-                            <p className="font-bold text-sm text-gray-900">
-                                {formatNumber(keyMetrics?.carbon_intensity?.area_ha || 0)} ha
-                            </p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Contact Email</p>
+                            <p className="font-bold text-sm text-gray-900">{selectedCompany?.email || "N/A"}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
-                            <p className="text-[10px] text-gray-600 mb-0.5">Data Sources</p>
-                            <p className="font-bold text-sm text-gray-900">
-                                {companyInfo.data_source.length|| 0} sources
-                            </p>
+                            <p className="text-[10px] text-gray-600 mb-0.5">Latest ESG Report</p>
+                            <p className="font-bold text-sm text-gray-900">{selectedCompany?.latest_esg_report_year || "N/A"}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
                             <p className="text-[10px] text-gray-600 mb-0.5">Data Confidence</p>
-                            <p className="font-bold text-sm text-green-700">{confidenceScore}%</p>
+                            <p className="font-bold text-sm text-green-700">{confidenceScore?.toFixed(2) || 0}%</p>
                         </div>
                     </div>
+                    {selectedCompany?.description && (
+                        <div className="mt-3 p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <p className="text-[10px] text-gray-600 mb-1 font-medium">Company Description</p>
+                            <p className="text-xs text-gray-700 leading-relaxed">{selectedCompany.description}</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
+            {/* ─── Leaflet Map ────────────────────────────────────────────── */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                Project Location
+                            </h3>
+                            <p className="text-gray-600 flex items-center gap-2">
+                                <MapPin className="w-4 h-4" style={{ color: colors.primary }} />
+                                {companyInfo.area_of_interest_metadata.name}
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
+                                <Share2 className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
+                                <Download className="w-5 h-5 text-gray-600" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="h-96">
+                    {companyInfo?.area_of_interest_metadata?.coordinates?.length ? (
+                        <MapContainer
+                            center={[
+                                companyInfo.area_of_interest_metadata.coordinates[0].lat,
+                                companyInfo.area_of_interest_metadata.coordinates[0].lon,
+                            ]}
+                            zoom={10}
+                            style={{ height: "100%", width: "100%" }}
+                            className="leaflet-container z-0"
+                        >
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+
+                            {companyInfo.area_of_interest_metadata.coordinates.length === 1 ? (
+                                <Marker
+                                    position={[
+                                        companyInfo.area_of_interest_metadata.coordinates[0].lat,
+                                        companyInfo.area_of_interest_metadata.coordinates[0].lon,
+                                    ]}
+                                >
+                                    <Popup>
+                                        <div className="p-2">
+                                            <h3 className="font-bold" style={{ color: colors.primary }}>
+                                                {companyInfo.area_of_interest_metadata.name}
+                                            </h3>
+                                            <p className="text-sm text-gray-700">
+                                                Lat: {companyInfo.area_of_interest_metadata.coordinates[0].lat.toFixed(4)}
+                                            </p>
+                                            <p className="text-sm text-gray-700">
+                                                Lon: {companyInfo.area_of_interest_metadata.coordinates[0].lon.toFixed(4)}
+                                            </p>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            ) : (
+                                <Polygon
+                                    pathOptions={{
+                                        fillColor: colors.primary,
+                                        color: colors.primary,
+                                        fillOpacity: 0.3,
+                                        weight: 2,
+                                    }}
+                                    positions={companyInfo.area_of_interest_metadata.coordinates.map(
+                                        (coord) => [coord.lat, coord.lon]
+                                    )}
+                                >
+                                    <Popup>
+                                        <div className="p-2">
+                                            <h3 className="font-bold" style={{ color: colors.primary }}>
+                                                {companyInfo.area_of_interest_metadata.name}
+                                            </h3>
+                                            <p className="text-sm text-gray-700">
+                                                Area Covered: {companyInfo.area_of_interest_metadata.area_covered}
+                                            </p>
+                                            <p className="text-sm text-gray-700">
+                                                Points: {companyInfo.area_of_interest_metadata.coordinates.length}
+                                            </p>
+                                        </div>
+                                    </Popup>
+                                </Polygon>
+                            )}
+                        </MapContainer>
+                    ) : (
+                        <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                            <div className="text-center">
+                                <Globe
+                                    className="w-16 h-16 mx-auto mb-4 opacity-20"
+                                    style={{ color: colors.primary }}
+                                />
+                                <p className="text-gray-500 font-medium">
+                                    No location data available
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
             {/* ─── GHG Emissions Hero Banner ──────────────────────────────── */}
             <div
                 className="relative overflow-hidden rounded-2xl p-5 shadow-2xl"
@@ -732,7 +735,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <div className="p-1.5 rounded-lg bg-white/20">
                                     <Factory className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                <p className="text-white font-bold text-xs">Scope 1 – Direct</p>
+                                <p className="text-white font-bold text-xs">Scope 1 </p>
                             </div>
                             <h3 className="text-xl font-normal mb-2 text-white">
                                 {formatNumber(ghgSummary.scope1)}
@@ -759,7 +762,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <div className="p-1.5 rounded-lg bg-white/20">
                                     <Zap className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                <p className="text-white font-bold text-xs">Scope 2 – Energy</p>
+                                <p className="text-white font-bold text-xs">Scope 2 </p>
                             </div>
                             <h3 className="text-xl font-normal mb-2 text-white">
                                 {formatNumber(ghgSummary.scope2)}
@@ -786,19 +789,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <div className="p-1.5 rounded-lg bg-white/20">
                                     <Activity className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                <p className="text-white font-bold text-xs">Net Carbon Balance</p>
+                                <p className="text-white font-bold text-xs">Scope 3</p>
                             </div>
                             <h3 className="text-xl font-normal mb-2 text-white">
-                                {formatNumber(Math.abs(netCarbonBalance))}
+                                {formatNumber(ghgSummary.scope3)}
                                 <span className="text-sm ml-1 text-green-100">tCO₂e</span>
                             </h3>
                             <div className="flex items-center justify-between">
                                 <span
-                                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                        netCarbonBalance < 0
-                                            ? "bg-green-400 text-green-900"
-                                            : "bg-red-400 text-red-900"
-                                    }`}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${netCarbonBalance < 0
+                                        ? "bg-green-400 text-green-900"
+                                        : "bg-red-400 text-red-900"
+                                        }`}
                                 >
                                     {netCarbonBalance < 0 ? "Carbon Sink" : "Carbon Source"}
                                 </span>
@@ -925,111 +927,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
             </div>
 
-
-            {/* ─── Leaflet Map ────────────────────────────────────────────── */}
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">
-                                Company Location
-                            </h3>
-                            <p className="text-gray-600 flex items-center gap-2">
-                                <MapPin className="w-4 h-4" style={{ color: colors.primary }} />
-                                {areaName}
-                            </p>
-                        </div>
-                        <div className="flex gap-2">
-                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                <Share2 className="w-5 h-5 text-gray-600" />
-                            </button>
-                            <button className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 transition-all">
-                                <Download className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-          <div className="h-96">
-    {companyInfo?.area_of_interest_metadata?.coordinates?.length ? (
-        <MapContainer
-            center={[
-                companyInfo.area_of_interest_metadata.coordinates[0].lat,
-                companyInfo.area_of_interest_metadata.coordinates[0].lon,
-            ]}
-            zoom={10}
-            style={{ height: "100%", width: "100%" }}
-            className="leaflet-container z-0"
-        >
-            <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            {companyInfo.area_of_interest_metadata.coordinates.length === 1 ? (
-                <Marker
-                    position={[
-                        companyInfo.area_of_interest_metadata.coordinates[0].lat,
-                        companyInfo.area_of_interest_metadata.coordinates[0].lon,
-                    ]}
-                >
-                    <Popup>
-                        <div className="p-2">
-                            <h3 className="font-bold" style={{ color: colors.primary }}>
-                                {companyInfo.area_of_interest_metadata.name}
-                            </h3>
-                            <p className="text-sm text-gray-700">
-                                Lat: {companyInfo.area_of_interest_metadata.coordinates[0].lat.toFixed(4)}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                                Lon: {companyInfo.area_of_interest_metadata.coordinates[0].lon.toFixed(4)}
-                            </p>
-                        </div>
-                    </Popup>
-                </Marker>
-            ) : (
-                <Polygon
-                    pathOptions={{
-                        fillColor: colors.primary,
-                        color: colors.primary,
-                        fillOpacity: 0.3,
-                        weight: 2,
-                    }}
-                    positions={companyInfo.area_of_interest_metadata.coordinates.map(
-                        (coord) => [coord.lat, coord.lon]
-                    )}
-                >
-                    <Popup>
-                        <div className="p-2">
-                            <h3 className="font-bold" style={{ color: colors.primary }}>
-                                {companyInfo.area_of_interest_metadata.name}
-                            </h3>
-                            <p className="text-sm text-gray-700">
-                                Area Covered: {companyInfo.area_of_interest_metadata.area_covered}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                                Points: {companyInfo.area_of_interest_metadata.coordinates.length}
-                            </p>
-                        </div>
-                    </Popup>
-                </Polygon>
-            )}
-        </MapContainer>
-    ) : (
-        <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-            <div className="text-center">
-                <Globe
-                    className="w-16 h-16 mx-auto mb-4 opacity-20"
-                    style={{ color: colors.primary }}
-                />
-                <p className="text-gray-500 font-medium">
-                    No location data available
-                </p>
-            </div>
-        </div>
-    )}
-</div>
-
-            </div>
 
             {/* ─── Graph Expanded Modal ──────────────────────────────────── */}
             {selectedGraph && (

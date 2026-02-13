@@ -1,4 +1,9 @@
 import api from "../Auth_service/api";
+
+// =====================
+// Shared / Primitive Types
+// =====================
+
 export interface Coordinate {
     lat: number;
     lon: number;
@@ -16,6 +21,19 @@ export interface EsgContactPerson {
     email: string;
     phone: string;
 }
+
+export interface SourceFile {
+    _id?: string;
+    name: string;
+    year: string;
+    pages: string;
+    type: "annual_report" | "integrated_report" | "sustainability_report" | "other";
+}
+
+// =====================
+// Company
+// =====================
+
 export interface Company {
     _id: string;
     name: string;
@@ -44,6 +62,10 @@ export interface Company {
     __v?: number;
 }
 
+// =====================
+// Metadata
+// =====================
+
 export interface Metadata {
     api_version: string;
     calculation_version: string;
@@ -53,298 +75,355 @@ export interface Metadata {
     company_id: string;
     period_requested: string;
     data_sources: string[];
+    record_id: string;
+    record_version: number;
 }
+
+// =====================
+// Reporting Period
+// =====================
+
 export interface ReportingPeriod {
+    data_period_start: string;
+    data_period_end: string;
     current_year: number;
     baseline_year: number;
     analysis_years: number[];
     period_covered: string;
     data_completeness: string;
-    carbon_data_available: boolean;
 }
-export interface BiodiversityAssessment {
-    environmental_metrics: {
-        "Carbon Emissions (Total GHG, tCO2e)": number;
-        "GHG Scope 1 (tCO2e)": number;
-        "GHG Scope 2 (tCO2e)": number;
-        "GHG Scope 3 (tCO2e)": number;
+
+// =====================
+// User Ref (populated)
+// =====================
+
+export interface UserRef {
+    _id: string;
+    name?: string;
+    email?: string;
+}
+
+// =====================
+// Yearly Data Entry (inside a metric)
+// =====================
+
+export interface YearlyDataEntry {
+    _id?: string;
+    year: string;                    // e.g. "31.03.2025 (FY25)" or "FY25"
+    fiscal_year: number;             // e.g. 2025
+    value: number | string | null;
+    numeric_value: number | null;
+    unit: string | null;
+    source: string | null;
+    notes: string | null;
+    added_by: UserRef | null;
+    added_at: string;
+    last_updated_by?: UserRef | null;
+    last_updated_at?: string;
+}
+
+// =====================
+// Single Value (inside a metric)
+// =====================
+
+export interface SingleValue {
+    value?: number | string | null;
+    numeric_value?: number | null;
+    unit?: string | null;
+    source?: string | null;
+    notes?: string | null;
+    as_of_date?: string | null;
+    added_by?: UserRef | null;
+    added_at?: string;
+}
+
+// =====================
+// List Data Item (inside a metric)
+// =====================
+
+export interface ListDataItem {
+    item?: string;
+    count?: number;
+    details?: string;
+    source?: string;
+    added_at?: string;
+}
+
+// =====================
+// Metric (BiodiversityMetric)
+// =====================
+
+export type MetricCategory =
+    | "agricultural_land"
+    | "conservation_protected_habitat"
+    | "land_tenure"
+    | "restoration_deforestation"
+    | "fuelwood_substitution"
+    | "biodiversity_flora"
+    | "biodiversity_fauna"
+    | "human_wildlife_conflict"
+    | "summary";
+
+export type MetricDataType = "yearly_series" | "single_value" | "list" | "summary";
+
+export interface BiodiversityMetric {
+    _id?: string;
+    category: MetricCategory;
+    subcategory?: string | null;
+    metric_name: string;
+    description?: string | null;
+    data_type: MetricDataType;
+    yearly_data: YearlyDataEntry[];
+    single_value?: SingleValue;
+    list_data?: ListDataItem[];
+    summary_value?: {
+        key_metric?: string;
+        latest_value?: number | string | null;
+        trend?: string;
+        notes?: string;
+        as_of_date?: string;
     };
-    social_metrics: Record<string, any>;
-    governance_metrics: Record<string, any>;
-    current_year: number;
-}
-export interface ForestCoverage {
-    current: number;
-    previous: number;
-    change_percent: number;
-    coverage_percent: number;
-}
-export interface AgriculturalExpansion {
-    current: number;
-    previous: number;
-    change_percent: number;
+    is_active: boolean;
+    created_at?: string;
+    created_by?: UserRef | null;
 }
 
-export interface ProtectedAreaCoverage {
-    area: number;
-    percentage: number;
+// =====================
+// Yearly Data By Year
+// =====================
+
+/** A single metric's data as it appears inside yearly_data_by_year */
+export interface YearlyMetricSnapshot {
+    category: MetricCategory;
+    subcategory?: string | null;
+    metric_name: string;
+    description?: string | null;
+    year_label: string;
+    fiscal_year: number | null;
+    value: number | string | null;
+    numeric_value: number | null;
+    unit: string | null;
+    source: string | null;
+    notes: string | null;
+    added_by: UserRef | null;
+    added_at: string | null;
+    last_updated_by: UserRef | null;
+    last_updated_at: string | null;
 }
 
-export interface DeforestationAnalysis {
-    forest_coverage: ForestCoverage;
-    agricultural_expansion: AgriculturalExpansion;
-    protected_area_coverage: ProtectedAreaCoverage;
-}
-
-export interface CurrentYearLandUse {
-    total_area: number | null;
-    forest_area: number | null;
-    agricultural_area: number | null;
-    protected_area: number | null;
-}
-
-export interface LandUseTrends {
-    forest_area_trend: string;
-    agricultural_area_trend: string;
-}
-
-export interface ChangeAnalysis {
-    change_detected: boolean;
-    message: string;
-}
-
-export interface LandUseMetrics {
-    current_year: CurrentYearLandUse;
-    trends: LandUseTrends;
-    change_analysis: ChangeAnalysis;
-}
-
-export interface WaterManagement {
-    current_usage: number | null;
-    trend: string;
-    efficiency: number | null;
-}
-
-export interface WasteManagement {
-    hazardous_waste: number | null;
-    recycled_waste: number | null;
-    trend: string;
-}
-
-export interface IncidentManagement {
-    total_incidents: number | null;
-    trend: string;
-}
-
-export interface SoilHealth {
-    erosion_rate: number | null;
-    organic_matter: number | null;
-    trend: string;
-}
-
-export interface EnvironmentalImpact {
-    water_management: WaterManagement;
-    waste_management: WasteManagement;
-    incident_management: IncidentManagement;
-    soil_health: SoilHealth;
-}
-
-export interface CommunityEngagement {
-    programs_count: number | null;
-    local_employment: number | null;
-    land_rights_complaints: number | null;
-}
-
-export interface GovernanceStrength {
-    land_use_policy: string | null;
-    biodiversity_policy: string | null;
-    compliance_audits: number | null;
-}
-
-export interface SocialGovernance {
-    community_engagement: CommunityEngagement;
-    governance_strength: GovernanceStrength;
-}
-
-export interface CarbonFramework {
-    sequestration_methodology: string;
-    emission_methodology: string;
-    calculation_approach: string;
-    data_sources: string[];
-}
-
-export interface MonthlyCarbonData {
-    month: string;
-    month_name: string;
-    ndvi_max: number;
-    ndvi_mean: number;
-    biomass_co2: number;
-    soc_co2: number;
-    total_co2: number;
-}
-
-export interface SequestrationData {
-    total_tco2: number;
-    biomass_co2: number;
-    soc_co2: number;
-    monthly_data: MonthlyCarbonData[];
-}
-
-export interface EmissionsData {
-    total_tco2e: number;
-    scope1_tco2e: number;
-    scope2_tco2e: number;
-    scope3_tco2e: number;
-    net_balance: number;
-}
-
-export interface LandAreaData {
-    total_ha: number;
-    soc_area_ha: number;
-}
-
-export interface YearlyCarbonData {
+/** One year's worth of metric snapshots, keyed by "category__metric_name" */
+export interface YearlyDataEntry2 {
     year: number;
-    sequestration: SequestrationData;
-    emissions: EmissionsData;
-    land_area: LandAreaData;
+    metrics: Record<string, YearlyMetricSnapshot>;
 }
 
-export interface CarbonEmissionAccounting {
-    framework: CarbonFramework;
-    methodology: string;
-    yearly_data: YearlyCarbonData[];
+/** yearly_data_by_year top-level object, keyed by year string e.g. "2025" */
+export type YearlyDataByYear = Record<string, YearlyDataEntry2>;
+
+// =====================
+// Metrics By Category
+// =====================
+
+export interface MetricsByCategory {
+    agricultural_land: BiodiversityMetric[];
+    conservation_protected_habitat: BiodiversityMetric[];
+    land_tenure: BiodiversityMetric[];
+    restoration_deforestation: BiodiversityMetric[];
+    fuelwood_substitution: BiodiversityMetric[];
+    biodiversity_flora: BiodiversityMetric[];
+    biodiversity_fauna: BiodiversityMetric[];
+    human_wildlife_conflict: BiodiversityMetric[];
+    summary: BiodiversityMetric[];
 }
 
-export interface EsgMetricValue {
-    year: number;
-    value: string;
-    numeric_value: number;
-    source_notes: string;
+// =====================
+// Source Information
+// =====================
+
+export interface SourceInformation {
+    original_source?: string;
+    source_files?: SourceFile[];
+    import_source?: string;
+    source_file_name?: string;
+    source_file_metadata?: Record<string, any> | null;
+    import_batch_id?: string;
+    import_date?: string;
+    import_notes?: string;
 }
 
-export interface EnvironmentalMetric {
-    name: string;
-    unit: string;
-    description: string;
-    current_value: number;
-    values: EsgMetricValue[];
+// =====================
+// Validation Error
+// =====================
+
+export interface ValidationError {
+    metric_name?: string;
+    year?: string;
+    error_message?: string;
+    field?: string;
+    severity?: "warning" | "error" | "critical";
 }
 
-export interface EsgMetrics {
-    environmental: EnvironmentalMetric[];
-    social: any[];
-    governance: any[];
+// =====================
+// Data Quality
+// =====================
+
+export interface DataQuality {
+    quality_score: number | null;
+    verification_status: "unverified" | "pending_review" | "verified" | "audited" | "disputed";
+    verified_by?: UserRef | null;
+    verified_at?: string | null;
+    verification_notes?: string | null;
+    validation_status: "not_validated" | "validating" | "validated" | "failed_validation";
+    validation_errors: ValidationError[];
+    validation_notes?: string | null;
 }
+
+// =====================
+// Summary Statistics
+// =====================
+
+export interface SummaryStatistics {
+    total_conservation_area: number;
+    total_agricultural_area: number;
+    total_surveyed_area: number;
+    total_trees_planted: number;
+    total_lpg_distributed: number;
+    flora_species_count: number;
+    fauna_species_count: number;
+    total_restored_area: number;
+    trees_planted_cumulative: number;
+    lpg_distributions: number;
+    human_wildlife_conflicts: number;
+    last_updated?: string;
+}
+
+// =====================
+// GRI Reference
+// =====================
+
+export interface GriReference {
+    _id?: string;
+    standard: string;
+    metric_name: string;
+    compliance_status: "compliant" | "partially_compliant" | "non_compliant" | "not_applicable";
+    reporting_year: string;
+}
+
+// =====================
+// Graphs (chart configs)
+// =====================
 
 export interface GraphDataset {
-    label: string;
-    data: number[];
+    label?: string;
+    data: (number | null)[];
     borderColor?: string;
-    backgroundColor?: string;
+    backgroundColor?: string | string[];
     fill?: boolean;
-    borderDash?: number[];
+    tension?: number;
+    borderWidth?: number;
 }
 
 export interface Graph {
-    type: string;
+    type: "line" | "bar" | "doughnut" | "pie" | string;
     title: string;
     description: string;
-    labels: string[];
+    labels: (string | number)[];
     datasets: GraphDataset[];
 }
 
 export interface Graphs {
-    ndvi_monthly_trends: {
-        [year: string]: Graph;
-    };
+    land_use_composition?: Graph;
+    forest_area_trend?: Graph;
+    species_count_trend?: Graph;
+    trees_planted_trend?: Graph;
+    [key: string]: Graph | undefined;
 }
 
-export interface KeyStatistics {
-    total_metrics_analyzed: number;
-    years_covered: number;
-    current_year: number;
-    environmental_metrics: Record<string, any>;
-    biodiversity_metrics: Record<string, any>;
-    social_governance_metrics: Record<string, any>;
+// =====================
+// Key Performance Indicators
+// =====================
+
+export interface KeyPerformanceIndicators {
+    conservation_area: number;
+    agricultural_area: number;
+    restored_area: number;
+    flora_species: number;
+    fauna_species: number;
+    trees_planted_cumulative: number;
+    lpg_distributions: number;
+    human_wildlife_conflicts: number;
 }
 
-export interface DataAvailability {
-    total_metrics: number;
-    years_covered: number;
-    carbon_data: boolean;
-    ndvi_data: boolean;
+// =====================
+// Audit
+// =====================
+
+export interface Audit {
+    created_at: string;
+    created_by: UserRef | null;
+    last_updated_at: string;
+    last_updated_by: UserRef | null;
+    version: number;
+    previous_version?: any | null;
+    deleted_at?: string | null;
+    deleted_by?: UserRef | null;
+    is_active: boolean;
 }
 
-export interface NotableMetrics {
-    forest_coverage: number | null;
-    water_usage: number | null;
-    incidents_count: number | null;
+// =====================
+// Main Response Interface
+// =====================
+
+export interface BiodiversityLandUseData {
+    metadata: Metadata;
+    company: Company;
+    reporting_period: ReportingPeriod;
+    yearly_data_by_year: YearlyDataByYear;
+    source_information: SourceInformation;
+    data_quality: DataQuality;
+    summary_statistics: SummaryStatistics;
+    gri_references: GriReference[];
+    metrics_by_category: MetricsByCategory;
+    all_metrics: BiodiversityMetric[];
+    graphs: Graphs;
+    key_performance_indicators: KeyPerformanceIndicators;
+    audit: Audit;
 }
 
-export interface Summary {
-    data_availability: DataAvailability;
-    notable_metrics: NotableMetrics;
-}
-
-/**
- * =====================
- * Main Response Interface
- * =====================
- */
 export interface BiodiversityLandUseResponse {
     message: string;
     api: string;
-    data: {
-        metadata: Metadata;
-        company: Company;
-        reporting_period: ReportingPeriod;
-        biodiversity_assessment: BiodiversityAssessment;
-        deforestation_analysis: DeforestationAnalysis;
-        land_use_metrics: LandUseMetrics;
-        environmental_impact: EnvironmentalImpact;
-        social_governance: SocialGovernance;
-        carbon_emission_accounting: CarbonEmissionAccounting;
-        esg_metrics: EsgMetrics;
-        graphs: Graphs;
-        key_statistics: KeyStatistics;
-        summary: Summary;
-    };
+    data: BiodiversityLandUseData;
 }
 
-/**
- * =====================
- * Request Parameters
- * =====================
- */
+// =====================
+// Request Parameters
+// =====================
+
 export interface BiodiversityLandUseParams {
     companyId: string;
     year?: number;
+    startYear?: number;
+    endYear?: number;
 }
 
-/**
- * =====================
- * Biodiversity & Land Use Service
- * =====================
- */
+// =====================
+// API Call
+// =====================
 
-/**
- * Get biodiversity and land use data for a company
- */
 export const getBiodiversityLandUseData = async (
     params: BiodiversityLandUseParams
 ): Promise<BiodiversityLandUseResponse> => {
     try {
-        const { companyId, year } = params;
+        const { companyId, year, startYear, endYear } = params;
 
-        // Build query parameters
         const queryParams = new URLSearchParams();
-        if (year !== undefined) {
-            queryParams.append('year', year.toString());
-        }
+        if (year !== undefined) queryParams.append("year", year.toString());
+        if (startYear !== undefined) queryParams.append("startYear", startYear.toString());
+        if (endYear !== undefined) queryParams.append("endYear", endYear.toString());
 
         const queryString = queryParams.toString();
-        const url = `/esg-dashboard/biodiversity-landuse/${companyId}${queryString ? `?${queryString}` : ''}`;
+        const url = `/esg-dashboard/biodiversity-landuse/${companyId}${queryString ? `?${queryString}` : ""}`;
 
         const { data } = await api.get<BiodiversityLandUseResponse>(url);
         return data;
@@ -352,22 +431,14 @@ export const getBiodiversityLandUseData = async (
         const statusCode = error.response?.status;
         const errorMessage = error.response?.data?.error || error.response?.data?.message;
 
-        // Handle specific error cases
         switch (statusCode) {
-            case 400:
-                throw new Error(errorMessage || "Invalid request parameters");
-            case 401:
-                throw new Error("Unauthorized access. Please check your authentication token.");
-            case 403:
-                throw new Error("You don't have permission to access this resource.");
-            case 404:
-                throw new Error("Biodiversity and land use data not found for the specified company.");
-            case 422:
-                throw new Error(errorMessage || "Invalid year parameter or data format.");
-            case 500:
-                throw new Error("Server error occurred while fetching biodiversity and land use data.");
-            case 503:
-                throw new Error("Biodiversity and land use service is temporarily unavailable.");
+            case 400: throw new Error(errorMessage || "Invalid request parameters");
+            case 401: throw new Error("Unauthorized access. Please check your authentication token.");
+            case 403: throw new Error("You don't have permission to access this resource.");
+            case 404: throw new Error("Biodiversity and land use data not found for the specified company.");
+            case 422: throw new Error(errorMessage || "Invalid year parameter or data format.");
+            case 500: throw new Error("Server error occurred while fetching biodiversity and land use data.");
+            case 503: throw new Error("Biodiversity and land use service is temporarily unavailable.");
             default:
                 throw new Error(
                     errorMessage ||
@@ -378,326 +449,223 @@ export const getBiodiversityLandUseData = async (
     }
 };
 
-/**
- * Get available years for biodiversity data
- */
-export const getAvailableBiodiversityYears = (data: BiodiversityLandUseResponse): number[] => {
-    return data.data.reporting_period.analysis_years || [];
-};
+// =====================
+// Accessor Helpers
+// =====================
 
-/**
- * Get biodiversity assessment summary
- */
-export const getBiodiversitySummary = (data: BiodiversityLandUseResponse) => {
-    const assessment = data.data.biodiversity_assessment;
-    return {
-        environmental_metrics: assessment.environmental_metrics,
-        social_metrics: assessment.social_metrics,
-        governance_metrics: assessment.governance_metrics,
-        current_year: assessment.current_year
-    };
-};
+/** All fiscal years available in the response */
+export const getAvailableYears = (data: BiodiversityLandUseResponse): number[] =>
+    data.data.reporting_period.analysis_years ?? [];
 
-/**
- * Get deforestation analysis data
- */
-export const getDeforestationAnalysis = (data: BiodiversityLandUseResponse) => {
-    return data.data.deforestation_analysis;
-};
+/** Full company object */
+export const getCompany = (data: BiodiversityLandUseResponse): Company =>
+    data.data.company;
 
-/**
- * Get land use metrics
- */
-export const getLandUseMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.land_use_metrics;
-};
+/** Metadata block */
+export const getMetadata = (data: BiodiversityLandUseResponse): Metadata =>
+    data.data.metadata;
 
-/**
- * Get environmental impact data
- */
-export const getEnvironmentalImpact = (data: BiodiversityLandUseResponse) => {
-    return data.data.environmental_impact;
-};
+/** Reporting period block */
+export const getReportingPeriod = (data: BiodiversityLandUseResponse): ReportingPeriod =>
+    data.data.reporting_period;
 
-/**
- * Get social governance data
- */
-export const getSocialGovernance = (data: BiodiversityLandUseResponse) => {
-    return data.data.social_governance;
-};
+/** Current (latest) fiscal year */
+export const getCurrentYear = (data: BiodiversityLandUseResponse): number =>
+    data.data.reporting_period.current_year;
 
-/**
- * Get carbon emission accounting data
- */
-export const getBiodiversityCarbonEmissionAccounting = (data: BiodiversityLandUseResponse) => {
-    return data.data.carbon_emission_accounting;
-};
+/** Baseline (earliest) fiscal year */
+export const getBaselineYear = (data: BiodiversityLandUseResponse): number =>
+    data.data.reporting_period.baseline_year;
 
-/**
- * Get ESG metrics
- */
-export const getEsgMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.esg_metrics;
-};
+/** Data completeness string */
+export const getDataCompleteness = (data: BiodiversityLandUseResponse): string =>
+    data.data.reporting_period.data_completeness;
 
-/**
- * Get key statistics
- */
-export const getKeyStatistics = (data: BiodiversityLandUseResponse) => {
-    return data.data.key_statistics;
-};
+// ---- yearly_data_by_year ----
 
-/**
- * Get graph data for visualization
- */
-export const getBiodiversityGraphData = (data: BiodiversityLandUseResponse, year?: number): Graph | undefined => {
-    const graphs = data.data.graphs;
-    const yearKey = year ? year.toString() : data.data.reporting_period.current_year.toString();
-    return graphs.ndvi_monthly_trends[yearKey];
-};
+/** All metric snapshots for a specific fiscal year */
+export const getMetricsByYear = (
+    data: BiodiversityLandUseResponse,
+    year: number
+): Record<string, YearlyMetricSnapshot> | null =>
+    data.data.yearly_data_by_year[year.toString()]?.metrics ?? null;
 
-/**
- * Get all graph data
- */
-export const getAllBiodiversityGraphData = (data: BiodiversityLandUseResponse) => {
-    return data.data.graphs;
-};
+/** A single metric snapshot for a specific year, by composite key "category__metric_name" */
+export const getMetricSnapshotByYear = (
+    data: BiodiversityLandUseResponse,
+    year: number,
+    compositeKey: string
+): YearlyMetricSnapshot | null =>
+    data.data.yearly_data_by_year[year.toString()]?.metrics[compositeKey] ?? null;
 
-/**
- * Get metadata information
- */
-export const getBiodiversityMetadata = (data: BiodiversityLandUseResponse) => {
-    return data.data.metadata;
-};
+/** Convenience: get a metric snapshot by category + metric_name */
+export const getMetricSnapshot = (
+    data: BiodiversityLandUseResponse,
+    year: number,
+    category: MetricCategory,
+    metricName: string
+): YearlyMetricSnapshot | null =>
+    getMetricSnapshotByYear(data, year, `${category}__${metricName}`);
 
-/**
- * Get yearly carbon data
- */
-export const getYearlyCarbonData = (data: BiodiversityLandUseResponse) => {
-    return data.data.carbon_emission_accounting.yearly_data;
-};
+// ---- metrics_by_category ----
 
-/**
- * Get carbon data by year
- */
-export const getCarbonDataByYear = (data: BiodiversityLandUseResponse, year: number) => {
-    return data.data.carbon_emission_accounting.yearly_data.find(
-        (yearlyData) => yearlyData.year === year
+export const getMetricsByCategory = (data: BiodiversityLandUseResponse): MetricsByCategory =>
+    data.data.metrics_by_category;
+
+export const getAgriculturalLandMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.agricultural_land;
+
+export const getConservationMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.conservation_protected_habitat;
+
+export const getLandTenureMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.land_tenure;
+
+export const getRestorationMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.restoration_deforestation;
+
+export const getFuelwoodMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.fuelwood_substitution;
+
+export const getFloraMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.biodiversity_flora;
+
+export const getFaunaMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.biodiversity_fauna;
+
+export const getHumanWildlifeMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.metrics_by_category.human_wildlife_conflict;
+
+// ---- all_metrics ----
+
+export const getAllMetrics = (data: BiodiversityLandUseResponse): BiodiversityMetric[] =>
+    data.data.all_metrics;
+
+/** Find a metric from the flat array by category + name */
+export const findMetric = (
+    data: BiodiversityLandUseResponse,
+    category: MetricCategory,
+    metricName: string
+): BiodiversityMetric | undefined =>
+    data.data.all_metrics.find(
+        (m) => m.category === category && m.metric_name === metricName
     );
-};
 
-/**
- * Get monthly carbon data for a specific year
- */
-export const getMonthlyCarbonData = (data: BiodiversityLandUseResponse, year: number) => {
-    const yearlyData = getCarbonDataByYear(data, year);
-    return yearlyData?.sequestration.monthly_data || [];
-};
+/** Get all yearly_data entries for a specific metric */
+export const getMetricYearlyData = (
+    data: BiodiversityLandUseResponse,
+    category: MetricCategory,
+    metricName: string
+): YearlyDataEntry[] =>
+    findMetric(data, category, metricName)?.yearly_data ?? [];
 
-/**
- * Get company information
- */
-export const getBiodiversityCompany = (data: BiodiversityLandUseResponse) => {
-    return data.data.company;
-};
+/** Get a single year's entry from within a specific metric */
+export const getMetricValueForYear = (
+    data: BiodiversityLandUseResponse,
+    category: MetricCategory,
+    metricName: string,
+    year: number
+): YearlyDataEntry | undefined =>
+    getMetricYearlyData(data, category, metricName).find((yd) => yd.fiscal_year === year);
 
-/**
- * Get current year
- */
-export const getCurrentBiodiversityYear = (data: BiodiversityLandUseResponse) => {
-    return data.data.reporting_period.current_year;
-};
+// ---- summary_statistics ----
 
-/**
- * Get baseline year
- */
-export const getBaselineBiodiversityYear = (data: BiodiversityLandUseResponse) => {
-    return data.data.reporting_period.baseline_year;
-};
+export const getSummaryStatistics = (data: BiodiversityLandUseResponse): SummaryStatistics =>
+    data.data.summary_statistics;
 
-/**
- * Get data completeness
- */
-export const getDataCompleteness = (data: BiodiversityLandUseResponse) => {
-    return data.data.reporting_period.data_completeness;
-};
+// ---- key_performance_indicators ----
 
-/**
- * Check if carbon data is available
- */
-export const isBiodiversityCarbonDataAvailable = (data: BiodiversityLandUseResponse) => {
-    return data.data.reporting_period.carbon_data_available;
-};
+export const getKeyPerformanceIndicators = (data: BiodiversityLandUseResponse): KeyPerformanceIndicators =>
+    data.data.key_performance_indicators;
 
-/**
- * Get summary assessment
- */
-export const getBiodiversitySummaryAssessment = (data: BiodiversityLandUseResponse) => {
-    return data.data.summary;
-};
+// ---- graphs ----
 
-/**
- * Get area of interest metadata
- */
-export const getAreaOfInterestMetadata = (data: BiodiversityLandUseResponse) => {
-    return data.data.company.area_of_interest_metadata;
-};
+export const getAllGraphs = (data: BiodiversityLandUseResponse): Graphs =>
+    data.data.graphs;
 
-/**
- * Get forest coverage percentage
- */
-export const getForestCoveragePercentage = (data: BiodiversityLandUseResponse) => {
-    return data.data.deforestation_analysis.forest_coverage.coverage_percent;
-};
+export const getLandUseCompositionGraph = (data: BiodiversityLandUseResponse): Graph | undefined =>
+    data.data.graphs.land_use_composition;
 
-/**
- * Get protected area percentage
- */
-export const getProtectedAreaPercentage = (data: BiodiversityLandUseResponse) => {
-    return data.data.deforestation_analysis.protected_area_coverage.percentage;
-};
+export const getForestAreaTrendGraph = (data: BiodiversityLandUseResponse): Graph | undefined =>
+    data.data.graphs.forest_area_trend;
 
-/**
- * Get water management data
- */
-export const getWaterManagement = (data: BiodiversityLandUseResponse) => {
-    return data.data.environmental_impact.water_management;
-};
+export const getSpeciesCountTrendGraph = (data: BiodiversityLandUseResponse): Graph | undefined =>
+    data.data.graphs.species_count_trend;
 
-/**
- * Get waste management data
- */
-export const getWasteManagement = (data: BiodiversityLandUseResponse) => {
-    return data.data.environmental_impact.waste_management;
-};
+export const getTreesPlantedTrendGraph = (data: BiodiversityLandUseResponse): Graph | undefined =>
+    data.data.graphs.trees_planted_trend;
 
-/**
- * Get incident management data
- */
-export const getIncidentManagement = (data: BiodiversityLandUseResponse) => {
-    return data.data.environmental_impact.incident_management;
-};
+// ---- data_quality ----
 
-/**
- * Get soil health data
- */
-export const getSoilHealth = (data: BiodiversityLandUseResponse) => {
-    return data.data.environmental_impact.soil_health;
-};
+export const getDataQuality = (data: BiodiversityLandUseResponse): DataQuality =>
+    data.data.data_quality;
 
-/**
- * Get community engagement data
- */
-export const getCommunityEngagement = (data: BiodiversityLandUseResponse) => {
-    return data.data.social_governance.community_engagement;
-};
+export const isDataVerified = (data: BiodiversityLandUseResponse): boolean =>
+    ["verified", "audited"].includes(data.data.data_quality.verification_status);
 
-/**
- * Get governance strength data
- */
-export const getGovernanceStrength = (data: BiodiversityLandUseResponse) => {
-    return data.data.social_governance.governance_strength;
-};
+export const getValidationErrors = (data: BiodiversityLandUseResponse): ValidationError[] =>
+    data.data.data_quality.validation_errors;
 
-/**
- * Get environmental metrics
- */
-export const getEnvironmentalMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.esg_metrics.environmental;
-};
+// ---- source_information ----
 
-/**
- * Get social metrics
- */
-export const getSocialMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.esg_metrics.social;
-};
+export const getSourceInformation = (data: BiodiversityLandUseResponse): SourceInformation =>
+    data.data.source_information;
 
-/**
- * Get governance metrics
- */
-export const getGovernanceMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.esg_metrics.governance;
-};
+// ---- gri_references ----
 
-/**
- * Get NDVI monthly trends for a specific year
- */
-export const getNDVIMonthlyTrends = (data: BiodiversityLandUseResponse, year?: number) => {
-    const graphData = getBiodiversityGraphData(data, year);
-    if (graphData && graphData.datasets[0]) {
-        return graphData.datasets[0].data;
-    }
-    return [];
-};
+export const getGriReferences = (data: BiodiversityLandUseResponse): GriReference[] =>
+    data.data.gri_references;
 
-/**
- * Get carbon balance (net balance)
- */
-export const getCarbonBalance = (data: BiodiversityLandUseResponse, year?: number) => {
-    const targetYear = year || data.data.reporting_period.current_year;
-    const yearlyData = getCarbonDataByYear(data, targetYear);
-    return yearlyData?.emissions.net_balance || 0;
-};
+// ---- audit ----
 
-/**
- * Get total carbon emissions
- */
-export const getTotalCarbonEmissions = (data: BiodiversityLandUseResponse, year?: number) => {
-    const targetYear = year || data.data.reporting_period.current_year;
-    const yearlyData = getCarbonDataByYear(data, targetYear);
-    return yearlyData?.emissions.total_tco2e || 0;
-};
+export const getAudit = (data: BiodiversityLandUseResponse): Audit =>
+    data.data.audit;
 
-/**
- * Get carbon sequestration total
- */
-export const getCarbonSequestration = (data: BiodiversityLandUseResponse, year?: number) => {
-    const targetYear = year || data.data.reporting_period.current_year;
-    const yearlyData = getCarbonDataByYear(data, targetYear);
-    return yearlyData?.sequestration.total_tco2 || 0;
-};
+// ---- company convenience ----
 
-/**
- * Get scope breakdown for a specific year
- */
-export const getScopeBreakdown = (data: BiodiversityLandUseResponse, year?: number) => {
-    const targetYear = year || data.data.reporting_period.current_year;
-    const yearlyData = getCarbonDataByYear(data, targetYear);
-    if (yearlyData) {
-        return {
-            scope1: yearlyData.emissions.scope1_tco2e,
-            scope2: yearlyData.emissions.scope2_tco2e,
-            scope3: yearlyData.emissions.scope3_tco2e
-        };
-    }
-    return null;
-};
+export const getAreaOfInterestMetadata = (data: BiodiversityLandUseResponse): AreaOfInterestMetadata | undefined =>
+    data.data.company.area_of_interest_metadata;
 
-/**
- * Check if company has area of interest defined
- */
-export const hasAreaOfInterest = (data: BiodiversityLandUseResponse): boolean => {
-    return !!data.data.company.area_of_interest_metadata?.coordinates?.length;
-};
+export const getCoordinatesForMapping = (data: BiodiversityLandUseResponse): Coordinate[] =>
+    data.data.company.area_of_interest_metadata?.coordinates ?? [];
 
-/**
- * Get coordinates for mapping
- */
-export const getCoordinatesForMapping = (data: BiodiversityLandUseResponse): Coordinate[] => {
-    return data.data.company.area_of_interest_metadata?.coordinates || [];
-};
+export const hasAreaOfInterest = (data: BiodiversityLandUseResponse): boolean =>
+    !!data.data.company.area_of_interest_metadata?.coordinates?.length;
 
-/**
- * Get data availability summary
- */
-export const getDataAvailabilitySummary = (data: BiodiversityLandUseResponse) => {
-    return data.data.summary.data_availability;
-};
+// ---- common derived values ----
 
-/**
- * Get notable metrics
- */
-export const getNotableMetrics = (data: BiodiversityLandUseResponse) => {
-    return data.data.summary.notable_metrics;
-};
+export const getTotalAgriculturalArea = (data: BiodiversityLandUseResponse): number =>
+    data.data.summary_statistics.total_agricultural_area;
+
+export const getTotalSurveyedArea = (data: BiodiversityLandUseResponse): number =>
+    data.data.summary_statistics.total_surveyed_area;
+
+export const getTotalLpgDistributed = (data: BiodiversityLandUseResponse): number =>
+    data.data.summary_statistics.total_lpg_distributed;
+
+export const getTotalTreesPlanted = (data: BiodiversityLandUseResponse): number =>
+    data.data.summary_statistics.total_trees_planted;
+
+export const getLpgDistributionsForYear = (
+    data: BiodiversityLandUseResponse,
+    year: number
+): number | null =>
+    getMetricSnapshot(data, year, "fuelwood_substitution", "LPG Distributed (kg)")?.numeric_value ?? null;
+
+export const getAreaUnderCaneForYear = (
+    data: BiodiversityLandUseResponse,
+    year: number
+): number | null =>
+    getMetricSnapshot(data, year, "agricultural_land", "Area Under Cane")?.numeric_value ?? null;
+
+export const getTotalAgriculturalLandForYear = (
+    data: BiodiversityLandUseResponse,
+    year: number
+): number | null =>
+    getMetricSnapshot(data, year, "agricultural_land", "Total Agricultural Land (Cane + Orchards)")?.numeric_value ?? null;
+
+export const getSurveyedLandAreaForYear = (
+    data: BiodiversityLandUseResponse,
+    year: number
+): number | null =>
+    getMetricSnapshot(data, year, "land_tenure", "Total Surveyed Land Area")?.numeric_value ?? null;
