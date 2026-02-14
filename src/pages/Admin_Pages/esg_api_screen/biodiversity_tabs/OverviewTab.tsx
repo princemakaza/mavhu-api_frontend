@@ -703,63 +703,6 @@ const OverviewTab = ({
                 )}
             </div>
 
-            {/* Full-width GRI References / Data Quality Section */}
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg overflow-hidden">
-                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 rounded-xl bg-green-100">
-                                <Shield className="w-6 h-6" style={{ color: colors.primary }} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900">Data Quality & GRI References</h3>
-                                <p className="text-gray-600 text-sm">Verification status and reporting frameworks</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-8">
-                    <div className="grid md:grid-cols-2 gap-8">
-                        <div>
-                            <h4 className="font-semibold text-gray-900 mb-4">Data Quality</h4>
-                            <div className="space-y-3">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Verification Status</span>
-                                    <span className="font-medium capitalize" style={{ color: colors.primary }}>
-                                        {dataQuality?.verification_status || 'unverified'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Validation Status</span>
-                                    <span className="font-medium capitalize" style={{ color: colors.secondary }}>
-                                        {dataQuality?.validation_status || 'not_validated'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Validation Errors</span>
-                                    <span className="font-medium">{dataQuality?.validation_errors?.length || 0}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-gray-900 mb-4">GRI References</h4>
-                            <div className="space-y-2">
-                                {griRefs.length > 0 ? griRefs.map((ref, idx) => (
-                                    <div key={idx} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
-                                        <p className="font-medium text-sm text-gray-800">{ref.standard}</p>
-                                        <p className="text-xs text-gray-600">Metric: {ref.metric_name}</p>
-                                        <p className="text-xs" style={{ color: ref.compliance_status === 'compliant' ? colors.primary : colors.lime }}>
-                                            {ref.compliance_status}
-                                        </p>
-                                    </div>
-                                )) : (
-                                    <p className="text-gray-500">No GRI references available</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             {/* Methodology Section */}
             <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">

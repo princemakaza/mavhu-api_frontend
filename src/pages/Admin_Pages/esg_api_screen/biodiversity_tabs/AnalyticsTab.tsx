@@ -5,7 +5,6 @@ import {
     Activity,
     Target,
     AlertTriangle,
-    DollarSign,
     Info,
     Lightbulb,
     ShieldCheck,
@@ -26,8 +25,42 @@ import {
     Factory,
     Sprout,
     TrendingUpDown,
+    Bird,
+    Tractor,
+    Landmark,
+    Footprints,
+    TreePine,
+    MapPin,
 } from "lucide-react";
-import type { BiodiversityLandUseResponse } from '../../../../services/Admin_Service/esg_apis/biodiversity_api_service';
+
+// Import types and helpers from the biodiversity service
+import type { BiodiversityLandUseResponse, BiodiversityMetric } from '../../../../services/Admin_Service/esg_apis/biodiversity_api_service';
+import {
+    getCompany,
+    getReportingPeriod,
+    getCurrentYear,
+    getDataCompleteness,
+    getSummaryStatistics,
+    getKeyPerformanceIndicators,
+    getAllMetrics,
+    getMetricsByCategory,
+    getDataQuality,
+    getSourceInformation,
+    getGriReferences,
+    getAudit,
+    getAreaOfInterestMetadata,
+    getTotalAgriculturalArea,
+    getTotalSurveyedArea,
+    getTotalTreesPlanted,
+    getAllGraphs,
+    getLandUseCompositionGraph,
+    getForestAreaTrendGraph,
+    getSpeciesCountTrendGraph,
+    getTreesPlantedTrendGraph,
+} from '../../../../services/Admin_Service/esg_apis/biodiversity_api_service';
+
+// Import Company type from companies_service (optional)
+import type { Company } from '../../../../services/Admin_Service/companies_service';
 
 // Enhanced Color Palette with Green Theme
 const COLORS = {
@@ -49,19 +82,25 @@ interface AnalyticsTabProps {
     formatPercent: (num: number) => string;
     selectedYear: number | null;
     availableYears: number[];
-    onMetricClick: (metric: any, modalType: string) => void;
+    onMetricClick: (metric: BiodiversityMetric, modalType: string) => void;
+    company?: Company | null;
 }
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     biodiversityData,
     formatNumber,
     formatPercent,
+    selectedYear,
+    availableYears,
+    onMetricClick,
+    company,
 }) => {
     const [activeInsightTab, setActiveInsightTab] = useState('trends');
     const [showRecommendationsModal, setShowRecommendationsModal] = useState(false);
-    const [selectedMetric, setSelectedMetric] = useState<any>(null);
+    const [selectedMetric, setSelectedMetric] = useState<BiodiversityMetric | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // If no data, show placeholder
     if (!biodiversityData) {
         return (
             <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl">
@@ -76,186 +115,135 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         );
     }
 
-    const {
-        deforestation_analysis,
-        land_use_metrics,
-        environmental_impact,
-        social_governance,
-        carbon_emission_accounting,
-        esg_metrics,
-        key_statistics,
-        reporting_period,
-    } = biodiversityData.data;
+    // Extract data using helpers
+    const companyFromData = getCompany(biodiversityData);
+    const reportingPeriod = getReportingPeriod(biodiversityData);
+    const currentYear = getCurrentYear(biodiversityData);
+    const dataCompleteness = getDataCompleteness(biodiversityData);
+    const summaryStats = getSummaryStatistics(biodiversityData);
+    const kpi = getKeyPerformanceIndicators(biodiversityData);
+    const allMetrics = getAllMetrics(biodiversityData);
+    const metricsByCategory = getMetricsByCategory(biodiversityData);
+    const dataQuality = getDataQuality(biodiversityData);
+    const sourceInfo = getSourceInformation(biodiversityData);
+    const griRefs = getGriReferences(biodiversityData);
+    const audit = getAudit(biodiversityData);
+    const areaOfInterest = getAreaOfInterestMetadata(biodiversityData);
+    const graphs = getAllGraphs(biodiversityData);
+    const landUseGraph = getLandUseCompositionGraph(biodiversityData);
+    const forestTrendGraph = getForestAreaTrendGraph(biodiversityData);
+    const speciesTrendGraph = getSpeciesCountTrendGraph(biodiversityData);
+    const treesPlantedGraph = getTreesPlantedTrendGraph(biodiversityData);
 
-    // Helper function to get trend icon
-    const getTrendIcon = (trend: string) => {
-        const lowerTrend = trend?.toLowerCase() || '';
-        if (lowerTrend.includes('increas') || lowerTrend.includes('improv')) {
-            return <TrendingUp className="w-4 h-4 text-green-600" />;
-        } else if (lowerTrend.includes('decreas') || lowerTrend.includes('declin')) {
-            return <TrendingDown className="w-4 h-4 text-red-600" />;
-        }
+    // Helper to get trend icon (simplified)
+    const getTrendIcon = (trend?: string) => {
+        const lower = trend?.toLowerCase() || '';
+        if (lower.includes('increas') || lower.includes('up')) return <TrendingUp className="w-4 h-4 text-green-600" />;
+        if (lower.includes('decreas') || lower.includes('down')) return <TrendingDown className="w-4 h-4 text-red-600" />;
         return <TrendingUpDown className="w-4 h-4 text-gray-600" />;
     };
 
-    // Calculate derived metrics
-    const getCurrentYearCarbonData = () => {
-        const currentYear = reporting_period.current_year;
-        return carbon_emission_accounting.yearly_data.find(y => y.year === currentYear);
-    };
-
-    const currentCarbonData = getCurrentYearCarbonData();
-    const forestCoverage = deforestation_analysis.forest_coverage.coverage_percent || 0;
-    const netCarbonBalance = currentCarbonData?.emissions.net_balance || 0;
-    const totalSequestration = currentCarbonData?.sequestration.total_tco2 || 0;
-    const totalEmissions = currentCarbonData?.emissions.total_tco2e || 0;
-
-    // Key insights data
+    // Derive insights from summary statistics and KPIs
     const insights = {
         trends: [
             {
-                title: 'Forest Coverage Trend',
-                description: `Current forest coverage is ${forestCoverage.toFixed(1)}% with ${land_use_metrics.trends.forest_area_trend} trend`,
-                icon: <Trees className="w-5 h-5 text-green-600" />,
-                impact: land_use_metrics.trends.forest_area_trend.toLowerCase().includes('increas') ? 'High' : 'Medium',
+                title: 'Conservation Area',
+                description: `Total protected area is ${formatNumber(summaryStats.total_conservation_area)} ha.`,
+                icon: <Shield className="w-5 h-5 text-green-600" />,
+                impact: summaryStats.total_conservation_area > 1000 ? 'High' : 'Medium',
+                confidence: 0.9,
+            },
+            {
+                title: 'Agricultural Land',
+                description: `Agricultural area covers ${formatNumber(summaryStats.total_agricultural_area)} ha.`,
+                icon: <Tractor className="w-5 h-5 text-amber-600" />,
+                impact: 'Medium',
                 confidence: 0.85,
             },
             {
-                title: 'Carbon Balance Status',
-                description: `Net carbon balance is ${formatNumber(netCarbonBalance)} tCO₂, indicating ${netCarbonBalance < 0 ? 'net carbon sequestration' : 'net carbon emissions'}`,
-                icon: <Leaf className="w-5 h-5 text-green-600" />,
-                impact: 'High',
-                confidence: 0.92,
-            },
-            {
-                title: 'Agricultural Area Trend',
-                description: `Agricultural expansion showing ${land_use_metrics.trends.agricultural_area_trend} pattern`,
-                icon: <Sprout className="w-5 h-5 text-green-600" />,
-                impact: 'Medium',
-                confidence: 0.78,
+                title: 'Biodiversity Richness',
+                description: `${summaryStats.flora_species_count} flora and ${summaryStats.fauna_species_count} fauna species recorded.`,
+                icon: <TreePine className="w-5 h-5 text-green-600" />,
+                impact: summaryStats.flora_species_count > 50 ? 'High' : 'Medium',
+                confidence: 0.88,
             },
         ],
         risks: [
             {
-                title: 'Deforestation Risk',
-                description: `Forest coverage changed by ${deforestation_analysis.forest_coverage.change_percent.toFixed(1)}% from previous year`,
-                icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
-                priority: Math.abs(deforestation_analysis.forest_coverage.change_percent) > 5 ? 'High' : 'Medium',
-                timeframe: 'Immediate',
+                title: 'Human‑Wildlife Conflict',
+                description: `${summaryStats.human_wildlife_conflicts} incidents recorded.`,
+                icon: <Footprints className="w-5 h-5 text-red-600" />,
+                priority: summaryStats.human_wildlife_conflicts > 10 ? 'High' : 'Low',
+                timeframe: 'Ongoing',
             },
             {
-                title: 'Agricultural Expansion',
-                description: `Agricultural area changed by ${deforestation_analysis.agricultural_expansion.change_percent.toFixed(1)}%`,
-                icon: <Globe className="w-5 h-5 text-amber-600" />,
-                priority: Math.abs(deforestation_analysis.agricultural_expansion.change_percent) > 10 ? 'High' : 'Low',
+                title: 'Restoration Progress',
+                description: `${formatNumber(summaryStats.total_restored_area)} ha restored to date.`,
+                icon: <Sprout className="w-5 h-5 text-green-600" />,
+                priority: summaryStats.total_restored_area > 500 ? 'Medium' : 'Low',
                 timeframe: 'Monitor',
             },
         ],
         opportunities: [
             {
-                title: 'Carbon Credit Potential',
-                description: totalSequestration > 0 ? `Potential ${formatNumber(totalSequestration * 0.1)} carbon credits annually from sequestration` : 'No carbon sequestration recorded',
-                icon: <DollarSign className="w-5 h-5 text-green-600" />,
-                value: totalSequestration > 1000 ? 'High' : 'Medium',
+                title: 'Tree Planting Potential',
+                description: `${formatNumber(summaryStats.total_trees_planted)} trees planted. Opportunity to expand.`,
+                icon: <Trees className="w-5 h-5 text-green-600" />,
+                value: summaryStats.total_trees_planted > 10000 ? 'High' : 'Medium',
                 timeframe: '1-2 years',
             },
             {
-                title: 'Protected Area Enhancement',
-                description: `Current protected area: ${deforestation_analysis.protected_area_coverage.percentage.toFixed(1)}% - ${deforestation_analysis.protected_area_coverage.percentage < 15 ? 'Expansion opportunity' : 'Well maintained'}`,
-                icon: <Shield className="w-5 h-5 text-blue-600" />,
-                value: 'Medium',
+                title: 'LPG Distribution Impact',
+                description: `${formatNumber(summaryStats.total_lpg_distributed)} kg LPG distributed, reducing fuelwood demand.`,
+                icon: <Factory className="w-5 h-5 text-purple-600" />,
+                value: summaryStats.total_lpg_distributed > 5000 ? 'Medium' : 'Low',
                 timeframe: 'Ongoing',
             },
         ],
     };
 
-    // Environmental metrics analysis
-    const environmentalMetricsData = [
-        {
-            title: 'Water Management',
-            value: environmental_impact.water_management.current_usage || 0,
-            unit: 'm³',
-            trend: environmental_impact.water_management.trend || 'Unknown',
-            efficiency: environmental_impact.water_management.efficiency || 0,
-            icon: <Droplets className="w-6 h-6 text-blue-600" />,
-        },
-        {
-            title: 'Waste Management',
-            value: environmental_impact.waste_management.hazardous_waste || 0,
-            unit: 'tonnes',
-            trend: environmental_impact.waste_management.trend || 'Unknown',
-            recycled: environmental_impact.waste_management.recycled_waste || 0,
-            icon: <Factory className="w-6 h-6 text-amber-600" />,
-        },
-        {
-            title: 'Incident Management',
-            value: environmental_impact.incident_management.total_incidents || 0,
-            unit: 'incidents',
-            trend: environmental_impact.incident_management.trend || 'Unknown',
-            icon: <AlertCircle className="w-6 h-6 text-red-600" />,
-        },
-        {
-            title: 'Soil Health',
-            erosion: environmental_impact.soil_health.erosion_rate || 0,
-            organic: environmental_impact.soil_health.organic_matter || 0,
-            trend: environmental_impact.soil_health.trend || 'Unknown',
-            icon: <Sprout className="w-6 h-6 text-green-600" />,
-        },
-    ];
+    // Build metrics display by category (for later use)
+    const categoryLabels: Record<string, string> = {
+        agricultural_land: 'Agricultural Land',
+        conservation_protected_habitat: 'Conservation & Protected Habitat',
+        land_tenure: 'Land Tenure',
+        restoration_deforestation: 'Restoration & Deforestation',
+        fuelwood_substitution: 'Fuelwood Substitution',
+        biodiversity_flora: 'Biodiversity - Flora',
+        biodiversity_fauna: 'Biodiversity - Fauna',
+        human_wildlife_conflict: 'Human‑Wildlife Conflict',
+        summary: 'Summary Metrics',
+    };
 
-    // Social governance metrics
-    const socialGovernanceData = [
-        {
-            title: 'Community Programs',
-            value: social_governance.community_engagement.programs_count || 0,
-            label: 'Active Programs',
-            icon: <Users className="w-6 h-6 text-purple-600" />,
-        },
-        {
-            title: 'Local Employment',
-            value: social_governance.community_engagement.local_employment || 0,
-            label: 'Employees',
-            icon: <Users className="w-6 h-6 text-blue-600" />,
-        },
-        {
-            title: 'Compliance Audits',
-            value: social_governance.governance_strength.compliance_audits || 0,
-            label: 'Completed',
-            icon: <ShieldCheck className="w-6 h-6 text-green-600" />,
-        },
-    ];
+    const categoryIcons: Record<string, JSX.Element> = {
+        agricultural_land: <Tractor className="w-5 h-5 text-amber-600" />,
+        conservation_protected_habitat: <Shield className="w-5 h-5 text-green-600" />,
+        land_tenure: <Landmark className="w-5 h-5 text-blue-600" />,
+        restoration_deforestation: <Sprout className="w-5 h-5 text-emerald-600" />,
+        fuelwood_substitution: <Factory className="w-5 h-5 text-purple-600" />,
+        biodiversity_flora: <Leaf className="w-5 h-5 text-green-600" />,
+        biodiversity_fauna: <Bird className="w-5 h-5 text-indigo-600" />,
+        human_wildlife_conflict: <Footprints className="w-5 h-5 text-red-600" />,
+        summary: <Activity className="w-5 h-5 text-gray-600" />,
+    };
 
-    // Carbon emission breakdown
-    const carbonBreakdown = currentCarbonData ? [
-        {
-            scope: 'Scope 1',
-            value: currentCarbonData.emissions.scope1_tco2e,
-            percentage: totalEmissions > 0 ? (currentCarbonData.emissions.scope1_tco2e / totalEmissions) * 100 : 0,
-        },
-        {
-            scope: 'Scope 2',
-            value: currentCarbonData.emissions.scope2_tco2e,
-            percentage: totalEmissions > 0 ? (currentCarbonData.emissions.scope2_tco2e / totalEmissions) * 100 : 0,
-        },
-        {
-            scope: 'Scope 3',
-            value: currentCarbonData.emissions.scope3_tco2e,
-            percentage: totalEmissions > 0 ? (currentCarbonData.emissions.scope3_tco2e / totalEmissions) * 100 : 0,
-        },
-    ] : [];
-
-    // Simplified explanations
-    const simpleExplanations = {
-        'Forest Coverage': 'Percentage of total land area covered by forests',
-        'Carbon Balance': 'Difference between carbon stored and carbon released',
-        'Carbon Sequestration': 'Amount of CO₂ captured and stored by forests',
-        'Protected Areas': 'Land officially protected for conservation',
-        'Water Efficiency': 'How effectively water resources are being used',
-        'Soil Health': 'Quality and sustainability of soil conditions',
+    // Simplified explanations for key terms
+    const simpleExplanations: Record<string, string> = {
+        'Conservation Area': 'Land legally protected for biodiversity conservation.',
+        'Agricultural Land': 'Area used for crop cultivation or livestock.',
+        'Surveyed Area': 'Total land area that has been physically surveyed.',
+        'Trees Planted': 'Cumulative number of trees planted in restoration efforts.',
+        'Flora Species': 'Number of distinct plant species identified.',
+        'Fauna Species': 'Number of distinct animal species identified.',
+        'Restored Area': 'Land area where ecosystems have been restored.',
+        'Human‑Wildlife Conflict': 'Incidents where wildlife negatively impacts human activities.',
+        'LPG Distribution': 'Liquefied Petroleum Gas distributed to reduce wood fuel use.',
     };
 
     return (
         <div className="space-y-8 pb-8">
+
+ 
 
             {/* Key Insights Section */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10 hover:shadow-2xl transition-shadow duration-300">
@@ -271,8 +259,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <button
                             onClick={() => setActiveInsightTab('trends')}
                             className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${activeInsightTab === 'trends'
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-200 scale-105'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-200 scale-105'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -283,8 +271,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <button
                             onClick={() => setActiveInsightTab('risks')}
                             className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${activeInsightTab === 'risks'
-                                    ? 'bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg shadow-red-200 scale-105'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+                                ? 'bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg shadow-red-200 scale-105'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -295,8 +283,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <button
                             onClick={() => setActiveInsightTab('opportunities')}
                             className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${activeInsightTab === 'opportunities'
-                                    ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-200 scale-105'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+                                ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-200 scale-105'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -330,8 +318,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                     </div>
                                     <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                                         <span className={`px-4 py-2 rounded-xl text-xs font-bold ${(insight.impact || insight.priority || insight.value) === 'High'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-blue-100 text-blue-700'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-blue-100 text-blue-700'
                                             }`}>
                                             {insight.impact || insight.priority || insight.value}
                                         </span>
@@ -344,96 +332,151 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
             </div>
 
-            {/* Environmental Metrics Analysis */}
+            {/* Biodiversity KPIs */}
             <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
                 <h3 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
                     <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                    Environmental Impact Analysis
+                    Key Biodiversity Indicators
                 </h3>
-                <div className="grid md:grid-cols-2 gap-6">
-                    {environmentalMetricsData.map((metric, index) => (
-                        <div
-                            key={index}
-                            className="p-6 rounded-3xl border-2 border-gray-200 hover:border-green-400 bg-gradient-to-br from-white to-gray-50 hover:from-green-50 hover:to-emerald-50 transition-all duration-300 hover:shadow-xl cursor-pointer"
-                            onClick={() => {
-                                setSelectedMetric(metric);
-                                setIsModalOpen(true);
-                            }}
-                        >
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className="p-3 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200">
-                                    {metric.icon}
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">{metric.title}</h4>
-                                    {'value' in metric && (
-                                        <p className="text-3xl font-bold text-gray-900">
-                                            {formatNumber(metric.value)} <span className="text-lg text-gray-600">{metric.unit}</span>
-                                        </p>
-                                    )}
-                                    {metric.title === 'Soil Health' && (
-                                        <>
-                                            <p className="text-sm text-gray-600 mt-2">Erosion: {metric.erosion.toFixed(2)} t/ha/yr</p>
-                                            <p className="text-sm text-gray-600">Organic Matter: {metric.organic.toFixed(2)}%</p>
-                                        </>
-                                    )}
-                                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-green-100">
+                                <Shield className="w-6 h-6 text-green-600" />
                             </div>
-                            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                                {getTrendIcon(metric.trend)}
-                                <span className="text-sm font-semibold text-gray-700">{metric.trend}</span>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Conservation Area</p>
+                                <p className="text-2xl font-bold text-gray-900">{formatNumber(kpi.conservation_area)} ha</p>
                             </div>
                         </div>
-                    ))}
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-amber-100">
+                                <Tractor className="w-6 h-6 text-amber-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Agricultural Area</p>
+                                <p className="text-2xl font-bold text-gray-900">{formatNumber(kpi.agricultural_area)} ha</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-emerald-100">
+                                <Sprout className="w-6 h-6 text-emerald-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Restored Area</p>
+                                <p className="text-2xl font-bold text-gray-900">{formatNumber(kpi.restored_area)} ha</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-green-100">
+                                <Trees className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Trees Planted</p>
+                                <p className="text-2xl font-bold text-gray-900">{formatNumber(kpi.trees_planted_cumulative)}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-indigo-100">
+                                <Leaf className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Flora Species</p>
+                                <p className="text-2xl font-bold text-gray-900">{kpi.flora_species}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-purple-100">
+                                <Bird className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Fauna Species</p>
+                                <p className="text-2xl font-bold text-gray-900">{kpi.fauna_species}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-blue-100">
+                                <Factory className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">LPG Distributed</p>
+                                <p className="text-2xl font-bold text-gray-900">{formatNumber(kpi.lpg_distributions)} kg</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 rounded-3xl border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-2xl bg-red-100">
+                                <Footprints className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 mb-1">Human‑Wildlife Conflicts</p>
+                                <p className="text-2xl font-bold text-gray-900">{kpi.human_wildlife_conflicts}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-    
+        
+            {/* Area of Interest & Data Quality */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {areaOfInterest && (
+                    <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                            <MapPin className="w-7 h-7 text-green-600" />
+                            Area of Interest
+                        </h3>
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-2xl bg-gray-50">
+                                <p className="text-sm text-gray-600 mb-2">Name</p>
+                                <p className="text-xl font-bold text-gray-900">{areaOfInterest.name}</p>
+                            </div>
+                            <div className="p-4 rounded-2xl bg-gray-50">
+                                <p className="text-sm text-gray-600 mb-2">Area Covered</p>
+                                <p className="text-xl font-bold text-gray-900">{areaOfInterest.area_covered}</p>
+                            </div>
+                            <div className="p-4 rounded-2xl bg-gray-50">
+                                <p className="text-sm text-gray-600 mb-2">Coordinates</p>
+                                <p className="text-xl font-bold text-gray-900">{areaOfInterest.coordinates?.length || 0} points</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-            {/* Social Governance Metrics */}
-            <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
-                <h3 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
-                    <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                    Social & Governance Metrics
-                </h3>
-                <div className="grid md:grid-cols-3 gap-6">
-                    {socialGovernanceData.map((metric, index) => (
-                        <div
-                            key={index}
-                            className="p-6 rounded-3xl border-2 border-gray-200 hover:border-green-400 bg-gradient-to-br from-white to-gray-50 hover:from-green-50 hover:to-emerald-50 transition-all duration-300 hover:shadow-xl"
-                        >
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200">
-                                    {metric.icon}
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-lg text-gray-900 mb-2">{metric.title}</h4>
-                                    <p className="text-3xl font-bold text-gray-900">{formatNumber(metric.value)}</p>
-                                    <p className="text-sm text-gray-600 mt-1">{metric.label}</p>
-                                </div>
-                            </div>
+                <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <ShieldCheck className="w-7 h-7 text-green-600" />
+                        Data Quality
+                    </h3>
+                    <div className="space-y-4">
+                        <div className="p-4 rounded-2xl bg-gray-50">
+                            <p className="text-sm text-gray-600 mb-2">Data Completeness</p>
+                            <p className="text-xl font-bold text-gray-900">{dataCompleteness}</p>
                         </div>
-                    ))}
-                </div>
-                <div className="mt-6 p-6 rounded-3xl bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200">
-                    <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Shield className="w-5 h-5 text-blue-600" />
-                        Governance Policies
-                    </h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-2">
-                            <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-gray-900">Land Use Policy</p>
-                                <p className="text-sm text-gray-600">{social_governance.governance_strength.land_use_policy || 'Not specified'}</p>
-                            </div>
+                        <div className="p-4 rounded-2xl bg-gray-50">
+                            <p className="text-sm text-gray-600 mb-2">Years Covered</p>
+                            <p className="text-xl font-bold text-gray-900">{reportingPeriod.analysis_years.length} years</p>
                         </div>
-                        <div className="flex items-start gap-2">
-                            <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-gray-900">Biodiversity Policy</p>
-                                <p className="text-sm text-gray-600">{social_governance.governance_strength.biodiversity_policy || 'Not specified'}</p>
-                            </div>
+                        <div className="p-4 rounded-2xl bg-gray-50">
+                            <p className="text-sm text-gray-600 mb-2">Quality Score</p>
+                            <p className="text-xl font-bold text-gray-900">{dataQuality.quality_score ?? 'N/A'}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-gray-50">
+                            <p className="text-sm text-gray-600 mb-2">Verification Status</p>
+                            <p className="text-xl font-bold text-gray-900 capitalize">{dataQuality.verification_status.replace(/_/g, ' ')}</p>
                         </div>
                     </div>
                 </div>
@@ -473,51 +516,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </div>
             </div>
 
-            {/* Data Quality & Methodology */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                        <ShieldCheck className="w-7 h-7 text-green-600" />
-                        Data Quality
-                    </h3>
-                    <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-gray-50">
-                            <p className="text-sm text-gray-600 mb-2">Data Completeness</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.data_completeness}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gray-50">
-                            <p className="text-sm text-gray-600 mb-2">Years Covered</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.analysis_years.length} years</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-gray-50">
-                            <p className="text-sm text-gray-600 mb-2">Carbon Data Available</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.carbon_data_available ? 'Yes' : 'No'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-10">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                        <Info className="w-7 h-7 text-blue-600" />
-                        Methodology
-                    </h3>
-                    <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">Carbon Framework</p>
-                            <p className="text-sm text-gray-700">{carbon_emission_accounting.framework.calculation_approach}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-green-50 border border-green-200">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">Sequestration Method</p>
-                            <p className="text-sm text-gray-700">{carbon_emission_accounting.framework.sequestration_methodology}</p>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">Emission Method</p>
-                            <p className="text-sm text-gray-700">{carbon_emission_accounting.framework.emission_methodology}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             {/* Metric Detail Modal */}
             {isModalOpen && selectedMetric && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-fadeIn" onClick={() => setIsModalOpen(false)}>
@@ -525,8 +523,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <div className="p-8 border-b-2 border-green-100 bg-gradient-to-r from-green-500 via-emerald-600 to-teal-600 text-white rounded-t-3xl">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-3xl font-bold mb-2">Metric Details</h3>
-                                    <p className="text-green-100 text-lg">{selectedMetric.title}</p>
+                                    <h3 className="text-3xl font-bold mb-2">{selectedMetric.metric_name}</h3>
+                                    <p className="text-green-100 text-lg">{categoryLabels[selectedMetric.category] || selectedMetric.category}</p>
                                 </div>
                                 <button
                                     onClick={() => setIsModalOpen(false)}
@@ -538,17 +536,29 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         </div>
                         <div className="p-10">
                             <div className="space-y-5">
-                                {Object.entries(selectedMetric).map(([key, value]) => {
-                                    if (key === 'icon') return null;
-                                    return (
-                                        <div key={key} className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                            <div className="text-sm text-gray-600 mb-2 capitalize font-semibold">{key.replace(/_/g, ' ')}</div>
-                                            <div className="font-bold text-gray-900 text-lg">
-                                                {typeof value === 'number' ? formatNumber(value) : String(value)}
-                                            </div>
+                                <div className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
+                                    <div className="text-sm text-gray-600 mb-2 font-semibold">Description</div>
+                                    <div className="font-medium text-gray-900 text-lg">{selectedMetric.description || 'No description'}</div>
+                                </div>
+                                <div className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
+                                    <div className="text-sm text-gray-600 mb-2 font-semibold">Data Type</div>
+                                    <div className="font-medium text-gray-900 text-lg">{selectedMetric.data_type}</div>
+                                </div>
+                                {selectedMetric.yearly_data.length > 0 && (
+                                    <div className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
+                                        <div className="text-sm text-gray-600 mb-2 font-semibold">Latest Value</div>
+                                        <div className="font-medium text-gray-900 text-lg">
+                                            {selectedMetric.yearly_data[selectedMetric.yearly_data.length - 1]?.numeric_value ?? 'N/A'}
+                                            {selectedMetric.yearly_data[selectedMetric.yearly_data.length - 1]?.unit ? ` ${selectedMetric.yearly_data[selectedMetric.yearly_data.length - 1].unit}` : ''}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                )}
+                                {selectedMetric.yearly_data.length > 1 && (
+                                    <div className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
+                                        <div className="text-sm text-gray-600 mb-2 font-semibold">Data Points</div>
+                                        <div className="font-medium text-gray-900 text-lg">{selectedMetric.yearly_data.length} years</div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -581,36 +591,36 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <div className="p-10 space-y-6">
                             {[
                                 {
-                                    title: 'Enhance Forest Monitoring',
-                                    description: `With current forest coverage at ${forestCoverage.toFixed(1)}%, implement regular satellite monitoring`,
+                                    title: 'Enhance Conservation Monitoring',
+                                    description: `Current conservation area is ${formatNumber(summaryStats.total_conservation_area)} ha. Consider regular monitoring to assess effectiveness.`,
                                     impact: 'High',
                                     effort: 'Medium',
-                                    timeframe: '1 month',
-                                    icon: <Trees className="w-6 h-6 text-green-600" />,
+                                    timeframe: '3 months',
+                                    icon: <Shield className="w-6 h-6 text-green-600" />,
                                 },
                                 {
-                                    title: 'Expand Protected Areas',
-                                    description: `Increase protected area from ${deforestation_analysis.protected_area_coverage.percentage.toFixed(1)}% to 15%`,
+                                    title: 'Expand Restoration Efforts',
+                                    description: `${formatNumber(summaryStats.total_restored_area)} ha restored so far. Identify additional areas for restoration.`,
                                     impact: 'High',
                                     effort: 'High',
-                                    timeframe: '6 months',
-                                    icon: <Shield className="w-6 h-6 text-blue-600" />,
+                                    timeframe: '1 year',
+                                    icon: <Sprout className="w-6 h-6 text-green-600" />,
                                 },
-                                totalSequestration > 0 && {
-                                    title: 'Carbon Credit Registration',
-                                    description: `Register for carbon credits - potential ${formatNumber(totalSequestration * 0.1)} credits annually`,
+                                summaryStats.total_trees_planted > 0 && {
+                                    title: 'Tree Planting Campaign',
+                                    description: `Already planted ${formatNumber(summaryStats.total_trees_planted)} trees. Plan next planting season.`,
                                     impact: 'Medium',
                                     effort: 'Low',
-                                    timeframe: '3 months',
-                                    icon: <DollarSign className="w-6 h-6 text-amber-600" />,
+                                    timeframe: '6 months',
+                                    icon: <Trees className="w-6 h-6 text-green-600" />,
                                 },
-                                social_governance.community_engagement.programs_count < 5 && {
-                                    title: 'Community Engagement',
-                                    description: 'Increase community conservation programs to improve social metrics',
+                                summaryStats.human_wildlife_conflicts > 5 && {
+                                    title: 'Mitigate Human‑Wildlife Conflict',
+                                    description: `${summaryStats.human_wildlife_conflicts} incidents reported. Implement community awareness programs.`,
                                     impact: 'Medium',
                                     effort: 'Medium',
-                                    timeframe: '2 months',
-                                    icon: <Users className="w-6 h-6 text-purple-600" />,
+                                    timeframe: '3 months',
+                                    icon: <Footprints className="w-6 h-6 text-amber-600" />,
                                 },
                             ].filter(Boolean).map((recommendation, index) => (
                                 recommendation && (
