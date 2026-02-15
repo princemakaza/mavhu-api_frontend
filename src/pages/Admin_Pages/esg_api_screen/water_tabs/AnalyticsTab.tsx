@@ -17,32 +17,30 @@ import {
     Shield,
     AlertCircle,
     X,
- 
     Zap,
     Calculator,
-
     Sprout,
     TrendingUpDown,
 } from "lucide-react";
-import type { 
+import type {
     IrrigationWaterResponse,
 } from '../../../../services/Admin_Service/esg_apis/water_risk_service';
 
-// Enhanced Color Palette with Water Theme
+// Enhanced Color Palette with Water Theme (same as before)
 const COLORS = {
-    primary: '#008000',           // Green for water theme
-    primaryDark: '#006400',       // Dark green
-    primaryLight: '#10B981',      // Emerald green
-    primaryPale: '#D1FAE5',       // Light green
-    accent: '#22C55E',            // Bright green
-    accentBlue: '#0D9488',        // Teal for water
-    accentTeal: '#14B8A6',        // Light teal
-    success: '#10B981',           // Success green
-    warning: '#F59E0B',           // Warning amber
-    danger: '#EF4444',            // Danger red
-    info: '#0D9488',              // Water info teal
-    waterBlue: '#0EA5E9',         // Sky blue for water
-    waterDark: '#0369A1',         // Dark blue for deep water
+    primary: '#008000',
+    primaryDark: '#006400',
+    primaryLight: '#10B981',
+    primaryPale: '#D1FAE5',
+    accent: '#22C55E',
+    accentBlue: '#0D9488',
+    accentTeal: '#14B8A6',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    info: '#0D9488',
+    waterBlue: '#0EA5E9',
+    waterDark: '#0369A1',
 };
 
 interface AnalyticsTabProps {
@@ -60,6 +58,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     formatNumber,
     formatCurrency,
     formatPercent,
+    selectedYear,
+    onMetricClick,
 }) => {
     const [activeInsightTab, setActiveInsightTab] = useState('trends');
     const [showRecommendationsModal, setShowRecommendationsModal] = useState(false);
@@ -80,16 +80,62 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         );
     }
 
-    const {
-        water_usage_analysis,
-        environmental_metrics,
-        stakeholder_benefits,
-        summary,
-        confidence_score,
-        reporting_period,
-        company,
-        all_esg_metrics,
-    } = waterData.data;
+    // --- Extract data from API response ---
+    const company = waterData.data.company;
+    const metadata = waterData.data.metadata;
+    const waterRiskAnalysis = waterData.data.water_risk_analysis;
+    const dataQuality = waterData.data.data_quality;
+    const summary = waterData.data.summary;
+    const environmentalMetrics = waterData.data.environmental_metrics;
+    const irrigationEfficiencyData = waterData.data.existing_irrigation_efficiency_data;
+
+    // Find the best irrigation record (with actual metrics)
+    const activeIrrigationData =
+        irrigationEfficiencyData.find(item => item?.is_active === true && item?.metrics?.length > 0) ||
+        irrigationEfficiencyData.find(item => item?.metrics?.length > 0) ||
+        irrigationEfficiencyData[0];
+
+    const irrigationMetrics = activeIrrigationData?.metrics || [];
+
+    // Helper to get metric value for a given year
+    const findMetricValue = (metricName: string, year?: number | null): number | null => {
+        if (!irrigationMetrics.length) return null;
+        const metric = irrigationMetrics.find(m => m?.metric_name === metricName);
+        if (!metric || !Array.isArray(metric.yearly_data) || metric.yearly_data.length === 0) return null;
+
+        if (year) {
+            const yearStr = year.toString();
+            const yearData = metric.yearly_data.find(d => d.year === yearStr);
+            return yearData?.value ?? null;
+        }
+        // fallback to latest
+        const sorted = [...metric.yearly_data].sort((a, b) => parseInt(b.year) - parseInt(a.year));
+        return sorted[0]?.value ?? null;
+    };
+
+    // Get values for selected year (or latest if not selected)
+    const irrigationValue = findMetricValue("Total Irrigation Water (million ML)", selectedYear);
+    const treatmentValue = findMetricValue("Water Treatment for Chiredzi (million ML)", selectedYear);
+    const perHectare = findMetricValue("Water per Hectare (ML/ha)", selectedYear);
+    const effluentValue = findMetricValue("Effluent Discharged (thousand ML)", selectedYear);
+
+    // Values from water risk analysis
+    const totalValue = waterRiskAnalysis?.total_water_usage ?? null;
+    const savingsPotential = waterRiskAnalysis?.savings_potential ?? null;
+    const shortageRisk = waterRiskAnalysis?.shortage_risk || { level: 'unknown', probability: 0, factors: [], mitigation: [] };
+    const shortageLevel = shortageRisk.level;
+    const shortageProbability = shortageRisk.probability;
+    const mitigationStrategies = shortageRisk.mitigation || [];
+
+    // Efficiency score (not directly available, we can compute a placeholder or use a metric)
+    // For now, we'll use a dummy or we could compute as (target / actual) but no target.
+    // We'll show '---' if not available.
+    const efficiencyScore = null; // not provided
+
+    // Cost savings (not available in API)
+    const costSavings = null;
+
+
 
     // Helper function to get trend icon
     const getTrendIcon = (trend: string) => {
@@ -102,51 +148,28 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         return <TrendingUpDown className="w-4 h-4 text-gray-600" />;
     };
 
-    // Extract water metrics
-    const irrigationWater = water_usage_analysis?.irrigation_water;
-    const treatmentWater = water_usage_analysis?.treatment_water;
-    const totalWater = water_usage_analysis?.total_water_usage;
-    const shortageRisk = water_usage_analysis?.shortage_risk;
-    const waterSavings = water_usage_analysis?.water_savings_analysis;
-
-    // Calculate key metrics
-    const irrigationValue = irrigationWater?.current_value || 0;
-    const treatmentValue = treatmentWater?.current_value || 0;
-    const totalValue = totalWater?.current_value || 0;
-    const efficiencyScore = irrigationWater?.efficiency_score || 0;
-    const savingsPotential = waterSavings?.potential_savings || 0;
-    const costSavings = waterSavings?.cost_savings || 0;
-    const shortageProbability = shortageRisk?.probability || 0;
-    const shortageLevel = shortageRisk?.level || 'unknown';
-
-    // Extract ESG metrics for water
-    const waterEsgMetrics = Object.values(all_esg_metrics?.environmental || {}).filter(metric => 
-        metric?.name?.toLowerCase().includes('water') ||
-        metric?.name?.toLowerCase().includes('irrigation') ||
-        metric?.name?.toLowerCase().includes('treatment') ||
-        metric?.name?.toLowerCase().includes('effluent')
-    );
-
-    // Key insights data
+    // Key insights data (use real values)
     const insights = {
         trends: [
             {
                 title: 'Water Usage Trend',
-                description: `Total water usage is ${formatNumber(totalValue)} m³ with ${totalWater?.trend || '---'} trend`,
+                description: `Total water usage is ${totalValue ? formatNumber(totalValue) : '---'} m³ with ${waterRiskAnalysis?.total_water_usage ? 'unknown' : '---'} trend`,
                 icon: <Droplet className="w-5 h-5 text-green-600" />,
-                impact: irrigationWater?.trend?.toLowerCase().includes('decreas') ? 'High' : 'Medium',
-                confidence: confidence_score?.overall ? confidence_score.overall / 100 : 0.85,
+                impact: irrigationValue ? (irrigationValue > 180 ? 'High' : 'Medium') : 'Medium',
+                confidence: dataQuality?.score ? dataQuality.score / 100 : 0.85,
             },
             {
                 title: 'Irrigation Efficiency',
-                description: `Water efficiency score is ${formatPercent(efficiencyScore)} indicating ${efficiencyScore > 80 ? 'excellent' : efficiencyScore > 60 ? 'good' : 'needs improvement'} performance`,
+                description: efficiencyScore
+                    ? `Water efficiency score is ${formatPercent(efficiencyScore)} indicating ${efficiencyScore > 80 ? 'excellent' : efficiencyScore > 60 ? 'good' : 'needs improvement'} performance`
+                    : 'Efficiency score not available',
                 icon: <Gauge className="w-5 h-5 text-green-600" />,
-                impact: efficiencyScore < 60 ? 'High' : 'Medium',
+                impact: efficiencyScore && efficiencyScore < 60 ? 'High' : 'Medium',
                 confidence: 0.78,
             },
             {
                 title: 'Treatment Water Usage',
-                description: `Treatment water usage is ${formatNumber(treatmentValue)} m³ with ${treatmentWater?.trend || '---'} trend`,
+                description: `Treatment water usage is ${treatmentValue ? formatNumber(treatmentValue) : '---'} m³ with ${waterRiskAnalysis?.treatment_water?.trend || '---'} trend`,
                 icon: <Waves className="w-5 h-5 text-green-600" />,
                 impact: 'Medium',
                 confidence: 0.82,
@@ -155,41 +178,41 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         risks: [
             {
                 title: 'Water Shortage Risk',
-                description: shortageLevel !== 'unknown' 
-                    ? `Water shortage risk level is ${shortageLevel} with ${formatPercent(shortageProbability * 100)} probability`
+                description: shortageLevel !== 'unknown'
+                    ? `Water shortage risk level is ${shortageLevel} with ${shortageProbability ? formatPercent(shortageProbability * 100) : '---'} probability`
                     : 'Water shortage risk assessment not available',
                 icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
-                priority: shortageLevel === 'high' || shortageLevel === 'critical' ? 'High' : 
-                         shortageLevel === 'medium' ? 'Medium' : 'Low',
+                priority: shortageLevel === 'high' || shortageLevel === 'critical' ? 'High' :
+                    shortageLevel === 'medium' ? 'Medium' : 'Low',
                 timeframe: 'Ongoing',
             },
             {
                 title: 'Treatment Capacity',
-                description: treatmentValue > 0 && irrigationValue > 0 
-                    ? `Treatment water is ${(treatmentValue / (irrigationValue + treatmentValue) * 100).toFixed(1)}% of total water usage`
+                description: treatmentValue && irrigationValue
+                    ? `Treatment water is ${((treatmentValue) / (irrigationValue + treatmentValue) * 100).toFixed(1)}% of total water usage`
                     : 'Treatment capacity data not available',
                 icon: <Factory className="w-5 h-5 text-amber-600" />,
-                priority: (treatmentValue / (irrigationValue + treatmentValue)) > 0.3 ? 'Medium' : 'Low',
+                priority: (treatmentValue && irrigationValue && (treatmentValue / (irrigationValue + treatmentValue)) > 0.3) ? 'Medium' : 'Low',
                 timeframe: 'Monitor',
             },
         ],
         opportunities: [
             {
                 title: 'Water Savings Potential',
-                description: savingsPotential > 0 
-                    ? `Potential to save ${formatNumber(savingsPotential)} m³ (${formatCurrency(costSavings)}) annually`
+                description: savingsPotential
+                    ? `Potential to save ${formatNumber(savingsPotential)} m³ annually`
                     : 'Water savings potential not calculated',
                 icon: <DollarSign className="w-5 h-5 text-green-600" />,
-                value: savingsPotential > (totalValue * 0.1) ? 'High' : 'Medium',
+                value: savingsPotential && totalValue && savingsPotential > (totalValue * 0.1) ? 'High' : 'Medium',
                 timeframe: '1-2 years',
             },
             {
                 title: 'Efficiency Improvements',
-                description: efficiencyScore < 80 
+                description: efficiencyScore && efficiencyScore < 80
                     ? `Improve efficiency from ${formatPercent(efficiencyScore)} to 85%+ target`
-                    : 'Efficiency already at target levels',
+                    : (efficiencyScore ? 'Efficiency already at target levels' : 'Efficiency data not available'),
                 icon: <Zap className="w-5 h-5 text-blue-600" />,
-                value: efficiencyScore < 70 ? 'High' : 'Medium',
+                value: efficiencyScore && efficiencyScore < 70 ? 'High' : 'Medium',
                 timeframe: '6-12 months',
             },
         ],
@@ -200,53 +223,53 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         {
             title: 'Irrigation Water',
             value: irrigationValue,
-            unit: 'm³',
-            trend: irrigationWater?.trend || '---',
+            unit: 'million ML',
+            trend: waterRiskAnalysis?.irrigation_water?.trend || '---',
             efficiency: efficiencyScore,
             icon: <Droplet className="w-6 h-6 text-green-600" />,
         },
         {
             title: 'Treatment Water',
             value: treatmentValue,
-            unit: 'm³',
-            trend: treatmentWater?.trend || '---',
+            unit: 'million ML',
+            trend: waterRiskAnalysis?.treatment_water?.trend || '---',
             icon: <Waves className="w-6 h-6 text-blue-600" />,
         },
         {
             title: 'Total Water Usage',
             value: totalValue,
-            unit: 'm³',
-            trend: totalWater?.trend || '---',
-            per_hectare: totalWater?.per_hectare || 0,
+            unit: 'million ML',
+            trend: waterRiskAnalysis?.total_water_usage ? 'unknown' : '---',
+            per_hectare: perHectare,
             icon: <CloudRain className="w-6 h-6 text-teal-600" />,
         },
         {
-            title: 'Water Efficiency',
-            value: efficiencyScore,
-            unit: '%',
-            trend: irrigationWater?.trend || '---',
-            benchmark: totalWater?.benchmark || 0,
+            title: 'Water per Hectare',
+            value: perHectare,
+            unit: 'ML/ha',
+            trend: '---',
+            benchmark: null,
             icon: <Gauge className="w-6 h-6 text-emerald-600" />,
         },
     ];
 
-    // Stakeholder metrics
+    // Stakeholder metrics (not available, use zeros)
     const stakeholderData = [
         {
             title: 'Farmer Water Savings',
-            value: stakeholder_benefits?.farmers?.water_savings?.estimated_savings || 0,
+            value: 0,
             label: 'Potential Savings',
             icon: <Sprout className="w-6 h-6 text-green-600" />,
         },
         {
             title: 'Financial Impact',
-            value: stakeholder_benefits?.farmers?.water_savings?.cost_savings || 0,
+            value: 0,
             label: 'Cost Savings',
             icon: <DollarSign className="w-6 h-6 text-blue-600" />,
         },
         {
             title: 'Revenue Opportunity',
-            value: stakeholder_benefits?.agritech_revenue_opportunities?.water_management_services?.smart_irrigation_systems?.potential_revenue || 0,
+            value: 0,
             label: 'Potential Revenue',
             icon: <Calculator className="w-6 h-6 text-purple-600" />,
         },
@@ -256,22 +279,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     const waterBreakdown = [
         {
             type: 'Irrigation',
-            value: irrigationValue,
-            percentage: totalValue > 0 ? (irrigationValue / totalValue) * 100 : 0,
+            value: irrigationValue || 0,
+            percentage: totalValue && totalValue > 0 ? ((irrigationValue || 0) / totalValue) * 100 : 0,
         },
         {
             type: 'Treatment',
-            value: treatmentValue,
-            percentage: totalValue > 0 ? (treatmentValue / totalValue) * 100 : 0,
+            value: treatmentValue || 0,
+            percentage: totalValue && totalValue > 0 ? ((treatmentValue || 0) / totalValue) * 100 : 0,
         },
         {
             type: 'Other',
-            value: Math.max(0, totalValue - irrigationValue - treatmentValue),
-            percentage: totalValue > 0 ? (Math.max(0, totalValue - irrigationValue - treatmentValue) / totalValue) * 100 : 0,
+            value: totalValue && totalValue > 0 ? Math.max(0, totalValue - (irrigationValue || 0) - (treatmentValue || 0)) : 0,
+            percentage: totalValue && totalValue > 0 ? (Math.max(0, totalValue - (irrigationValue || 0) - (treatmentValue || 0)) / totalValue) * 100 : 0,
         },
     ];
 
-    // Simplified explanations for water terms
+    // Simplified explanations (unchanged)
     const simpleExplanations = {
         'Irrigation Water': 'Water used for agricultural irrigation of crops',
         'Treatment Water': 'Water used in treatment processes including purification',
@@ -298,8 +321,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <button
                             onClick={() => setActiveInsightTab('trends')}
                             className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${activeInsightTab === 'trends'
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-200 scale-105'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-200 scale-105'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -310,8 +333,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <button
                             onClick={() => setActiveInsightTab('risks')}
                             className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${activeInsightTab === 'risks'
-                                    ? 'bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg shadow-red-200 scale-105'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+                                ? 'bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg shadow-red-200 scale-105'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -322,8 +345,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <button
                             onClick={() => setActiveInsightTab('opportunities')}
                             className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${activeInsightTab === 'opportunities'
-                                    ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-200 scale-105'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
+                                ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-200 scale-105'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -357,8 +380,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                     </div>
                                     <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                                         <span className={`px-4 py-2 rounded-xl text-xs font-bold ${(insight.impact || insight.priority || insight.value) === 'High'
-                                                ? 'bg-green-100 text-green-700'
-                                                : (insight.impact || insight.priority || insight.value) === 'Medium'
+                                            ? 'bg-green-100 text-green-700'
+                                            : (insight.impact || insight.priority || insight.value) === 'Medium'
                                                 ? 'bg-blue-100 text-blue-700'
                                                 : 'bg-gray-100 text-gray-700'
                                             }`}>
@@ -396,19 +419,19 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 <div className="flex-1">
                                     <h4 className="font-bold text-lg text-gray-900 mb-2">{metric.title}</h4>
                                     <p className="text-3xl font-bold text-gray-900">
-                                        {metric.value > 0 ? formatNumber(metric.value) : '---'} 
+                                        {metric.value ? formatNumber(metric.value) : '---'}
                                         <span className="text-lg text-gray-600"> {metric.unit}</span>
                                     </p>
-                                    {'per_hectare' in metric && metric.per_hectare > 0 && (
+                                    {'per_hectare' in metric && metric.per_hectare ? (
                                         <p className="text-sm text-gray-600 mt-2">
-                                            Per hectare: {formatNumber(metric.per_hectare)} m³/ha
+                                            Per hectare: {formatNumber(metric.per_hectare)} ML/ha
                                         </p>
-                                    )}
-                                    {'benchmark' in metric && metric.benchmark > 0 && (
+                                    ) : null}
+                                    {'benchmark' in metric && metric.benchmark ? (
                                         <p className="text-sm text-gray-600 mt-1">
                                             Benchmark: {formatNumber(metric.benchmark)} m³
                                         </p>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
@@ -436,7 +459,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                             <p className="text-3xl font-bold text-gray-900 mb-2">
                                 {item.value > 0 ? formatNumber(item.value) : '---'}
                             </p>
-                            <p className="text-sm text-gray-600">m³</p>
+                            <p className="text-sm text-gray-600">{waterMetricsData[0]?.unit || 'million ML'}</p>
                             <div className="mt-4 pt-4 border-t border-gray-200">
                                 <p className="text-sm font-semibold text-gray-700">{item.percentage.toFixed(1)}% of total</p>
                             </div>
@@ -448,14 +471,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <div>
                             <p className="text-sm text-gray-600 mb-2 font-medium">Water Savings Potential</p>
                             <p className="text-4xl font-bold text-green-700">
-                                {savingsPotential > 0 ? formatNumber(savingsPotential) : '---'} 
-                                <span className="text-lg"> m³</span>
+                                {savingsPotential ? formatNumber(savingsPotential) : '---'}
+                                <span className="text-lg"> {waterMetricsData[0]?.unit || 'million ML'}</span>
                             </p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-600 mb-2 font-medium">Cost Savings</p>
                             <p className="text-4xl font-bold text-green-600">
-                                {costSavings > 0 ? formatCurrency(costSavings) : '---'}
+                                {costSavings ? formatCurrency(costSavings) : '---'}
                             </p>
                         </div>
                     </div>
@@ -481,7 +504,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 <div>
                                     <h4 className="font-bold text-lg text-gray-900 mb-2">{metric.title}</h4>
                                     <p className="text-3xl font-bold text-gray-900">
-                                        {metric.value > 0 ? formatNumber(metric.value) : '---'}
+                                        {metric.value ? formatNumber(metric.value) : '---'}
                                     </p>
                                     <p className="text-sm text-gray-600 mt-1">{metric.label}</p>
                                 </div>
@@ -495,14 +518,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         Water Risk Factors
                     </h4>
                     <div className="space-y-3">
-                        {shortageRisk?.factors?.map((factor, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-sm text-gray-700">{factor}</p>
+                        {shortageRisk?.factors && shortageRisk.factors.length > 0 ? (
+                            shortageRisk.factors.map((factor, index) => (
+                                <div key={index} className="flex items-start gap-2">
+                                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm text-gray-700">{factor}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        )) || (
+                            ))
+                        ) : (
                             <div className="flex items-start gap-2">
                                 <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                                 <div>
@@ -559,19 +584,21 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Data Confidence</p>
                             <p className="text-xl font-bold text-gray-900">
-                                {confidence_score?.overall ? `${confidence_score.overall}%` : '---'}
+                                {dataQuality?.score ? `${dataQuality.score}%` : '---'}
                             </p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Years Covered</p>
                             <p className="text-xl font-bold text-gray-900">
-                                {reporting_period?.data_available_years?.length || 0} years
+                                {activeIrrigationData?.data_period_start && activeIrrigationData?.data_period_end
+                                    ? `${activeIrrigationData.data_period_start}–${activeIrrigationData.data_period_end}`
+                                    : '---'}
                             </p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Current Year</p>
                             <p className="text-xl font-bold text-gray-900">
-                                {reporting_period?.current_year || '---'}
+                                {metadata?.year || selectedYear || '---'}
                             </p>
                         </div>
                     </div>
@@ -589,7 +616,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         </div>
                         <div className="p-4 rounded-2xl bg-green-50 border border-green-200">
                             <p className="text-sm font-semibold text-gray-900 mb-2">Efficiency Calculation</p>
-                            <p className="text-sm text-gray-700">Based on output vs water input ratio</p>
+                            <p className="text-sm text-gray-700">Based on output vs water input ratio (if available)</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
                             <p className="text-sm font-semibold text-gray-900 mb-2">Risk Assessment</p>
@@ -622,7 +649,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 {Object.entries(selectedMetric).map(([key, value]) => {
                                     if (key === 'icon') return null;
                                     if (typeof value === 'object') return null;
-                                    
+
                                     let displayValue = value;
                                     if (typeof value === 'number' && value > 0) {
                                         if (key.includes('value')) {
@@ -630,10 +657,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                         } else if (key === 'efficiency') {
                                             displayValue = `${value}%`;
                                         }
-                                    } else if (value === 0 || value === '---') {
+                                    } else if (value === 0 || value === '---' || value === null) {
                                         displayValue = '---';
                                     }
-                                    
+
                                     return (
                                         <div key={key} className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
                                             <div className="text-sm text-gray-600 mb-2 capitalize font-semibold">
@@ -678,20 +705,20 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                             {[
                                 {
                                     title: 'Improve Irrigation Efficiency',
-                                    description: efficiencyScore < 80 
+                                    description: efficiencyScore && efficiencyScore < 80
                                         ? `Increase efficiency from ${formatPercent(efficiencyScore)} to 85%+ target`
-                                        : 'Maintain current efficiency levels',
-                                    impact: efficiencyScore < 70 ? 'High' : 'Medium',
+                                        : (efficiencyScore ? 'Maintain current efficiency levels' : 'Efficiency data not available'),
+                                    impact: efficiencyScore && efficiencyScore < 70 ? 'High' : 'Medium',
                                     effort: 'Medium',
                                     timeframe: '6 months',
                                     icon: <Gauge className="w-6 h-6 text-green-600" />,
                                 },
                                 {
                                     title: 'Implement Water Savings Measures',
-                                    description: savingsPotential > 0 
+                                    description: savingsPotential
                                         ? `Implement measures to achieve ${formatNumber(savingsPotential)} m³ annual savings`
                                         : 'Conduct water audit to identify savings potential',
-                                    impact: savingsPotential > (totalValue * 0.1) ? 'High' : 'Medium',
+                                    impact: savingsPotential && totalValue && savingsPotential > (totalValue * 0.1) ? 'High' : 'Medium',
                                     effort: 'Medium',
                                     timeframe: '1 year',
                                     icon: <Droplet className="w-6 h-6 text-blue-600" />,
@@ -706,7 +733,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                                 } : null,
                                 {
                                     title: 'Optimize Treatment Processes',
-                                    description: treatmentValue > 0 
+                                    description: treatmentValue
                                         ? `Review and optimize treatment water usage of ${formatNumber(treatmentValue)} m³`
                                         : 'Evaluate treatment water requirements',
                                     impact: 'Medium',

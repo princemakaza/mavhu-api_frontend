@@ -19,9 +19,16 @@ import {
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
     getIrrigationWaterData,
+    getAvailableIrrigationWaterYears,
+    getWaterUsageAnalysis,
+    getEnvironmentalMetricsSummary,
+    getDetailedEnvironmentalMetrics,
+    getAllEsgMetrics,
+    getStakeholderBenefits,
+    getIrrigationWaterCoordinates,
+    getIrrigationWaterAreaOfInterest,
     type IrrigationWaterResponse,
     type IrrigationWaterParams,
-    getAvailableIrrigationWaterYears,
 } from "../../../services/Admin_Service/esg_apis/water_risk_service";
 
 // Import tab components
@@ -269,13 +276,29 @@ const IrrigationWaterScreen = () => {
         console.log("Calculation clicked:", calculationType, data);
     };
 
-    // Calculate summary metrics for water data
-    const summaryMetrics = useMemo(() => {
+    // Transform the raw waterData into the old structure expected by the tab components
+    const transformedWaterData = useMemo(() => {
         if (!waterData) return null;
+        return {
+            ...waterData,
+            data: {
+                ...waterData.data,
+                water_usage_analysis: getWaterUsageAnalysis(waterData),
+                environmental_metrics: {
+                    summary: getEnvironmentalMetricsSummary(waterData),
+                    detailed_metrics: getDetailedEnvironmentalMetrics(waterData)
+                },
+                all_esg_metrics: getAllEsgMetrics(waterData),
+                stakeholder_benefits: getStakeholderBenefits(waterData)
+            }
+        };
+    }, [waterData]);
 
-        const waterAnalysis = waterData.data.water_usage_analysis;
-        const envMetrics = waterData.data.environmental_metrics.summary;
-
+    // Calculate summary metrics using the transformed data
+    const summaryMetrics = useMemo(() => {
+        if (!transformedWaterData) return null;
+        const waterAnalysis = transformedWaterData.data.water_usage_analysis;
+        const envMetrics = transformedWaterData.data.environmental_metrics.summary;
         return {
             irrigationWater: waterAnalysis.irrigation_water.current_value,
             treatmentWater: waterAnalysis.treatment_water.current_value,
@@ -286,46 +309,28 @@ const IrrigationWaterScreen = () => {
             ghgEmissions: envMetrics.total_ghg_emissions,
             scope1Emissions: envMetrics.scope1_emissions,
         };
+    }, [transformedWaterData]);
+
+    // Get coordinates using helper
+    const coordinates = useMemo(() => {
+        if (!waterData) return [];
+        return getIrrigationWaterCoordinates(waterData);
     }, [waterData]);
 
-    // Get coordinates from water data
-    const getCoordinates = () => {
-        if (!waterData) return [];
-        return waterData.data.company.area_of_interest_metadata?.coordinates || [];
-    };
-
-    // Get area name and coverage from water data
-    const getAreaInfo = () => {
+    // Get area info using helper
+    const areaInfo = useMemo(() => {
         if (!waterData) return { name: "", covered: "" };
-        const metadata = waterData.data.company.area_of_interest_metadata;
+        const metadata = getIrrigationWaterAreaOfInterest(waterData);
         return {
             name: metadata?.name || "Irrigation Area",
             covered: metadata?.area_covered || "N/A"
         };
-    };
-
-    useEffect(() => {
-        if (location.state?.companyId) {
-            setSelectedCompanyId(location.state.companyId);
-            setShowCompanySelector(false);
-        }
-        fetchCompanies();
-    }, [location.state]);
-
-    useEffect(() => {
-        if (selectedCompanyId && companies.length > 0) {
-            fetchIrrigationWaterData();
-        }
-    }, [selectedCompanyId, selectedYear]);
+    }, [waterData]);
 
     // Get selected company
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
 
-    // Get area info
-    const areaInfo = getAreaInfo();
-    const coordinates = getCoordinates();
-
-    // Prepare colors for OverviewTab - matching what it expects
+    // Prepare colors for OverviewTab
     const overviewTabColors = {
         primary: PRIMARY_GREEN,
         secondary: SECONDARY_GREEN,
@@ -336,9 +341,9 @@ const IrrigationWaterScreen = () => {
         background: BACKGROUND_GRAY,
     };
 
-    // Prepare shared data for tabs
+    // Shared data for tabs
     const sharedData = {
-        waterData,
+        waterData: transformedWaterData, // Use transformed data for backward compatibility
         selectedCompany,
         formatNumber,
         formatCurrency,
@@ -356,6 +361,20 @@ const IrrigationWaterScreen = () => {
         areaCovered: areaInfo.covered,
         colors: overviewTabColors,
     };
+
+    useEffect(() => {
+        if (location.state?.companyId) {
+            setSelectedCompanyId(location.state.companyId);
+            setShowCompanySelector(false);
+        }
+        fetchCompanies();
+    }, [location.state]);
+
+    useEffect(() => {
+        if (selectedCompanyId && companies.length > 0) {
+            fetchIrrigationWaterData();
+        }
+    }, [selectedCompanyId, selectedYear]);
 
     // Loading State
     if (loading) {
