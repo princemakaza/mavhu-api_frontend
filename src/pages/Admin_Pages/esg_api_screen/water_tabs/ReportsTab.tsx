@@ -49,28 +49,6 @@ import {
 // Import types and helper functions from water API
 import {
     IrrigationWaterResponse,
-    getIrrigationWaterCompany,
-    getIrrigationWaterMetadata,
-    getWaterUsageAnalysis,
-    getEnvironmentalMetricsData,
-    getAllEsgMetrics,
-    getStakeholderBenefits,
-    getIrrigationWaterSummary,
-    getConfidenceScore,
-    getCurrentIrrigationWaterYear,
-    getRecommendations,
-    getKeyFindings,
-    getNextSteps,
-    getWaterUsagePerHectare,
-    getWaterUsageBenchmark,
-    getWaterEfficiencyScore,
-    getWaterSavingsPotential,
-    getWaterCostSavings,
-    getWaterShortageRisk,
-    getWaterShortageRiskLevel,
-    getWaterShortageRiskProbability,
-    getWaterShortageMitigationStrategies,
-    getWaterEfficiencyROIPeriod,
 } from '../../../../services/Admin_Service/esg_apis/water_risk_service';
 
 // Color Palette
@@ -105,6 +83,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
     formatCurrency,
     formatPercent,
     availableYears,
+    selectedYear,
     onMetricClick,
 }) => {
     const [selectedReport, setSelectedReport] = useState<string>('summary');
@@ -126,58 +105,115 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
         );
     }
 
-    // Get data using helper functions
-    const company = getIrrigationWaterCompany(waterData);
-    const metadata = getIrrigationWaterMetadata(waterData);
-    const waterUsageAnalysis = getWaterUsageAnalysis(waterData);
-    const environmentalMetrics = getEnvironmentalMetricsData(waterData);
-    const allEsgMetrics = getAllEsgMetrics(waterData);
-    const stakeholderBenefits = getStakeholderBenefits(waterData);
-    const summary = getIrrigationWaterSummary(waterData);
-    const confidenceScore = getConfidenceScore(waterData);
-    const currentYear = getCurrentIrrigationWaterYear(waterData);
+    // Safe data extraction with null checks
+    const company = waterData?.data?.company || {};
+    const metadata = waterData?.data?.metadata || {};
+    const waterRiskAnalysis = waterData?.data?.water_risk_analysis || {};
+    const dataQuality = waterData?.data?.data_quality || {};
+    const summary = waterData?.data?.summary || { key_findings: [], recommendations: [] };
+    
+    // Get environmental metrics safely
+    const environmentalMetrics = Array.isArray(waterData?.data?.environmental_metrics) 
+        ? waterData.data.environmental_metrics 
+        : [];
+    
+    // Get irrigation efficiency data safely
+    const irrigationEfficiencyData = Array.isArray(waterData?.data?.existing_irrigation_efficiency_data) 
+        ? waterData.data.existing_irrigation_efficiency_data 
+        : [];
+    
+    // Get active irrigation data (the one with is_active true, or the first)
+// Find the record that actually contains metrics
+const activeIrrigationData = 
+    irrigationEfficiencyData.find(item => item?.is_active === true && item?.metrics?.length > 0) ||
+    irrigationEfficiencyData.find(item => item?.metrics?.length > 0) ||
+    irrigationEfficiencyData[0];
+    // Get metrics from active irrigation data safely
+    const irrigationMetrics = activeIrrigationData?.metrics || [];
 
-    // Extract specific water data
-    const irrigationWater = waterUsageAnalysis?.irrigation_water;
-    const treatmentWater = waterUsageAnalysis?.treatment_water;
-    const totalWater = waterUsageAnalysis?.total_water_usage;
-    const shortageRisk = getWaterShortageRisk(waterData);
-    const waterSavings = waterUsageAnalysis?.water_savings_analysis;
+    // Helper function to find metric value from irrigation metrics for a specific year
+    const findMetricValue = (metricName: string, year?: number | null): number | null => {
+        if (!Array.isArray(irrigationMetrics)) return null;
+        const metric = irrigationMetrics.find(m => m?.metric_name === metricName);
+        if (!metric || !Array.isArray(metric.yearly_data) || metric.yearly_data.length === 0) return null;
+        
+        // If year provided, try to find that year's data
+        if (year) {
+            const yearStr = year.toString();
+            const yearData = metric.yearly_data.find(d => d.year === yearStr);
+            return yearData?.value ?? null;
+        }
+        
+        // Otherwise, get the latest
+        const sorted = [...metric.yearly_data].sort((a, b) => {
+            const yearA = parseInt(a?.year || '0');
+            const yearB = parseInt(b?.year || '0');
+            return yearB - yearA;
+        });
+        return sorted[0]?.value ?? null;
+    };
 
-    // Get recommendations and next steps
-    const recommendations = getRecommendations(waterData);
-    const keyFindings = getKeyFindings(waterData);
-    const nextSteps = getNextSteps(waterData);
+    // Get water usage values for selected year (or latest if not selected)
+    const irrigationValue = findMetricValue("Total Irrigation Water (million ML)", selectedYear);
+    const treatmentValue = findMetricValue("Water Treatment for Chiredzi (million ML)", selectedYear);
+    const perHectare = findMetricValue("Water per Hectare (ML/ha)", selectedYear);
+    const effluentValue = findMetricValue("Effluent Discharged (thousand ML)", selectedYear);
+    const totalValue = waterRiskAnalysis?.total_water_usage ?? null; // may be null
 
-    // Calculate water metrics
-    const irrigationValue = irrigationWater?.current_value || 0;
-    const treatmentValue = treatmentWater?.current_value || 0;
-    const totalValue = totalWater?.current_value || 0;
-    const efficiencyScore = getWaterEfficiencyScore(waterData) || 0;
-    const savingsPotential = getWaterSavingsPotential(waterData) || 0;
-    const costSavings = getWaterCostSavings(waterData) || 0;
-    const perHectare = getWaterUsagePerHectare(waterData) || 0;
-    const benchmark = getWaterUsageBenchmark(waterData) || 0;
-    const shortageLevel = getWaterShortageRiskLevel(waterData) || 'unknown';
-    const shortageProbability = getWaterShortageRiskProbability(waterData) || 0;
-    const mitigationStrategies = getWaterShortageMitigationStrategies(waterData) || [];
-    const roiPeriod = getWaterEfficiencyROIPeriod(waterData) || 0;
+    // Get shortage risk data
+    const shortageRisk = waterRiskAnalysis?.shortage_risk || { level: 'unknown', probability: 0, factors: [], mitigation: [] };
+    const shortageLevel = shortageRisk?.level || 'unknown';
+    const shortageProbability = shortageRisk?.probability || 0;
+    const mitigationStrategies = Array.isArray(shortageRisk?.mitigation) ? shortageRisk.mitigation : [];
 
+    // Savings potential
+    const savingsPotential = waterRiskAnalysis?.savings_potential || null;
+    
     // Get ESG frameworks
-    const esgFrameworks = company.esg_reporting_framework || [];
+    const esgFrameworks = Array.isArray(company?.esg_reporting_framework) 
+        ? company.esg_reporting_framework 
+        : [];
 
-    // Get water-specific ESG metrics
-    const waterEsgMetrics = Object.values(allEsgMetrics?.environmental || {}).filter(metric =>
-        metric?.name?.toLowerCase().includes('water') ||
-        metric?.name?.toLowerCase().includes('irrigation') ||
-        metric?.name?.toLowerCase().includes('treatment') ||
-        metric?.name?.toLowerCase().includes('effluent')
-    );
-
-    // Extract area of interest metadata
-    const areaOfInterest = company.area_of_interest_metadata;
+    // Get area of interest metadata
+    const areaOfInterest = company?.area_of_interest_metadata || {};
     const areaName = areaOfInterest?.name || 'Not specified';
     const areaCovered = areaOfInterest?.area_covered || 'Not specified';
+
+    // Get recommendations and key findings safely
+    const recommendations = Array.isArray(summary?.recommendations) ? summary.recommendations : [];
+    const keyFindings = Array.isArray(summary?.key_findings) ? summary.key_findings : [];
+
+    // Get confidence score
+    const confidenceScore = dataQuality?.score || 0;
+
+    // Get data sources safely
+    const dataSources = Array.isArray(company?.data_source) ? company.data_source : [];
+
+    // Helper to get risk color
+    const getRiskColor = (level: string) => {
+        switch (level.toLowerCase()) {
+            case 'low': return COLORS.success;
+            case 'medium': return COLORS.warning;
+            case 'high': return COLORS.danger;
+            default: return '#6b7280';
+        }
+    };
+
+    // Helper to get trend icon (simplified)
+    const getTrendIcon = (trend: string) => {
+        if (trend.toLowerCase().includes('improving') || trend.toLowerCase().includes('decrease')) {
+            return <TrendingDown className="w-4 h-4 text-green-600" />;
+        } else if (trend.toLowerCase().includes('declining') || trend.toLowerCase().includes('increase')) {
+            return <TrendingUp className="w-4 h-4 text-red-600" />;
+        }
+        return <Activity className="w-4 h-4 text-yellow-600" />;
+    };
+
+    // Safe array iteration helper
+    const safeMap = <T, U>(array: T[] | undefined | null, callback: (item: T, index: number) => U): U[] => {
+        if (!array || !Array.isArray(array)) return [];
+        return array.map(callback);
+    };
 
     return (
         <div className="space-y-8 pb-8">
@@ -241,30 +277,30 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div className="space-y-3">
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Company Name</p>
-                                            <p className="text-lg font-bold text-gray-900">{company.name}</p>
+                                            <p className="text-lg font-bold text-gray-900">{company?.name || 'N/A'}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Industry</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.industry}</p>
+                                            <p className="text-lg font-medium text-gray-800">{company?.industry || 'N/A'}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Country</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.country}</p>
+                                            <p className="text-lg font-medium text-gray-800">{company?.country || 'N/A'}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Purpose</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.purpose || 'Not specified'}</p>
+                                            <p className="text-lg font-medium text-gray-800">{company?.purpose || 'Not specified'}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Scope</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.scope || 'Not specified'}</p>
+                                            <p className="text-lg font-medium text-gray-800">{company?.scope || 'Not specified'}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">ESG Contact</p>
                                             <p className="text-lg font-medium text-gray-800">
-                                                {company.esg_contact_person ?
+                                                {company?.esg_contact_person ?
                                                     `${company.esg_contact_person.name} (${company.esg_contact_person.email})` :
                                                     'Not specified'
                                                 }
@@ -273,16 +309,16 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Latest ESG Report</p>
                                             <p className="text-lg font-medium text-gray-800">
-                                                {company.latest_esg_report_year ? `Year ${company.latest_esg_report_year}` : 'Not available'}
+                                                {company?.latest_esg_report_year ? `Year ${company.latest_esg_report_year}` : 'Not available'}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">ESG Data Status</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.esg_data_status || 'Not specified'}</p>
+                                            <p className="text-lg font-medium text-gray-800">{company?.esg_data_status || 'Not specified'}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Data Range</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.data_range || 'Not specified'}</p>
+                                            <p className="text-lg font-medium text-gray-800">{company?.data_range || 'Not specified'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -299,7 +335,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                         <p className="text-sm text-gray-600 mb-1">Area Covered</p>
                                         <p className="text-gray-800">{areaCovered}</p>
                                     </div>
-                                    {areaOfInterest?.coordinates && (
+                                    {areaOfInterest?.coordinates && Array.isArray(areaOfInterest.coordinates) && (
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Coordinates</p>
                                             <p className="text-gray-800">{areaOfInterest.coordinates.length} points</p>
@@ -310,7 +346,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                         </div>
                     </div>
 
-                    {/* Key Water Statistics */}
+                    {/* Key Water Statistics - Enhanced with all metrics */}
                     <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-8">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-2xl font-bold text-gray-900">Key Water Statistics</h3>
@@ -318,23 +354,198 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                         </div>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                <p className="text-sm text-gray-600 mb-2">Total Water Usage</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {totalValue > 0 ? formatNumber(totalValue) : '---'} m³
+                            {/* Irrigation Water */}
+                            <div 
+                                className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 cursor-pointer hover:shadow-lg transition-all"
+                                onClick={() => onMetricClick({ value: irrigationValue, unit: 'million ML' }, 'Irrigation Water')}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-medium text-gray-600">Irrigation Water</p>
+                                    <Droplet className="w-5 h-5 text-green-600" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-900 mb-1">
+                                    {irrigationValue !== null ? formatNumber(irrigationValue) : '---'}
                                 </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">million ML</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                                        {selectedYear || 'Latest'}
+                                    </span>
+                                </div>
                             </div>
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                <p className="text-sm text-gray-600 mb-2">Water Efficiency</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {efficiencyScore > 0 ? formatPercent(efficiencyScore) : '---'}
+
+                            {/* Treatment Water */}
+                            <div 
+                                className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 cursor-pointer hover:shadow-lg transition-all"
+                                onClick={() => onMetricClick({ value: treatmentValue, unit: 'million ML' }, 'Treatment Water')}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-medium text-gray-600">Treatment Water</p>
+                                    <Waves className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-900 mb-1">
+                                    {treatmentValue !== null ? formatNumber(treatmentValue) : '---'}
                                 </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">million ML</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                                        {selectedYear || 'Latest'}
+                                    </span>
+                                </div>
                             </div>
-                            <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
-                                <p className="text-sm text-gray-600 mb-2">Shortage Risk Level</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {shortageLevel !== 'unknown' ? shortageLevel : '---'}
+
+                            {/* Water per Hectare */}
+                            <div 
+                                className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 cursor-pointer hover:shadow-lg transition-all"
+                                onClick={() => onMetricClick({ value: perHectare, unit: 'ML/ha' }, 'Water per Hectare')}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-medium text-gray-600">Water per Hectare</p>
+                                    <Gauge className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-900 mb-1">
+                                    {perHectare !== null ? formatNumber(perHectare) : '---'}
                                 </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">ML/ha</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800">
+                                        {selectedYear || 'Latest'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Effluent Discharged */}
+                            <div 
+                                className="p-6 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 cursor-pointer hover:shadow-lg transition-all"
+                                onClick={() => onMetricClick({ value: effluentValue, unit: 'thousand ML' }, 'Effluent Discharged')}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-medium text-gray-600">Effluent Discharged</p>
+                                    <CloudRain className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-900 mb-1">
+                                    {effluentValue !== null ? formatNumber(effluentValue) : '---'}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">thousand ML</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+                                        {selectedYear || 'Latest'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Total Water Usage */}
+                            <div 
+                                className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 cursor-pointer hover:shadow-lg transition-all"
+                                onClick={() => onMetricClick({ value: totalValue, unit: 'million ML' }, 'Total Water Usage')}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-medium text-gray-600">Total Water Usage</p>
+                                    <Database className="w-5 h-5 text-green-600" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-900 mb-1">
+                                    {totalValue !== null ? formatNumber(totalValue) : '---'}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">million ML</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                                        {selectedYear || 'Latest'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Shortage Risk */}
+                            <div 
+                                className="p-6 rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200 cursor-pointer hover:shadow-lg transition-all"
+                                onClick={() => onMetricClick(shortageRisk, 'Water Shortage Risk')}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-sm font-medium text-gray-600">Shortage Risk</p>
+                                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                                </div>
+                                <p className="text-3xl font-bold text-gray-900 mb-1">
+                                    {shortageLevel !== 'unknown' ? shortageLevel.charAt(0).toUpperCase() + shortageLevel.slice(1) : '---'}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                        Probability: {shortageProbability ? formatPercent(shortageProbability * 100) : '---'}
+                                    </span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
+                                        {selectedYear || 'Latest'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Data Quality Summary */}
+                        <div className="mt-8 p-4 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="w-5 h-5 text-green-600" />
+                                    <span className="text-sm font-medium text-gray-700">Data Confidence Score</span>
+                                </div>
+                                <span className="text-lg font-bold text-gray-900">{confidenceScore}%</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Based on available data sources and validation status.</p>
+                        </div>
+                    </div>
+
+                    {/* Key Findings and Recommendations (existing) */}
+                    <div className="bg-white rounded-3xl border-2 border-green-100 shadow-xl p-8">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6">Key Findings & Recommendations</h3>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                    <FileCheck className="w-5 h-5 text-green-600" />
+                                    Key Findings
+                                </h4>
+                                <ul className="space-y-3">
+                                    {keyFindings.length > 0 ? (
+                                        keyFindings.map((finding, idx) => (
+                                            <li key={idx} className="flex items-start gap-2">
+                                                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                                <span className="text-gray-700">{finding}</span>
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <li className="text-gray-500">No key findings available.</li>
+                                    )}
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                    <Target className="w-5 h-5 text-green-600" />
+                                    Recommendations
+                                </h4>
+                                <ul className="space-y-3">
+                                    {recommendations.length > 0 ? (
+                                        recommendations.map((rec, idx) => {
+                                            if (typeof rec === 'string') {
+                                                return (
+                                                    <li key={idx} className="flex items-start gap-2">
+                                                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                                        <span className="text-gray-700">{rec}</span>
+                                                    </li>
+                                                );
+                                            } else {
+                                                // rec is an object with category and actions
+                                                return (
+                                                    <div key={idx} className="space-y-1">
+                                                        <p className="font-semibold text-gray-800">{rec.category || 'General'}</p>
+                                                        {rec.actions?.map((action: string, i: number) => (
+                                                            <li key={i} className="flex items-start gap-2 ml-4">
+                                                                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                                                                <span className="text-gray-700">{action}</span>
+                                                            </li>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            }
+                                        })
+                                    ) : (
+                                        <li className="text-gray-500">No recommendations available.</li>
+                                    )}
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -354,44 +565,44 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                         </div>
 
                         <div className="space-y-6">
-                            {esgFrameworks.length > 0 ? (
-                                <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-                                    <h4 className="font-bold text-lg text-gray-900 mb-4">Implemented Frameworks</h4>
-                                    <div className="space-y-3">
-                                        {esgFrameworks.map((framework, index) => (
-                                            <div key={index} className="flex items-center gap-3 p-4 rounded-xl bg-white">
-                                                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                                                <span className="font-medium text-gray-800">{framework}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                            <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+                                <h4 className="font-bold text-lg text-gray-900 mb-4">Implemented Frameworks</h4>
+                                <div className="space-y-3">
+                                    {safeMap(esgFrameworks, (framework, index) => (
+                                        <div key={index} className="flex items-center gap-3 p-4 rounded-xl bg-white">
+                                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                            <span className="font-medium text-gray-800">{framework}</span>
+                                        </div>
+                                    ))}
+                                    {esgFrameworks.length === 0 && (
+                                        <div className="text-center p-6">
+                                            <p className="text-gray-600">No ESG frameworks defined</p>
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="p-8 rounded-2xl bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200">
-                                    <div className="text-center">
-                                        <BookOpen className="w-12 h-12 text-yellow-600 mx-auto mb-4" />
-                                        <h4 className="text-lg font-bold text-gray-900 mb-2">No ESG Frameworks Defined</h4>
-                                        <p className="text-gray-700">This company has not specified any ESG reporting frameworks.</p>
-                                    </div>
-                                </div>
-                            )}
+                            </div>
 
                             {/* Water ESG Metrics Summary */}
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                 <h4 className="font-bold text-lg text-gray-900 mb-4">Water ESG Metrics Overview</h4>
                                 <div className="space-y-4">
-                                    {waterEsgMetrics.length > 0 ? (
-                                        waterEsgMetrics.slice(0, 5).map((metric, index) => (
+                                    {environmentalMetrics.length > 0 ? (
+                                        environmentalMetrics.slice(0, 5).map((metric, index) => (
                                             <div key={index} className="p-4 bg-white rounded-xl border border-gray-200">
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <Droplet className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                                    <span className="font-medium text-gray-800">{metric.name}</span>
+                                                    <span className="font-medium text-gray-800">{metric?.metric_name || 'Unknown Metric'}</span>
                                                 </div>
-                                                {metric.description && (
+                                                {metric?.description && (
                                                     <p className="text-sm text-gray-600">{metric.description}</p>
                                                 )}
-                                                {metric.unit && (
+                                                {metric?.unit && (
                                                     <p className="text-xs text-gray-500 mt-1">Unit: {metric.unit}</p>
+                                                )}
+                                                {metric?.value && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Value: {metric.value.numeric_value} {metric.unit}
+                                                    </p>
                                                 )}
                                             </div>
                                         ))
@@ -427,23 +638,20 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div className="text-center p-4 bg-white rounded-xl">
                                         <p className="text-sm text-gray-600 mb-2">Irrigation Water</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {irrigationValue > 0 ? formatNumber(irrigationValue) : '---'} m³
+                                            {irrigationValue ? formatNumber(irrigationValue) : '---'} ML
                                         </p>
-                                        <p className="text-xs text-gray-500">{irrigationWater?.trend || '---'}</p>
                                     </div>
                                     <div className="text-center p-4 bg-white rounded-xl">
                                         <p className="text-sm text-gray-600 mb-2">Treatment Water</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {treatmentValue > 0 ? formatNumber(treatmentValue) : '---'} m³
+                                            {treatmentValue ? formatNumber(treatmentValue) : '---'} ML
                                         </p>
-                                        <p className="text-xs text-gray-500">{treatmentWater?.trend || '---'}</p>
                                     </div>
                                     <div className="text-center p-4 bg-white rounded-xl">
                                         <p className="text-sm text-gray-600 mb-2">Total Water Usage</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {totalValue > 0 ? formatNumber(totalValue) : '---'} m³
+                                            {totalValue ? formatNumber(totalValue) : '---'} ML
                                         </p>
-                                        <p className="text-xs text-gray-500">{totalWater?.trend || '---'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -456,26 +664,26 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                     <p className="text-sm text-gray-600 mb-2">Water Efficiency Score</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {efficiencyScore > 0 ? formatPercent(efficiencyScore) : '---'}
+                                        ---
                                     </p>
                                     <p className="text-xs text-gray-500">Higher is better</p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
                                     <p className="text-sm text-gray-600 mb-2">Usage per Hectare</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {perHectare > 0 ? formatNumber(perHectare) : '---'} m³/ha
+                                        {perHectare ? formatNumber(perHectare) : '---'} ML/ha
                                     </p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
                                     <p className="text-sm text-gray-600 mb-2">Industry Benchmark</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {benchmark > 0 ? formatNumber(benchmark) : '---'} m³
+                                        --- ML
                                     </p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200">
                                     <p className="text-sm text-gray-600 mb-2">Savings Potential</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {savingsPotential > 0 ? formatNumber(savingsPotential) : '---'} m³
+                                        {savingsPotential ? formatNumber(savingsPotential) : '---'} ML
                                     </p>
                                 </div>
                             </div>
@@ -499,7 +707,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div>
                                         <p className="text-sm text-gray-600 mb-2">Probability</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {shortageProbability > 0 ? formatPercent(shortageProbability * 100) : '---'}
+                                            {shortageProbability ? formatPercent(shortageProbability * 100) : '---'}
                                         </p>
                                     </div>
                                 </div>
@@ -507,7 +715,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div className="mt-4 pt-4 border-t border-red-200">
                                         <p className="text-sm font-semibold text-gray-900 mb-2">Mitigation Strategies</p>
                                         <ul className="space-y-2">
-                                            {mitigationStrategies.slice(0, 3).map((strategy, index) => (
+                                            {safeMap(mitigationStrategies.slice(0, 3), (strategy, index) => (
                                                 <li key={index} className="flex items-start gap-2">
                                                     <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                                                     <span className="text-sm text-gray-700">{strategy}</span>
@@ -527,19 +735,19 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div className="text-center p-4 bg-white rounded-xl">
                                         <p className="text-sm text-gray-600 mb-2">Cost Savings Potential</p>
                                         <p className="text-2xl font-bold text-green-600">
-                                            {costSavings > 0 ? formatCurrency(costSavings) : '---'}
+                                            ---
                                         </p>
                                     </div>
                                     <div className="text-center p-4 bg-white rounded-xl">
                                         <p className="text-sm text-gray-600 mb-2">Implementation Cost</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {waterSavings?.implementation_cost ? formatCurrency(waterSavings.implementation_cost) : '---'}
+                                            ---
                                         </p>
                                     </div>
                                     <div className="text-center p-4 bg-white rounded-xl">
                                         <p className="text-sm text-gray-600 mb-2">ROI Period</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {roiPeriod > 0 ? `${roiPeriod} years` : '---'}
+                                            ---
                                         </p>
                                     </div>
                                 </div>
@@ -571,7 +779,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                         <h5 className="font-bold text-gray-900">Calculation Approach</h5>
                                     </div>
                                     <p className="text-gray-800 pl-8">
-                                        {company.data_processing_workflow || 'Standard water usage calculation methodology applied.'}
+                                        {company?.data_processing_workflow || 'Standard water usage calculation methodology applied.'}
                                     </p>
                                 </div>
 
@@ -602,14 +810,15 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Data Sources</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
                                 <div className="space-y-2">
-                                    {metadata.data_sources?.map((source, index) => (
+                                    {safeMap(dataSources, (source, index) => (
                                         <div key={index} className="flex items-center gap-3">
                                             <Database className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                             <span className="text-gray-700">{source}</span>
                                         </div>
-                                    )) || (
-                                            <p className="text-gray-600">No specific data sources defined</p>
-                                        )}
+                                    ))}
+                                    {dataSources.length === 0 && (
+                                        <p className="text-gray-600">No specific data sources defined</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -619,7 +828,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Data Processing Workflow</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
                                 <p className="text-gray-800">
-                                    {company.data_processing_workflow || 'Standard data processing workflow applied for water usage analysis.'}
+                                    {company?.data_processing_workflow || 'Standard data processing workflow applied for water usage analysis.'}
                                 </p>
                             </div>
                         </div>
@@ -629,7 +838,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Analytical Layer Metadata</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200">
                                 <p className="text-gray-800">
-                                    {company.analytical_layer_metadata || 'Standard analytical layers applied for water risk assessment.'}
+                                    {company?.analytical_layer_metadata || 'Standard analytical layers applied for water risk assessment.'}
                                 </p>
                             </div>
                         </div>
@@ -656,15 +865,15 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
                                         <p className="text-sm text-gray-600 mb-1">API Version</p>
-                                        <p className="text-lg font-bold text-gray-900">{metadata.api_version}</p>
+                                        <p className="text-lg font-bold text-gray-900">{metadata?.api_version || 'N/A'}</p>
                                     </div>
                                     <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                         <p className="text-sm text-gray-600 mb-1">Calculation Version</p>
-                                        <p className="text-lg font-bold text-gray-900">{metadata.calculation_version}</p>
+                                        <p className="text-lg font-bold text-gray-900">N/A</p>
                                     </div>
                                     <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
                                         <p className="text-sm text-gray-600 mb-1">GEE Adapter Version</p>
-                                        <p className="text-lg font-bold text-gray-900">{metadata.gee_adapter_version}</p>
+                                        <p className="text-lg font-bold text-gray-900">N/A</p>
                                     </div>
                                 </div>
                             </div>
@@ -678,20 +887,20 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-700">Generated At</span>
                                         <span className="font-bold text-gray-900">
-                                            {new Date(metadata.generated_at).toLocaleString()}
+                                            {metadata?.generated_at ? new Date(metadata.generated_at).toLocaleString() : 'N/A'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-700">Endpoint</span>
-                                        <span className="font-bold text-gray-900">{metadata.endpoint}</span>
+                                        <span className="font-bold text-gray-900">{metadata?.endpoint || 'N/A'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-700">Company ID</span>
-                                        <span className="font-bold text-gray-900">{metadata.company_id}</span>
+                                        <span className="font-bold text-gray-900">{metadata?.company_id || 'N/A'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-700">Year Requested</span>
-                                        <span className="font-bold text-gray-900">{metadata.year_requested}</span>
+                                        <span className="font-bold text-gray-900">{selectedYear || metadata?.year || 'N/A'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -702,14 +911,15 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                             <h4 className="font-bold text-lg text-gray-900 mb-4">Company Data Sources</h4>
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                 <div className="space-y-2">
-                                    {company.data_source?.map((source, index) => (
+                                    {safeMap(dataSources, (source, index) => (
                                         <div key={index} className="flex items-center gap-3">
                                             <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                                             <span className="text-gray-700">{source}</span>
                                         </div>
-                                    )) || (
-                                            <p className="text-gray-600">No company data sources defined</p>
-                                        )}
+                                    ))}
+                                    {dataSources.length === 0 && (
+                                        <p className="text-gray-600">No company data sources defined</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -722,25 +932,25 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                                     <div>
                                         <p className="text-sm text-gray-600 mb-2">Confidence Score</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {confidenceScore.overall ? `${confidenceScore.overall}%` : '---'}
+                                            {confidenceScore ? `${confidenceScore}%` : '---'}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600 mb-2">Years Available</p>
                                         <p className="text-2xl font-bold text-gray-900">
-                                            {availableYears.length}
+                                            {availableYears?.length || 0}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600 mb-2">Current Year</p>
                                         <p className="text-lg font-bold text-gray-900">
-                                            {currentYear}
+                                            {metadata?.year || 'N/A'}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600 mb-2">ESG Data Status</p>
                                         <p className="text-lg font-bold text-gray-900">
-                                            {company.esg_data_status || '---'}
+                                            {company?.esg_data_status || '---'}
                                         </p>
                                     </div>
                                 </div>
@@ -750,7 +960,6 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                 </div>
             )}
 
-        
             {/* Export Modal */}
             {isExportModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setIsExportModalOpen(false)}>

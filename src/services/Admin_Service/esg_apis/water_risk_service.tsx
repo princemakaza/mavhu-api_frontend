@@ -1,5 +1,6 @@
 import api from "../Auth_service/api";
 
+// ==================== Existing interfaces (reused) ====================
 export interface Coordinate {
     lat: number;
     lon: number;
@@ -46,214 +47,145 @@ export interface Company {
     __v?: number;
 }
 
+// ==================== New interfaces matching the API response ====================
+
 export interface Metadata {
     api_version: string;
-    calculation_version: string;
-    gee_adapter_version: string;
     generated_at: string;
     endpoint: string;
     company_id: string;
-    year_requested: number;
-    data_sources: string[];
+    year: number;
 }
 
-export interface ReportingPeriod {
-    start_year: number;
-    end_year: number;
-    current_year: number;
-    data_available_years: number[];
-}
-
-export interface ConfidenceScore {
-    overall: number;
-    interpretation: string;
-    factors: string[];
-}
-
-export interface WaterUsageItem {
-    current_value: number | null;
-    unit: string;
-    trend: string;
-    efficiency_score: number | null;
-    savings_potential: number | null;
-    monthly_data: any[];
-}
-
-export interface TotalWaterUsage {
-    current_value: number | null;
-    unit: string;
-    trend: string;
-    per_hectare: number | null;
-    benchmark: number | null;
-}
-
-export interface ShortageRisk {
-    level: string;
-    probability: number | null;
-    factors: string[];
-    mitigation_strategies: string[];
-}
-
-export interface WaterSavingsAnalysis {
-    potential_savings: number | null;
-    cost_savings: number | null;
-    implementation_cost: number | null;
-    roi_period: number | null;
-    recommendations: string[];
-}
-
-export interface WaterUsageAnalysis {
-    irrigation_water: WaterUsageItem;
-    treatment_water: WaterUsageItem;
-    total_water_usage: TotalWaterUsage;
-    shortage_risk: ShortageRisk;
-    water_savings_analysis: WaterSavingsAnalysis;
-}
-
-export interface MetricValue {
+export interface EnvironmentalMetricValue {
     year: number;
     value: string;
     numeric_value: number;
     source_notes?: string;
+    added_by?: string;
+    added_at?: string;
 }
 
-export interface DetailedMetric {
-    name: string;
-    category: string;
+export interface EnvironmentalMetric {
+    metric_name: string;
     unit: string;
     description: string;
-    current_value: number;
-    trend: string;
-    years_available: number[];
-    values: MetricValue[];
+    value: EnvironmentalMetricValue;
 }
 
-export interface EnvironmentalMetricsSummary {
-    total_ghg_emissions: number;
-    scope1_emissions: number;
-    scope2_emissions: number;
-    scope3_emissions: number;
-    irrigation_water_usage: number | null;
-    treatment_water_usage: number | null;
-    total_water_usage: number | null;
+export interface MetricYearlyDataPoint {
+    year: string;
+    value: number;
+    unit: string;
+    source: string;
+    added_by: string;
+    _id: string;
+    added_at: string;
+    last_updated_at: string;
 }
 
-export interface EnvironmentalMetrics {
-    total_metrics: number;
-    detailed_metrics: DetailedMetric[];
-    summary: EnvironmentalMetricsSummary;
-}
-
-export interface EsgMetric {
-    name: string;
+export interface IrrigationEfficiencyMetric {
     category: string;
-    unit: string | null;
-    description: string | null;
-    values: MetricValue[];
+    metric_name: string;
+    data_type: string;
+    yearly_data: MetricYearlyDataPoint[];
+    single_value: { added_at: string };
+    is_active: boolean;
+    created_by: string;
+    _id: string;
+    list_data: any[];
+    created_at: string;
 }
 
-export interface AllEsgMetrics {
-    environmental: Record<string, EsgMetric>;
-    social: Record<string, EsgMetric>;
-    governance: Record<string, EsgMetric>;
+export interface GriReference {
+    standard: string;
+    metric_name: string;
+    compliance_status: string;
+    reporting_year: string;
+    _id: string;
 }
 
-export interface StakeholderBenefits {
-    farmers: {
-        water_savings: {
-            estimated_savings: number;
-            unit: string;
-            cost_savings: number;
-            currency: string;
-        };
-        crop_yield_improvement: {
-            estimated_improvement: string;
-            factors: string[];
-        };
-        input_cost_reduction: {
-            water_pumping_costs: number;
-            fertilizer_efficiency: string;
-            labor_savings: string;
-        };
-        risk_reduction: {
-            drought_risk: string;
-            water_cost_volatility: string;
-            regulatory_compliance: string;
-        };
+export interface IrrigationEfficiencyData {
+    _id: string;
+    company: string;
+    data_period_start: string;
+    data_period_end: string;
+    original_source: string;
+    import_source: string;
+    source_file_name?: string;
+    import_batch_id?: string;
+    import_date: string;
+    data_quality_score: number | null;
+    verification_status: string;
+    validation_status: string;
+    metrics: IrrigationEfficiencyMetric[];
+    summary_stats: {
+        total_irrigation_water: number;
+        avg_water_per_hectare: number;
+        total_effluent_discharged: number;
+        avg_water_treatment: number;
+        water_sources_count: number;
+        last_updated?: string;
     };
-    banks: {
-        water_related_risks: {
-            shortage_risk: {
-                level: string;
-                probability: number | null;
-                impact: string;
-                mitigation: any[];
-            };
-            regulatory_risks: {
-                water_use_permits: string;
-                discharge_regulations: string;
-                conservation_requirements: string;
-            };
-            reputation_risks: {
-                community_relations: string;
-                environmental_impact: string;
-                stakeholder_perception: string;
-            };
-        };
-        financial_implications: {
-            potential_losses: number;
-            insurance_costs: string;
-            financing_terms: string;
-        };
-        recommendation: {
-            loan_terms: string;
-            monitoring_requirements: string;
-            collateral_valuation: string;
-        };
+    created_by: string;
+    last_updated_by: string | null;
+    version: number;
+    is_active: boolean;
+    source_files: any[];
+    validation_errors: any[];
+    gri_references?: GriReference[];
+    forecast_data: any[];
+    risk_assessment: any[];
+    created_at: string;
+    last_updated_at: string;
+    __v: number;
+    // optional fields from second object
+    import_notes?: string;
+    validation_notes?: string;
+    verified_at?: string | null;
+    verified_by?: string | null;
+    source_file_metadata?: any;
+}
+
+export interface ShortageRisk {
+    level: string;
+    probability: number;
+    factors: string[];
+    mitigation: string[];
+}
+
+export interface WaterRiskAnalysis {
+    irrigation_water: {
+        value: number | null;
+        trend: string;
     };
-    agritech_revenue_opportunities: {
-        water_management_services: {
-            smart_irrigation_systems: {
-                potential_revenue: number;
-                implementation_cost: number | null;
-                roi_period: number | null;
-                market_size: string;
-            };
-            water_monitoring_platforms: {
-                subscription_revenue: number;
-                installation_fee: number;
-                maintenance_fee: number;
-            };
-            data_analytics_services: {
-                per_hectare_fee: number;
-                estimated_hectares: string;
-                total_revenue: string;
-            };
-        };
-        efficiency_improvements: {
-            drip_irrigation_retrofits: {
-                cost_per_hectare: number;
-                water_savings: string;
-                payback_period: string;
-            };
-            soil_moisture_sensors: {
-                cost_per_sensor: number;
-                coverage_per_sensor: string;
-                roi: string;
-            };
-            water_recycling_systems: {
-                installation_cost: number;
-                operational_savings: number;
-                roi_period: string;
-            };
-        };
-        revenue_streams: {
-            service_fees: number;
-            subscription_fees: string;
-            data_licensing: string;
-            consulting_services: string;
-        };
+    treatment_water: {
+        value: number | null;
+        trend: string;
     };
+    total_water_usage: number | null;
+    shortage_risk: ShortageRisk;
+    savings_potential: number | null;
+}
+
+export interface Graphs {
+    risk_assessment: {
+        type: string;
+        title: string;
+        labels: string[];
+        datasets: Array<{
+            label: string;
+            data: number[];
+        }>;
+    };
+}
+
+export interface DataQuality {
+    score: number;
+    verification_status: string;
+    validation_status: string;
+    metrics_count: number;
+    water_metrics_count: number;
 }
 
 export interface Recommendation {
@@ -265,7 +197,6 @@ export interface Recommendation {
 export interface Summary {
     key_findings: string[];
     recommendations: Recommendation[];
-    next_steps: string[];
 }
 
 export interface IrrigationWaterResponse {
@@ -274,13 +205,12 @@ export interface IrrigationWaterResponse {
     data: {
         metadata: Metadata;
         company: Company;
-        reporting_period: ReportingPeriod;
-        confidence_score: ConfidenceScore;
-        water_usage_analysis: WaterUsageAnalysis;
-        environmental_metrics: EnvironmentalMetrics;
-        all_esg_metrics: AllEsgMetrics;
-        graphs: Record<string, any>;
-        stakeholder_benefits: StakeholderBenefits;
+        environmental_metrics: EnvironmentalMetric[];
+        water_metrics: any[]; // empty in example
+        existing_irrigation_efficiency_data: IrrigationEfficiencyData[];
+        water_risk_analysis: WaterRiskAnalysis;
+        graphs: Graphs;
+        data_quality: DataQuality;
         summary: Summary;
     };
 }
@@ -289,6 +219,8 @@ export interface IrrigationWaterParams {
     companyId: string;
     year?: number;
 }
+
+// ==================== Helper functions ====================
 
 /**
  * Get irrigation water data for a company
@@ -299,7 +231,6 @@ export const getIrrigationWaterData = async (
     try {
         const { companyId, year } = params;
 
-        // Build query parameters
         const queryParams = new URLSearchParams();
         if (year !== undefined) {
             queryParams.append('year', year.toString());
@@ -314,7 +245,6 @@ export const getIrrigationWaterData = async (
         const statusCode = error.response?.status;
         const errorMessage = error.response?.data?.error || error.response?.data?.message;
 
-        // Handle specific error cases
         switch (statusCode) {
             case 400:
                 throw new Error(errorMessage || "Invalid request parameters");
@@ -340,130 +270,285 @@ export const getIrrigationWaterData = async (
     }
 };
 
+// ==================== Data extraction helpers ====================
+
+/**
+ * Get the active irrigation efficiency data record
+ */
+const getActiveIrrigationData = (data: IrrigationWaterResponse): IrrigationEfficiencyData | undefined => {
+    return data.data.existing_irrigation_efficiency_data.find(item => item.is_active === true);
+};
+
+/**
+ * Get a specific metric from the active irrigation efficiency data by metric name
+ */
+export const getIrrigationMetric = (data: IrrigationWaterResponse, metricName: string): IrrigationEfficiencyMetric | undefined => {
+    const active = getActiveIrrigationData(data);
+    return active?.metrics.find(m => m.metric_name === metricName);
+};
+
+/**
+ * Get the latest yearly value for a metric (by highest year)
+ */
+const getLatestYearlyValue = (metric: IrrigationEfficiencyMetric | undefined): number | null => {
+    if (!metric || !metric.yearly_data || metric.yearly_data.length === 0) return null;
+    const sorted = [...metric.yearly_data].sort((a, b) => parseInt(b.year) - parseInt(a.year));
+    return sorted[0]?.value ?? null;
+};
+
 /**
  * Get available years for irrigation water data
  */
 export const getAvailableIrrigationWaterYears = (data: IrrigationWaterResponse): number[] => {
-    return data.data.reporting_period.data_available_years || [];
+    const years = new Set<number>();
+    data.data.existing_irrigation_efficiency_data.forEach(record => {
+        record.metrics.forEach(metric => {
+            metric.yearly_data.forEach(dp => {
+                const y = parseInt(dp.year);
+                if (!isNaN(y)) years.add(y);
+            });
+        });
+    });
+    return Array.from(years).sort((a, b) => a - b);
 };
 
 /**
- * Get water usage analysis data
+ * Get water usage analysis (compatible with old structure)
  */
 export const getWaterUsageAnalysis = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis;
+    const irrigationMetric = getIrrigationMetric(data, "Total Irrigation Water (million ML)");
+    const treatmentMetric = getIrrigationMetric(data, "Water Treatment for Chiredzi (million ML)");
+    const waterPerHaMetric = getIrrigationMetric(data, "Water per Hectare (ML/ha)");
+    const effluentMetric = getIrrigationMetric(data, "Effluent Discharged (thousand ML)");
+
+    return {
+        irrigation_water: {
+            current_value: getLatestYearlyValue(irrigationMetric),
+            unit: irrigationMetric?.yearly_data[0]?.unit || "million ML",
+            trend: data.data.water_risk_analysis.irrigation_water.trend,
+            efficiency_score: null,
+            savings_potential: data.data.water_risk_analysis.savings_potential,
+            monthly_data: []
+        },
+        treatment_water: {
+            current_value: getLatestYearlyValue(treatmentMetric),
+            unit: treatmentMetric?.yearly_data[0]?.unit || "million ML",
+            trend: data.data.water_risk_analysis.treatment_water.trend,
+            efficiency_score: null,
+            savings_potential: null,
+            monthly_data: []
+        },
+        total_water_usage: {
+            current_value: data.data.water_risk_analysis.total_water_usage,
+            unit: "million ML",
+            trend: "unknown",
+            per_hectare: getLatestYearlyValue(waterPerHaMetric),
+            benchmark: null
+        },
+        shortage_risk: {
+            level: data.data.water_risk_analysis.shortage_risk.level,
+            probability: data.data.water_risk_analysis.shortage_risk.probability,
+            factors: data.data.water_risk_analysis.shortage_risk.factors,
+            mitigation_strategies: data.data.water_risk_analysis.shortage_risk.mitigation
+        },
+        water_savings_analysis: {
+            potential_savings: data.data.water_risk_analysis.savings_potential,
+            cost_savings: null,
+            implementation_cost: null,
+            roi_period: null,
+            recommendations: []
+        }
+    };
 };
 
 /**
  * Get irrigation water usage data
  */
 export const getIrrigationWaterUsage = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.irrigation_water;
+    const usage = getWaterUsageAnalysis(data);
+    return usage.irrigation_water;
 };
 
 /**
  * Get treatment water usage data
  */
 export const getTreatmentWaterUsage = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.treatment_water;
+    const usage = getWaterUsageAnalysis(data);
+    return usage.treatment_water;
 };
 
 /**
  * Get total water usage data
  */
 export const getTotalWaterUsage = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.total_water_usage;
+    const usage = getWaterUsageAnalysis(data);
+    return usage.total_water_usage;
 };
 
 /**
  * Get water shortage risk assessment
  */
 export const getWaterShortageRisk = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.shortage_risk;
+    return data.data.water_risk_analysis.shortage_risk;
 };
 
 /**
  * Get water savings analysis
  */
 export const getWaterSavingsAnalysis = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.water_savings_analysis;
+    const usage = getWaterUsageAnalysis(data);
+    return usage.water_savings_analysis;
 };
 
 /**
- * Get environmental metrics data
+ * Get environmental metrics data (array of metrics)
  */
 export const getEnvironmentalMetricsData = (data: IrrigationWaterResponse) => {
     return data.data.environmental_metrics;
 };
 
 /**
- * Get detailed environmental metrics
+ * Get detailed environmental metrics (array of processed metrics)
  */
 export const getDetailedEnvironmentalMetrics = (data: IrrigationWaterResponse) => {
-    return data.data.environmental_metrics.detailed_metrics;
+    return data.data.environmental_metrics.map(metric => ({
+        name: metric.metric_name,
+        category: "environmental",
+        unit: metric.unit,
+        description: metric.description,
+        current_value: metric.value.numeric_value,
+        trend: "unknown", // not provided
+        years_available: [metric.value.year],
+        values: [{
+            year: metric.value.year,
+            value: metric.value.value,
+            numeric_value: metric.value.numeric_value,
+            source_notes: metric.value.source_notes
+        }]
+    }));
 };
 
 /**
  * Get environmental metrics summary
  */
 export const getEnvironmentalMetricsSummary = (data: IrrigationWaterResponse) => {
-    return data.data.environmental_metrics.summary;
+    const metrics = data.data.environmental_metrics;
+    const findNumeric = (name: string) => metrics.find(m => m.metric_name === name)?.value.numeric_value ?? 0;
+
+    return {
+        total_ghg_emissions: findNumeric("Carbon Emissions (Total GHG, tCO2e)"),
+        scope1_emissions: findNumeric("GHG Scope 1 (tCO2e)"),
+        scope2_emissions: findNumeric("GHG Scope 2 (tCO2e)"),
+        scope3_emissions: findNumeric("GHG Scope 3 (tCO2e)"),
+        irrigation_water_usage: findNumeric("Water Usage - Irrigation Water Usage") || null,
+        treatment_water_usage: findNumeric("Water treatment") || null,
+        total_water_usage: data.data.water_risk_analysis.total_water_usage
+    };
 };
 
 /**
- * Get all ESG metrics
+ * Get all ESG metrics (only environmental available)
  */
 export const getAllEsgMetrics = (data: IrrigationWaterResponse) => {
-    return data.data.all_esg_metrics;
+    const env: Record<string, any> = {};
+    data.data.environmental_metrics.forEach(m => {
+        env[m.metric_name] = {
+            name: m.metric_name,
+            category: "environmental",
+            unit: m.unit,
+            description: m.description,
+            values: [{
+                year: m.value.year,
+                value: m.value.value,
+                numeric_value: m.value.numeric_value,
+                source_notes: m.value.source_notes
+            }]
+        };
+    });
+
+    return {
+        environmental: env,
+        social: {},
+        governance: {}
+    };
 };
 
 /**
  * Get environmental ESG metrics
  */
 export const getEnvironmentalEsgMetrics = (data: IrrigationWaterResponse) => {
-    return data.data.all_esg_metrics.environmental;
+    return getAllEsgMetrics(data).environmental;
 };
 
 /**
- * Get social ESG metrics
+ * Get social ESG metrics (empty)
  */
-export const getSocialEsgMetrics = (data: IrrigationWaterResponse) => {
-    return data.data.all_esg_metrics.social;
+export const getSocialEsgMetrics = () => {
+    return {};
 };
 
 /**
- * Get governance ESG metrics
+ * Get governance ESG metrics (empty)
  */
-export const getGovernanceEsgMetrics = (data: IrrigationWaterResponse) => {
-    return data.data.all_esg_metrics.governance;
+export const getGovernanceEsgMetrics = () => {
+    return {};
 };
 
 /**
- * Get stakeholder benefits analysis
+ * Get stakeholder benefits (not available, returns empty structure)
  */
-export const getStakeholderBenefits = (data: IrrigationWaterResponse) => {
-    return data.data.stakeholder_benefits;
+export const getStakeholderBenefits = () => {
+    return {
+        farmers: {
+            water_savings: { estimated_savings: 0, unit: "", cost_savings: 0, currency: "" },
+            crop_yield_improvement: { estimated_improvement: "", factors: [] },
+            input_cost_reduction: { water_pumping_costs: 0, fertilizer_efficiency: "", labor_savings: "" },
+            risk_reduction: { drought_risk: "", water_cost_volatility: "", regulatory_compliance: "" }
+        },
+        banks: {
+            water_related_risks: {
+                shortage_risk: { level: "", probability: null, impact: "", mitigation: [] },
+                regulatory_risks: { water_use_permits: "", discharge_regulations: "", conservation_requirements: "" },
+                reputation_risks: { community_relations: "", environmental_impact: "", stakeholder_perception: "" }
+            },
+            financial_implications: { potential_losses: 0, insurance_costs: "", financing_terms: "" },
+            recommendation: { loan_terms: "", monitoring_requirements: "", collateral_valuation: "" }
+        },
+        agritech_revenue_opportunities: {
+            water_management_services: {
+                smart_irrigation_systems: { potential_revenue: 0, implementation_cost: null, roi_period: null, market_size: "" },
+                water_monitoring_platforms: { subscription_revenue: 0, installation_fee: 0, maintenance_fee: 0 },
+                data_analytics_services: { per_hectare_fee: 0, estimated_hectares: "", total_revenue: "" }
+            },
+            efficiency_improvements: {
+                drip_irrigation_retrofits: { cost_per_hectare: 0, water_savings: "", payback_period: "" },
+                soil_moisture_sensors: { cost_per_sensor: 0, coverage_per_sensor: "", roi: "" },
+                water_recycling_systems: { installation_cost: 0, operational_savings: 0, roi_period: "" }
+            },
+            revenue_streams: { service_fees: 0, subscription_fees: "", data_licensing: "", consulting_services: "" }
+        }
+    };
 };
 
 /**
- * Get farmers benefits analysis
+ * Get farmers benefits analysis (empty)
  */
 export const getFarmersBenefits = (data: IrrigationWaterResponse) => {
-    return data.data.stakeholder_benefits.farmers;
+    return getStakeholderBenefits().farmers;
 };
 
 /**
- * Get banks risk analysis
+ * Get banks risk analysis (empty)
  */
 export const getBanksRiskAnalysis = (data: IrrigationWaterResponse) => {
-    return data.data.stakeholder_benefits.banks;
+    return getStakeholderBenefits().banks;
 };
 
 /**
- * Get agritech revenue opportunities
+ * Get agritech revenue opportunities (empty)
  */
 export const getAgritechRevenueOpportunities = (data: IrrigationWaterResponse) => {
-    return data.data.stakeholder_benefits.agritech_revenue_opportunities;
+    return getStakeholderBenefits().agritech_revenue_opportunities;
 };
 
 /**
@@ -488,109 +573,116 @@ export const getRecommendations = (data: IrrigationWaterResponse) => {
 };
 
 /**
- * Get next steps
+ * Get next steps (not available, return empty array)
  */
-export const getNextSteps = (data: IrrigationWaterResponse) => {
-    return data.data.summary.next_steps;
+export const getNextSteps = () => {
+    return [];
 };
 
 /**
- * Get confidence score
+ * Get confidence score (not available, return default)
  */
 export const getConfidenceScore = (data: IrrigationWaterResponse) => {
-    return data.data.confidence_score;
+    return {
+        overall: data.data.data_quality.score,
+        interpretation: data.data.data_quality.verification_status,
+        factors: []
+    };
 };
 
 /**
- * Get water efficiency score
+ * Get water efficiency score (not available)
  */
-export const getWaterEfficiencyScore = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.irrigation_water.efficiency_score;
+export const getWaterEfficiencyScore = () => {
+    return null;
 };
 
 /**
  * Get water savings potential
  */
 export const getWaterSavingsPotential = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.water_savings_analysis.potential_savings;
+    return data.data.water_risk_analysis.savings_potential;
 };
 
 /**
- * Get cost savings from water efficiency
+ * Get cost savings from water efficiency (not available)
  */
-export const getWaterCostSavings = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.water_savings_analysis.cost_savings;
+export const getWaterCostSavings = () => {
+    return null;
 };
 
 /**
  * Get water usage per hectare
  */
 export const getWaterUsagePerHectare = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.total_water_usage.per_hectare;
+    const metric = getIrrigationMetric(data, "Water per Hectare (ML/ha)");
+    return getLatestYearlyValue(metric);
 };
 
 /**
- * Get water usage benchmark
+ * Get water usage benchmark (not available)
  */
-export const getWaterUsageBenchmark = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.total_water_usage.benchmark;
+export const getWaterUsageBenchmark = () => {
+    return null;
 };
 
 /**
  * Get irrigation water current value
  */
 export const getIrrigationWaterCurrentValue = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.irrigation_water.current_value;
+    const metric = getIrrigationMetric(data, "Total Irrigation Water (million ML)");
+    return getLatestYearlyValue(metric);
 };
 
 /**
  * Get treatment water current value
  */
 export const getTreatmentWaterCurrentValue = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.treatment_water.current_value;
+    const metric = getIrrigationMetric(data, "Water Treatment for Chiredzi (million ML)");
+    return getLatestYearlyValue(metric);
 };
 
 /**
  * Get total water current value
  */
 export const getTotalWaterCurrentValue = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.total_water_usage.current_value;
+    return data.data.water_risk_analysis.total_water_usage;
 };
 
 /**
  * Get water shortage risk level
  */
 export const getWaterShortageRiskLevel = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.shortage_risk.level;
+    return data.data.water_risk_analysis.shortage_risk.level;
 };
 
 /**
  * Get water shortage risk probability
  */
 export const getWaterShortageRiskProbability = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.shortage_risk.probability;
+    return data.data.water_risk_analysis.shortage_risk.probability;
 };
 
 /**
  * Get water shortage mitigation strategies
  */
 export const getWaterShortageMitigationStrategies = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.shortage_risk.mitigation_strategies;
+    return data.data.water_risk_analysis.shortage_risk.mitigation;
 };
 
 /**
- * Get ROI period for water efficiency improvements
+ * Get ROI period for water efficiency improvements (not available)
  */
-export const getWaterEfficiencyROIPeriod = (data: IrrigationWaterResponse) => {
-    return data.data.water_usage_analysis.water_savings_analysis.roi_period;
+export const getWaterEfficiencyROIPeriod = () => {
+    return null;
 };
 
 /**
  * Check if water data is available
  */
 export const isWaterDataAvailable = (data: IrrigationWaterResponse): boolean => {
-    return data.data.water_usage_analysis.irrigation_water.current_value !== null ||
-        data.data.water_usage_analysis.treatment_water.current_value !== null;
+    return getIrrigationWaterCurrentValue(data) !== null ||
+        getTreatmentWaterCurrentValue(data) !== null;
 };
 
 /**
@@ -604,7 +696,7 @@ export const getIrrigationWaterCompany = (data: IrrigationWaterResponse) => {
  * Get current year
  */
 export const getCurrentIrrigationWaterYear = (data: IrrigationWaterResponse) => {
-    return data.data.reporting_period.current_year;
+    return data.data.metadata.year;
 };
 
 /**
@@ -632,32 +724,33 @@ export const getIrrigationWaterMetadata = (data: IrrigationWaterResponse) => {
  * Get GHG emissions data from environmental metrics
  */
 export const getGHGEmissionsData = (data: IrrigationWaterResponse) => {
-    const metrics = data.data.environmental_metrics.detailed_metrics;
-    const ghgMetrics = {
-        total: metrics.find(m => m.name === "Carbon Emissions (Total GHG, tCO2e)"),
-        scope1: metrics.find(m => m.name === "GHG Scope 1 (tCO2e)"),
-        scope2: metrics.find(m => m.name === "GHG Scope 2 (tCO2e)"),
-        scope3: metrics.find(m => m.name === "GHG Scope 3 (tCO2e)")
+    const metrics = data.data.environmental_metrics;
+    const find = (name: string) => metrics.find(m => m.metric_name === name);
+    return {
+        total: find("Carbon Emissions (Total GHG, tCO2e)"),
+        scope1: find("GHG Scope 1 (tCO2e)"),
+        scope2: find("GHG Scope 2 (tCO2e)"),
+        scope3: find("GHG Scope 3 (tCO2e)")
     };
-    return ghgMetrics;
 };
 
 /**
  * Get energy consumption data
  */
 export const getEnergyConsumptionData = (data: IrrigationWaterResponse) => {
-    const metrics = data.data.environmental_metrics.detailed_metrics;
+    const metrics = data.data.environmental_metrics;
+    const find = (name: string) => metrics.find(m => m.metric_name === name);
     return {
-        bagasse: metrics.find(m => m.name === "Energy Consumption (Renewable) - Bagasse Usage"),
-        solar: metrics.find(m => m.name === "Energy Consumption (Renewable) - Solar Energy Usage"),
-        coal: metrics.find(m => m.name === "Energy Consumption - Coal Consumption"),
-        insideDiesel: metrics.find(m => m.name === "Energy Consumption - Inside Company Diesel Usage"),
-        insidePetrol: metrics.find(m => m.name === "Energy Consumption - Inside Company Petrol Usage"),
-        outsidePetrol: metrics.find(m => m.name === "Energy Consumption - Outside Company Petrol Usage"),
-        outsideDiesel: metrics.find(m => m.name === "Energy Consumption - Outside Company Diesel Usage"),
-        electricityGenerated: metrics.find(m => m.name === "Energy Consumption - Electricity Generated"),
-        electricityPurchased: metrics.find(m => m.name === "Energy Consumption - Electricity Purchased"),
-        electricityExported: metrics.find(m => m.name === "Energy Consumption - Electricity Exported to National Grid")
+        bagasse: find("Energy Consumption (Renewable) - Bagasse Usage"),
+        solar: find("Energy Consumption (Renewable) - Solar Energy Usage"),
+        coal: find("Energy Consumption - Coal Consumption"),
+        insideDiesel: find("Energy Consumption - Inside Company Diesel Usage"),
+        insidePetrol: find("Energy Consumption - Inside Company Petrol Usage"),
+        outsidePetrol: find("Energy Consumption - Outside Company Petrol Usage"),
+        outsideDiesel: find("Energy Consumption - Outside Company Diesel Usage"),
+        electricityGenerated: find("Energy Consumption - Electricity Generated"),
+        electricityPurchased: find("Energy Consumption - Electricity Purchased"),
+        electricityExported: find("Energy Consumption - Electricity Exported to National Grid")
     };
 };
 
@@ -665,11 +758,12 @@ export const getEnergyConsumptionData = (data: IrrigationWaterResponse) => {
  * Get water metrics from detailed environmental metrics
  */
 export const getWaterMetrics = (data: IrrigationWaterResponse) => {
-    const metrics = data.data.environmental_metrics.detailed_metrics;
+    const metrics = data.data.environmental_metrics;
+    const find = (name: string) => metrics.find(m => m.metric_name === name);
     return {
-        irrigation: metrics.find(m => m.name === "Water Usage - Irrigation Water Usage"),
-        treatment: metrics.find(m => m.name === "Water treatment"),
-        effluent: metrics.find(m => m.name === "Effluent discharge for Irrigation")
+        irrigation: find("Water Usage - Irrigation Water Usage"),
+        treatment: find("Water treatment"),
+        effluent: find("Effluent discharge for Irrigation")
     };
 };
 
@@ -677,15 +771,16 @@ export const getWaterMetrics = (data: IrrigationWaterResponse) => {
  * Get waste management data
  */
 export const getWasteManagementData = (data: IrrigationWaterResponse) => {
-    const metrics = data.data.environmental_metrics.detailed_metrics;
+    const metrics = data.data.environmental_metrics;
+    const find = (name: string) => metrics.find(m => m.metric_name === name);
     return {
-        recycled: metrics.find(m => m.name === "Waste Management - Recycled waste (excl. Boiler Ash)"),
-        disposed: metrics.find(m => m.name === "Waste Management - Disposed waste (excl. Boiler Ash)"),
-        incidents: metrics.find(m => m.name === "Environment Incidents"),
-        generalWaste: metrics.find(m => m.name === "Environment Incidents - Waste streams produced - General Waste"),
-        hazardousWaste: metrics.find(m => m.name === "Environment Incidents - Waste streams produced - Hazardous waste"),
-        boilerAsh: metrics.find(m => m.name === "Environment Incidents - Waste streams produced - Boiler ash"),
-        recyclableWaste: metrics.find(m => m.name === "Environment Incidents - Waste streams produced - Recyclable waste")
+        recycled: find("Waste Management - Recycled waste (excl. Boiler Ash)"),
+        disposed: find("Waste Management - Disposed waste (excl. Boiler Ash)"),
+        incidents: find("Environment Incidents"),
+        generalWaste: find("Environment Incidents - Waste streams produced - General Waste"),
+        hazardousWaste: find("Environment Incidents - Waste streams produced - Hazardous waste"),
+        boilerAsh: find("Environment Incidents - Waste streams produced - Boiler ash"),
+        recyclableWaste: find("Environment Incidents - Waste streams produced - Recyclable waste")
     };
 };
 
@@ -714,32 +809,39 @@ export const getLowPriorityRecommendations = (data: IrrigationWaterResponse) => 
  * Check if water risk is assessed
  */
 export const isWaterRiskAssessed = (data: IrrigationWaterResponse): boolean => {
-    return data.data.water_usage_analysis.shortage_risk.level !== "unknown";
+    return data.data.water_risk_analysis.shortage_risk.level !== "unknown";
 };
 
 /**
- * Get estimated water savings for farmers
+ * Get estimated water savings for farmers (not available)
  */
-export const getFarmersWaterSavings = (data: IrrigationWaterResponse) => {
-    return data.data.stakeholder_benefits.farmers.water_savings;
-};
-
-/**
- * Get banks' risk assessment
- */
-export const getBanksRiskAssessment = (data: IrrigationWaterResponse) => {
-    return data.data.stakeholder_benefits.banks.water_related_risks;
-};
-
-/**
- * Get agritech revenue potential
- */
-export const getAgritechRevenuePotential = (data: IrrigationWaterResponse) => {
-    const services = data.data.stakeholder_benefits.agritech_revenue_opportunities.water_management_services;
+export const getFarmersWaterSavings = () => {
     return {
-        smartIrrigation: services.smart_irrigation_systems.potential_revenue,
-        waterMonitoring: services.water_monitoring_platforms.subscription_revenue,
-        totalPotential: services.smart_irrigation_systems.potential_revenue +
-            services.water_monitoring_platforms.subscription_revenue
+        estimated_savings: 0,
+        unit: "",
+        cost_savings: 0,
+        currency: ""
+    };
+};
+
+/**
+ * Get banks' risk assessment (not available)
+ */
+export const getBanksRiskAssessment = () => {
+    return {
+        shortage_risk: { level: "", probability: null, impact: "", mitigation: [] },
+        regulatory_risks: { water_use_permits: "", discharge_regulations: "", conservation_requirements: "" },
+        reputation_risks: { community_relations: "", environmental_impact: "", stakeholder_perception: "" }
+    };
+};
+
+/**
+ * Get agritech revenue potential (not available)
+ */
+export const getAgritechRevenuePotential = () => {
+    return {
+        smartIrrigation: 0,
+        waterMonitoring: 0,
+        totalPotential: 0
     };
 };
