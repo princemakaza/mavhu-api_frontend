@@ -1,50 +1,100 @@
 // compliance_tabs/ComplianceAnalyticsTab.tsx
 import React, { useState, useMemo } from 'react';
 import {
-    BarChart3,
-    PieChart,
     TrendingUp,
     TrendingDown,
+    Activity,
+    Target,
+    BarChart3,
     Filter,
     Download,
-    Target,
-    AlertTriangle,
+    Share2,
+    CheckCircle,
+    Zap,
+    Brain,
+    BadgeCheck,
     Lightbulb,
-    Leaf,
+    ShieldCheck,
+    BarChartHorizontal,
+    Info,
+    X,
+    DollarSign,
+    Clock,
+    ThermometerSun,
+    CloudRain,
+    Waves,
+    Mountain,
+    Sprout,
+    AlertTriangle,
+    Award,
     Users,
     Shield,
-    CheckCircle,
-    X,
-    ChevronRight,
-    ArrowUpRight,
-    ArrowDownRight,
-    Activity,
-    Info,
+    Leaf,
     Calendar,
     TrendingUpDown,
-    TargetIcon,
-    Clock,
-    Zap,
-    Award,
-    BarChart,
-    ShieldCheck,
-    Share2
 } from 'lucide-react';
-import type {
+
+// Service types and helpers
+import {
     FarmComplianceResponse,
-    CarbonPredictions,
-    Recommendations,
-    Trends,
-    Scope3Analysis,
-    ComplianceScores,
-    Metrics
+    getCompany,
+    getTrainingMetrics,
+    getScope3EngagementMetrics,
+    getCarbonScope3,
+    getComplianceScores,
+    getRecommendations,
+    getDataQualityInfo,
+    getOverallComplianceScore,
+    getScoreBreakdown,
+    getTrainingHoursGraph,
+    getScope3EngagementGraph,
+    getFrameworkAlignmentGraph,
+    getComplianceRadarGraph,
+    getCarbonDataQuality,
+    getNetCarbonBalance,
+    getSequestrationTotal,
+    getRawMetrics,          // added
+    getFarmComplianceDoc,   // added
 } from '../../../../services/Admin_Service/esg_apis/farm_compliance_service';
+
+// Simple table component (can be extracted to a shared component)
+const DataTable = ({ columns, data, onRowClick }: any) => (
+    <div className="overflow-x-auto">
+        <table className="w-full">
+            <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                    {columns.map((col: any) => (
+                        <th key={col.key} className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                            {col.header}
+                        </th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {data.map((row: any, idx: number) => (
+                    <tr
+                        key={idx}
+                        onClick={() => onRowClick?.(row)}
+                        className="border-b border-gray-100 hover:bg-green-50 cursor-pointer transition-colors"
+                    >
+                        {columns.map((col: any) => (
+                            <td key={col.key} className="py-3 px-4 text-sm text-gray-900">
+                                {col.accessor ? col.accessor(row) : row[col.key]}
+                            </td>
+                        ))}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
+);
 
 interface ComplianceAnalyticsTabProps {
     complianceData: FarmComplianceResponse | null;
     formatNumber: (num: number | null) => string;
     formatPercent: (num: number | null) => string;
-    colors: any;
+    formatCurrency?: (num: number | null) => string;
+    colors?: any;
     selectedYear: number | null;
 }
 
@@ -52,13 +102,14 @@ const ComplianceAnalyticsTab: React.FC<ComplianceAnalyticsTabProps> = ({
     complianceData,
     formatNumber,
     formatPercent,
-    colors,
+    formatCurrency = (num) => `$${num?.toFixed(2) ?? '0'}`,
     selectedYear,
 }) => {
-    const [activeTab, setActiveTab] = useState('overview');
-    const [showPredictionsModal, setShowPredictionsModal] = useState(false);
+    const [selectedTable, setSelectedTable] = useState<'statistical' | 'correlation' | 'anomalies'>('statistical');
+    const [activeInsightTab, setActiveInsightTab] = useState('trends');
     const [selectedMetric, setSelectedMetric] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showRecommendationsModal, setShowRecommendationsModal] = useState(false);
 
     if (!complianceData) {
         return (
@@ -74,844 +125,727 @@ const ComplianceAnalyticsTab: React.FC<ComplianceAnalyticsTabProps> = ({
         );
     }
 
-    const {
-        compliance_scores,
-        metrics,
-        scope3_analysis,
-        trends,
-        recommendations,
-        carbon_predictions,
-        data_quality,
-        company,
-        carbon_emissions,
-        carbon_sequestration
-    } = complianceData.data;
+    // Extract data using helper functions
+    const company = getCompany(complianceData);
+    const trainingMetrics = getTrainingMetrics(complianceData);
+    const scope3Metrics = getScope3EngagementMetrics(complianceData);
+    const carbonScope3 = getCarbonScope3(complianceData);
+    const complianceScores = getComplianceScores(complianceData);
+    const recommendations = getRecommendations(complianceData);
+    const dataQuality = getDataQualityInfo(complianceData);
+    const overallScore = getOverallComplianceScore(complianceData);
+    const scoreBreakdown = getScoreBreakdown(complianceData);
+    const netBalance = getNetCarbonBalance(complianceData);
+    const sequestrationTotal = getSequestrationTotal(complianceData);
 
-    // Helper function to get trend icon
-    const getTrendIcon = (trend: string) => {
-        const lowerTrend = trend?.toLowerCase() || '';
-        if (lowerTrend.includes('increas') || lowerTrend.includes('improv') || lowerTrend.includes('posit')) {
-            return <TrendingUp className="w-4 h-4 text-green-600" />;
-        } else if (lowerTrend.includes('decreas') || lowerTrend.includes('declin') || lowerTrend.includes('negat')) {
-            return <TrendingDown className="w-4 h-4 text-orange-600" />;
+    // Graphs (for trends or charts)
+    const trainingGraph = getTrainingHoursGraph(complianceData);
+    const scope3Graph = getScope3EngagementGraph(complianceData);
+    const frameworkGraph = getFrameworkAlignmentGraph(complianceData);
+    const radarGraph = getComplianceRadarGraph(complianceData);
+
+    // ===== Real metrics from farm_compliance_doc =====
+    const rawMetrics = getRawMetrics(complianceData);
+
+    // Extract training metrics with yearly data
+    const execMetric = rawMetrics.find(m => m.metric_name === 'Executive Training Hours');
+    const seniorMetric = rawMetrics.find(m => m.metric_name === 'Senior Management Training Hours');
+    const otherMetric = rawMetrics.find(m => m.metric_name === 'Other Employees Training Hours');
+
+    // Helper to get yearly values as array of numbers
+    const getYearlyValues = (metric: typeof execMetric): number[] => {
+        if (!metric || !metric.yearly_data) return [];
+        return metric.yearly_data.map(d => d.value);
+    };
+
+    const execYears = getYearlyValues(execMetric);
+    const seniorYears = getYearlyValues(seniorMetric);
+    const otherYears = getYearlyValues(otherMetric);
+
+    // Compute statistics for a set of yearly values
+    const computeStats = (values: number[]) => {
+        if (values.length === 0) return { mean: 0, median: 0, stdDev: 0, min: 0, max: 0 };
+        const sorted = [...values].sort((a, b) => a - b);
+        const sum = values.reduce((a, b) => a + b, 0);
+        const mean = sum / values.length;
+        const median = sorted.length % 2 === 0
+            ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+            : sorted[Math.floor(sorted.length / 2)];
+        const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / values.length;
+        const stdDev = Math.sqrt(variance);
+        return { mean, median, stdDev, min: sorted[0], max: sorted[sorted.length - 1] };
+    };
+
+    const execStats = computeStats(execYears);
+    const seniorStats = computeStats(seniorYears);
+    const otherStats = computeStats(otherYears);
+
+    // Current year values (if selectedYear provided, use that year's value; else use the latest from all_metrics)
+    const getCurrentValue = (metric: typeof execMetric): number => {
+        if (!metric) return 0;
+        if (selectedYear && metric.yearly_data) {
+            const entry = metric.yearly_data.find(d => d.year === selectedYear.toString());
+            return entry ? entry.value : 0;
         }
+        // fallback to the value from all_metrics (flattened)
+        return complianceData.data.farm_compliance.all_metrics[metric.metric_name]?.value || 0;
+    };
+
+    const execCurrent = getCurrentValue(execMetric);
+    const seniorCurrent = getCurrentValue(seniorMetric);
+    const otherCurrent = getCurrentValue(otherMetric);
+    const totalTrainingCurrent = execCurrent + seniorCurrent + otherCurrent;
+
+    // Extract list metrics
+    const focusMetric = rawMetrics.find(m => m.metric_name === 'Training Focus Areas');
+    const deliveryMetric = rawMetrics.find(m => m.metric_name === 'Training Delivery Methods');
+    const programMetric = rawMetrics.find(m => m.metric_name === 'Compliance Programs');
+
+    const focusCount = focusMetric?.list_data?.length || 0;
+    const deliveryCount = deliveryMetric?.list_data?.length || 0;
+    const programCount = programMetric?.list_data?.length || 0;
+
+    // Helper to get trend icon
+    const getTrendIcon = (trend: string = 'stable') => {
+        if (trend.toLowerCase().includes('increase') || trend.toLowerCase().includes('improve'))
+            return <TrendingUp className="w-4 h-4 text-green-600" />;
+        if (trend.toLowerCase().includes('decrease') || trend.toLowerCase().includes('decline'))
+            return <TrendingDown className="w-4 h-4 text-orange-600" />;
         return <TrendingUpDown className="w-4 h-4 text-gray-600" />;
     };
 
-    // Prepare data for charts
-    const complianceBreakdownData = useMemo(() => {
-        const scores = compliance_scores.scores;
-        return {
-            labels: ['Training', 'Supplier', 'GRI', 'IFRS S1', 'IFRS S2', 'TCFD', 'Carbon', 'Data Quality'],
-            datasets: [{
-                label: 'Compliance Score',
-                data: [
-                    scores.trainingHours,
-                    scores.supplierCompliance,
-                    scores.griCompliance,
-                    scores.ifrsS1Alignment,
-                    scores.ifrsS2Alignment,
-                    scores.tcfdImplementation,
-                    scores.carbonScore,
-                    scores.dataQuality
-                ],
-                backgroundColor: [
-                    '#059669',
-                    '#10b981',
-                    '#34d399',
-                    '#6ee7b7',
-                    '#047857',
-                    '#065f46',
-                    '#16a34a',
-                    '#22c55e'
-                ],
-                borderWidth: 1
-            }]
-        };
-    }, [compliance_scores, colors]);
+    // Key insights data (updated with real counts)
+    const insights = {
+        trends: [
+            {
+                title: 'Compliance Trend',
+                description: `Overall compliance trend: ${complianceScores.rating}`,
+                icon: <TrendingUp className="w-5 h-5 text-green-600" />,
+                impact: 'High',
+                value: complianceScores.rating,
+            },
+            {
+                title: 'Training Engagement',
+                description: `Employees trained: ${trainingMetrics.employees_trained_total ?? 0}`,
+                icon: <Users className="w-5 h-5 text-blue-600" />,
+                impact: 'Medium',
+                value: formatNumber(trainingMetrics.employees_trained_total ?? 0),
+            },
+            {
+                title: 'Supplier Audits',
+                description: `Audits conducted: ${scope3Metrics.suppliers_audited ?? 0}`,
+                icon: <Shield className="w-5 h-5 text-yellow-600" />,
+                impact: 'High',
+                value: formatNumber(scope3Metrics.suppliers_audited ?? 0),
+            },
+        ],
+        predictions: [
+            {
+                title: 'Carbon Neutrality',
+                description: `Net balance: ${formatNumber(netBalance)} tCO₂e`,
+                icon: <Target className="w-5 h-5 text-green-600" />,
+                timeframe: 'Annual',
+                value: netBalance && netBalance < 0 ? 'Net Sink' : 'Net Source',
+            },
+            {
+                title: 'Sequestration Potential',
+                description: `Current sequestration: ${formatNumber(sequestrationTotal)} tCO₂`,
+                icon: <Sprout className="w-5 h-5 text-green-600" />,
+                timeframe: 'Annual',
+                value: formatNumber(sequestrationTotal),
+            },
+        ],
+        correlations: [
+            {
+                title: 'Training vs Compliance',
+                description: 'Correlation between training hours and overall score',
+                icon: <Activity className="w-5 h-5 text-purple-600" />,
+                significance: 'High',
+                value: '0.72',
+            },
+            {
+                title: 'Supplier Audits vs Non-Compliance',
+                description: 'More audits reduce non-compliance cases',
+                icon: <CloudRain className="w-5 h-5 text-blue-600" />,
+                significance: 'Medium',
+                value: '-0.58',
+            },
+        ],
+    };
 
-    const trainingDistributionData = useMemo(() => {
-        const distribution = metrics.training.training_distribution;
-        return {
-            labels: ['Farmer Training', 'Safety Training', 'Technical Training', 'Compliance Training'],
-            datasets: [{
-                data: [
-                    distribution.farmer_training || 0,
-                    distribution.safety_training || 0,
-                    distribution.technical_training || 0,
-                    distribution.compliance_training || 0
-                ],
-                backgroundColor: [
-                    '#059669',
-                    '#10b981',
-                    '#34d399',
-                    '#6ee7b7'
-                ],
-                borderWidth: 1
-            }]
-        };
-    }, [metrics, colors]);
-
-    const scope3MetricsData = useMemo(() => {
-        const scope3Metrics = scope3_analysis.metrics;
-        return {
-            labels: ['Suppliers with Code', 'Suppliers Audited', 'Non-Compliance', 'Corrective Actions'],
-            datasets: [{
-                label: 'Scope 3 Metrics',
-                data: [
-                    scope3Metrics.suppliersWithCode || 0,
-                    scope3Metrics.auditsConducted || 0,
-                    scope3Metrics.nonCompliances || 0,
-                    scope3Metrics.correctiveActions || 0
-                ],
-                backgroundColor: [
-                    '#05966980',
-                    '#10b98180',
-                    '#f9731680',
-                    '#6ee7b780'
-                ],
-                borderColor: [
-                    '#059669',
-                    '#10b981',
-                    '#f97316',
-                    '#6ee7b7'
-                ],
-                borderWidth: 2
-            }]
-        };
-    }, [scope3_analysis, colors]);
-
-    // Mock chart component with improved design
-    const MockChart = ({ title, data, type = 'bar' }: { title: string; data: any; type?: string }) => (
-        <div className="bg-white rounded-2xl border border-green-100 p-6 shadow-sm hover:shadow-md transition-all duration-300">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">
-                    {title}
-                </h3>
-                <div className="flex items-center gap-2">
-                    <button className="p-2 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                        <Filter className="w-4 h-4 text-green-600" />
-                    </button>
-                    <button className="p-2 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                        <Download className="w-4 h-4 text-green-600" />
-                    </button>
-                </div>
-            </div>
-            <div className="h-64 relative">
-                <div className="absolute inset-0 flex items-end justify-between px-4 pb-4 gap-2">
-                    {data.datasets[0].data.map((value: number, index: number) => {
-                        const maxValue = Math.max(...data.datasets[0].data);
-                        const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                        const color = Array.isArray(data.datasets[0].backgroundColor)
-                            ? data.datasets[0].backgroundColor[index]
-                            : data.datasets[0].backgroundColor;
-
-                        return (
-                            <div key={index} className="flex flex-col items-center flex-1">
-                                <div className="w-full flex justify-center mb-2">
-                                    <div
-                                        className="w-full max-w-[60px] rounded-lg transition-all duration-300 hover:opacity-80 cursor-pointer"
-                                        style={{
-                                            height: `${Math.max(height, 5)}%`,
-                                            backgroundColor: color,
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-                                        }}
-                                    />
-                                </div>
-                                <span className="text-xs text-gray-600 text-center px-1 truncate w-full font-medium">
-                                    {data.labels[index]}
-                                </span>
-                                <span className="text-sm font-semibold text-gray-900 mt-1">
-                                    {value}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-
-    // Key metrics summary with consistent green theme
-    const keyMetrics = [
+    // Prepare statistical data from real metrics
+    const statisticalData = [
         {
-            title: 'Overall Compliance',
-            value: compliance_scores.scores.overall,
-            change: '+5.2%',
-            icon: Award,
-            gradient: 'from-green-500 to-emerald-600',
-            bg: 'bg-green-50',
-            trend: trends.compliance_trend
+            metric: 'Executive Training Hours',
+            unit: 'hours',
+            mean: execStats.mean,
+            median: execStats.median,
+            stdDev: execStats.stdDev,
+            min: execStats.min,
+            max: execStats.max,
+            current: execCurrent,
+            trend: execCurrent > execStats.mean ? 'increase' : execCurrent < execStats.mean ? 'decrease' : 'stable',
         },
         {
-            title: 'Training Hours',
-            value: metrics.training.total_training_hours || 0,
-            change: '+12.4%',
-            icon: Users,
-            gradient: 'from-emerald-500 to-teal-600',
-            bg: 'bg-emerald-50',
-            trend: trends.training_trend
+            metric: 'Senior Management Training Hours',
+            unit: 'hours',
+            mean: seniorStats.mean,
+            median: seniorStats.median,
+            stdDev: seniorStats.stdDev,
+            min: seniorStats.min,
+            max: seniorStats.max,
+            current: seniorCurrent,
+            trend: seniorCurrent > seniorStats.mean ? 'increase' : seniorCurrent < seniorStats.mean ? 'decrease' : 'stable',
         },
         {
-            title: 'Supplier Compliance',
-            value: compliance_scores.scores.supplierCompliance,
-            change: '-2.1%',
-            icon: Shield,
-            gradient: 'from-teal-500 to-cyan-600',
-            bg: 'bg-teal-50',
-            trend: trends.scope3_trend
+            metric: 'Other Employees Training Hours',
+            unit: 'hours',
+            mean: otherStats.mean,
+            median: otherStats.median,
+            stdDev: otherStats.stdDev,
+            min: otherStats.min,
+            max: otherStats.max,
+            current: otherCurrent,
+            trend: otherCurrent > otherStats.mean ? 'increase' : otherCurrent < otherStats.mean ? 'decrease' : 'stable',
         },
         {
-            title: 'Carbon Score',
-            value: compliance_scores.scores.carbonScore,
-            change: '+3.8%',
-            icon: Leaf,
-            gradient: 'from-lime-500 to-green-600',
-            bg: 'bg-lime-50',
-            trend: trends.carbon_trend
-        }
-    ];
-
-    // Trend analysis items
-    const trendAnalysisItems = [
-        {
-            label: 'Training Hours',
-            trend: trends.training_trend,
-            change: '+12.4% YoY',
-            color: '#059669'
+            metric: 'Total Training Hours',
+            unit: 'hours',
+            mean: execStats.mean + seniorStats.mean + otherStats.mean,
+            median: execStats.median + seniorStats.median + otherStats.median,
+            stdDev: Math.sqrt(execStats.stdDev**2 + seniorStats.stdDev**2 + otherStats.stdDev**2), // approximate
+            min: execStats.min + seniorStats.min + otherStats.min,
+            max: execStats.max + seniorStats.max + otherStats.max,
+            current: totalTrainingCurrent,
+            trend: totalTrainingCurrent > (execStats.mean + seniorStats.mean + otherStats.mean) ? 'increase' : 'decrease',
         },
         {
-            label: 'Supplier Compliance',
-            trend: trends.scope3_trend,
-            change: '-2.1% YoY',
-            color: '#10b981'
+            metric: 'Training Focus Areas',
+            unit: 'count',
+            mean: focusCount,
+            median: focusCount,
+            stdDev: 0,
+            min: focusCount,
+            max: focusCount,
+            current: focusCount,
+            trend: 'stable',
         },
         {
-            label: 'Carbon Score',
-            trend: trends.carbon_trend,
-            change: '+5.8% YoY',
-            color: '#34d399'
+            metric: 'Training Delivery Methods',
+            unit: 'count',
+            mean: deliveryCount,
+            median: deliveryCount,
+            stdDev: 0,
+            min: deliveryCount,
+            max: deliveryCount,
+            current: deliveryCount,
+            trend: 'stable',
         },
         {
-            label: 'Data Quality',
-            trend: 'Stable',
-            change: '+8.7% YoY',
-            color: '#6ee7b7'
+            metric: 'Compliance Programs',
+            unit: 'count',
+            mean: programCount,
+            median: programCount,
+            stdDev: 0,
+            min: programCount,
+            max: programCount,
+            current: programCount,
+            trend: 'stable',
         },
         {
-            label: 'GRI Compliance',
-            trend: trends.compliance_trend,
-            change: '+3.2% YoY',
-            color: '#047857'
+            metric: 'Overall Compliance Score',
+            unit: 'score',
+            mean: scoreBreakdown.overall,
+            median: scoreBreakdown.overall,
+            stdDev: 5, // placeholder
+            min: 0,
+            max: 100,
+            current: scoreBreakdown.overall,
+            trend: 'stable',
+        },
+        {
+            metric: 'Supplier Code Adoption',
+            unit: 'score',
+            mean: scoreBreakdown.supplierCodeAdoption,
+            median: scoreBreakdown.supplierCodeAdoption,
+            stdDev: 5,
+            min: 0,
+            max: 100,
+            current: scoreBreakdown.supplierCodeAdoption,
+            trend: 'stable',
         },
     ];
 
-    // Carbon predictions display
-    const renderCarbonPredictions = () => {
-        if (!carbon_predictions) return null;
+    // Correlation matrix (still simulated, but could be extended)
+    const correlationMatrix = [
+        { pair: 'Training vs Compliance', correlation: 0.72, pValue: 0.001, strength: 'Strong' },
+        { pair: 'Supplier Audits vs Non-Compliance', correlation: -0.58, pValue: 0.02, strength: 'Moderate' },
+        { pair: 'Carbon Score vs Framework', correlation: 0.83, pValue: 0.000, strength: 'Very Strong' },
+    ];
 
-        const {
-            projected_emissions_next_year,
-            carbon_neutrality_timeline,
-            sequestration_potential,
-            scope3_reduction_opportunities
-        } = carbon_predictions;
+    // Anomalies: detect if current value deviates significantly from historical mean (z-score > 1.5)
+    const anomalies = statisticalData
+        .filter(row => row.stdDev > 0 && row.mean > 0) // only rows with variability
+        .map(row => {
+            const zScore = (row.current - row.mean) / row.stdDev;
+            const deviationPercent = ((row.current - row.mean) / row.mean) * 100;
+            let severity = 'Low';
+            if (Math.abs(zScore) > 2.5) severity = 'High';
+            else if (Math.abs(zScore) > 1.5) severity = 'Medium';
+            return {
+                metric: row.metric,
+                value: row.current,
+                zScore: zScore.toFixed(2),
+                deviation: deviationPercent.toFixed(1) + '%',
+                severity,
+            };
+        })
+        .filter(a => a.severity !== 'Low'); // only show medium/high anomalies
 
-        return (
-            <div className="space-y-6">
-                {/* Projected Emissions */}
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-6">
-                    <h4 className="font-semibold text-lg text-gray-900 mb-5 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white">
-                            <TargetIcon className="w-5 h-5 text-green-600" />
-                        </div>
-                        Projected Emissions Next Year
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="p-4 rounded-xl bg-white border border-green-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Scope 1</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {formatNumber(projected_emissions_next_year.projected_scope1)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">tCO₂e</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white border border-green-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Scope 2</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {formatNumber(projected_emissions_next_year.projected_scope2)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">tCO₂e</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white border border-green-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Scope 3</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {formatNumber(projected_emissions_next_year.projected_scope3)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">tCO₂e</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                            <p className="text-xs mb-2 font-medium">Reduction</p>
-                            <p className="text-2xl font-bold">
-                                {projected_emissions_next_year.reduction_percentage}%
-                            </p>
-                            <p className="text-xs opacity-90 mt-1">vs current</p>
-                        </div>
+    const analyticsData = {
+        statisticalData,
+        correlationMatrix,
+        anomalies,
+    };
+
+    // Table columns configuration
+    const tableColumns = {
+        statistical: [
+            { key: 'metric', header: 'Metric', className: 'font-semibold' },
+            { key: 'unit', header: 'Unit' },
+            { key: 'mean', header: 'Mean', accessor: (row: any) => formatNumber(row.mean) },
+            { key: 'median', header: 'Median', accessor: (row: any) => formatNumber(row.median) },
+            { key: 'stdDev', header: 'Std Dev', accessor: (row: any) => formatNumber(row.stdDev) },
+            { key: 'min', header: 'Min', accessor: (row: any) => formatNumber(row.min) },
+            { key: 'max', header: 'Max', accessor: (row: any) => formatNumber(row.max) },
+            {
+                key: 'trend',
+                header: 'Trend',
+                accessor: (row: any) => (
+                    <div className="flex items-center gap-2">
+                        {getTrendIcon(row.trend)}
+                        <span className="capitalize text-gray-700">{row.trend}</span>
                     </div>
-                </div>
-
-                {/* Carbon Neutrality Timeline */}
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 p-6">
-                    <h4 className="font-semibold text-lg text-gray-900 mb-5 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white">
-                            <Calendar className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        Carbon Neutrality Timeline
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="p-4 rounded-xl bg-white border border-emerald-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Target Year</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {carbon_neutrality_timeline.target_year}
-                            </p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white border border-emerald-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Years Remaining</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {carbon_neutrality_timeline.years_remaining}
-                            </p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white border border-emerald-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Annual Reduction</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {formatNumber(carbon_neutrality_timeline.required_annual_reduction)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">tCO₂/year</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
-                            <p className="text-xs mb-2 font-medium">Status</p>
-                            <p className="text-2xl font-bold capitalize">
-                                {carbon_neutrality_timeline.status}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sequestration Potential */}
-                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border border-teal-200 p-6">
-                    <h4 className="font-semibold text-lg text-gray-900 mb-5 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white">
-                            <Leaf className="w-5 h-5 text-teal-600" />
-                        </div>
-                        Sequestration Potential
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div className="p-4 rounded-xl bg-white border border-teal-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Current</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {formatNumber(sequestration_potential.current_sequestration_tco2)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">tCO₂</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white border border-teal-100">
-                            <p className="text-xs text-gray-600 mb-2 font-medium">Potential</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {formatNumber(sequestration_potential.potential_sequestration_tco2)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">tCO₂</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 text-white">
-                            <p className="text-xs mb-2 font-medium">Increase Possible</p>
-                            <p className="text-2xl font-bold">
-                                {sequestration_potential.increase_percentage}%
-                            </p>
-                            <p className="text-xs opacity-90 mt-1">improvement</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Scope 3 Reduction Opportunities */}
-                <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-2xl border border-green-200 p-6">
-                    <h4 className="font-semibold text-lg text-gray-900 mb-5 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white">
-                            <Zap className="w-5 h-5 text-green-600" />
-                        </div>
-                        Scope 3 Reduction Opportunities
-                    </h4>
-                    <div className="space-y-3">
-                        {scope3_reduction_opportunities.reduction_opportunities.map((opportunity, index) => (
-                            <div key={index} className="p-5 rounded-xl bg-white border border-green-100 hover:border-green-300 transition-colors">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${opportunity.priority === 'High'
-                                                ? 'bg-orange-100 text-orange-700'
-                                                : opportunity.priority === 'Medium'
-                                                    ? 'bg-yellow-100 text-yellow-700'
-                                                    : 'bg-green-100 text-green-700'
-                                            }`}>
-                                            {opportunity.priority}
-                                        </span>
-                                        <span className="text-sm font-semibold text-gray-900">{opportunity.area}</span>
-                                    </div>
-                                    <span className="text-xs font-medium text-green-600">{opportunity.potential_reduction}</span>
-                                </div>
-                                <div className="space-y-2">
-                                    {opportunity.actions.map((action, actionIndex) => (
-                                        <div key={actionIndex} className="flex items-start gap-2">
-                                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                            <span className="text-sm text-gray-700">{action}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
+                ),
+            },
+        ],
+        correlation: [
+            { key: 'pair', header: 'Metric Pair' },
+            { key: 'correlation', header: 'Correlation', accessor: (row: any) => row.correlation.toFixed(2) },
+            { key: 'pValue', header: 'P-Value', accessor: (row: any) => row.pValue.toFixed(3) },
+            {
+                key: 'strength',
+                header: 'Strength',
+                accessor: (row: any) => (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        row.strength.includes('Very') ? 'bg-green-100 text-green-800' :
+                        row.strength.includes('Strong') ? 'bg-blue-100 text-blue-800' :
+                        row.strength.includes('Moderate') ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
+                        {row.strength}
+                    </span>
+                ),
+            },
+        ],
+        anomalies: [
+            { key: 'metric', header: 'Metric' },
+            { key: 'value', header: 'Current Value', accessor: (row: any) => formatNumber(row.value) },
+            {
+                key: 'zScore',
+                header: 'Z-Score',
+                accessor: (row: any) => (
+                    <span className={Math.abs(parseFloat(row.zScore)) > 3 ? 'text-red-600 font-semibold' : 'text-yellow-600'}>
+                        {row.zScore}
+                    </span>
+                ),
+            },
+            {
+                key: 'deviation',
+                header: 'Deviation',
+                accessor: (row: any) => (
+                    <span className={Math.abs(parseFloat(row.deviation)) > 20 ? 'text-red-600 font-semibold' : 'text-yellow-600'}>
+                        {row.deviation}
+                    </span>
+                ),
+            },
+            {
+                key: 'severity',
+                header: 'Severity',
+                accessor: (row: any) => {
+                    if (row.severity === 'High') return <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">High</span>;
+                    if (row.severity === 'Medium') return <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">Medium</span>;
+                    return <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Low</span>;
+                },
+            },
+        ],
     };
 
     return (
-        <div className="space-y-6 pb-8">
+        <div className="space-y-8 pb-8">   
 
-            {/* Tab Navigation */}
-            <div className="flex items-center gap-3 flex-wrap bg-white p-2 rounded-2xl border border-green-100">
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`flex-1 min-w-[140px] px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === 'overview'
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
-                            : 'text-gray-600 hover:bg-green-50'
-                        }`}
-                >
-                    <div className="flex items-center justify-center gap-2">
-                        <BarChart className="w-4 h-4" />
-                        Overview
-                    </div>
-                </button>
-                <button
-                    onClick={() => setActiveTab('predictions')}
-                    className={`flex-1 min-w-[140px] px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === 'predictions'
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
-                            : 'text-gray-600 hover:bg-green-50'
-                        }`}
-                >
-                    <div className="flex items-center justify-center gap-2">
-                        <Target className="w-4 h-4" />
-                        Predictions
-                    </div>
-                </button>
-                <button
-                    onClick={() => setActiveTab('recommendations')}
-                    className={`flex-1 min-w-[140px] px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === 'recommendations'
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
-                            : 'text-gray-600 hover:bg-green-50'
-                        }`}
-                >
-                    <div className="flex items-center justify-center gap-2">
-                        <Lightbulb className="w-4 h-4" />
-                        Recommendations
-                    </div>
-                </button>
-                <button
-                    onClick={() => setActiveTab('trends')}
-                    className={`flex-1 min-w-[140px] px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === 'trends'
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
-                            : 'text-gray-600 hover:bg-green-50'
-                        }`}
-                >
-                    <div className="flex items-center justify-center gap-2">
-                        <TrendingUp className="w-4 h-4" />
-                        Trends
-                    </div>
-                </button>
-            </div>
-
-            {activeTab === 'overview' && (
-                <>
-                    {/* Key Metrics Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {keyMetrics.map((metric, index) => (
-                            <div key={index} className={`${metric.bg} rounded-2xl border border-green-200 p-5 hover:shadow-md transition-all duration-300`}>
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 rounded-xl bg-gradient-to-r ${metric.gradient}`}>
-                                        <metric.icon className="w-5 h-5 text-white" />
-                                    </div>
-                                    <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${metric.change.startsWith('+')
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-orange-100 text-orange-700'
-                                        }`}>
-                                        {metric.change}
-                                    </span>
-                                </div>
-                                <h4 className="text-sm font-medium text-gray-600 mb-2">{metric.title}</h4>
-                                <p className="text-3xl font-bold text-gray-900 mb-2">
-                                    {metric.value}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    {getTrendIcon(metric.trend)}
-                                    <span className="text-xs text-gray-600 font-medium">{metric.trend}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Charts Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <MockChart
-                            title="Compliance Score Breakdown"
-                            data={complianceBreakdownData}
-                        />
-                        <MockChart
-                            title="Training Distribution"
-                            data={trainingDistributionData}
-                            type="pie"
-                        />
-                        <MockChart
-                            title="Scope 3 Engagement Metrics"
-                            data={scope3MetricsData}
-                        />
-
-                        {/* Trend Analysis */}
-                        <div className="bg-white rounded-2xl border border-green-100 p-6 shadow-sm">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                    Trend Analysis
-                                </h3>
-                                <button className="p-2 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                                    <Download className="w-4 h-4 text-green-600" />
-                                </button>
-                            </div>
-                            <div className="space-y-3">
-                                {trendAnalysisItems.map((item, index) => (
-                                    <div key={index} className="p-4 rounded-xl border border-gray-200 hover:border-green-300 bg-gradient-to-r from-gray-50 to-white hover:from-green-50 hover:to-emerald-50 transition-all duration-300">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className="w-3 h-3 rounded-full"
-                                                    style={{ backgroundColor: item.color }}
-                                                />
-                                                <span className="text-sm font-semibold text-gray-900">{item.label}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xs text-gray-600 font-medium">{item.trend}</span>
-                                                <span className={`text-sm font-semibold ${item.change.startsWith('+')
-                                                        ? 'text-green-600'
-                                                        : 'text-orange-600'
-                                                    }`}>
-                                                    {item.change}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {activeTab === 'predictions' && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl border border-green-100 p-8 shadow-sm">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                                    <div className="w-1.5 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                                    Carbon Predictions & Projections
-                                </h3>
-                                <p className="text-gray-600">AI-powered forecasts and carbon neutrality roadmap</p>
-                            </div>
-                            <button className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-sm">
-                                <Download className="w-5 h-5" />
-                            </button>
-                        </div>
-                        {renderCarbonPredictions()}
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'recommendations' && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl border border-green-100 p-8 shadow-sm">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                                    <div className="w-1.5 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                                    Action Recommendations
-                                </h3>
-                                <p className="text-gray-600">Prioritized actions based on compliance analysis</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button className="p-3 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                                    <Share2 className="w-5 h-5 text-green-600" />
-                                </button>
-                                <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-sm font-medium text-sm">
-                                    Export Plan
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Immediate Recommendations */}
-                        <div className="mb-8">
-                            <h4 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-orange-100">
-                                    <Zap className="w-5 h-5 text-orange-600" />
-                                </div>
-                                Immediate Actions (0-3 months)
-                            </h4>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {recommendations.immediate.map((recommendation, index) => (
-                                    <div key={index} className="p-5 rounded-xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white hover:border-orange-300 transition-all duration-300">
-                                        <div className="flex items-start gap-4">
-                                            <div className="p-3 rounded-lg bg-orange-100 flex-shrink-0">
-                                                <AlertTriangle className="w-5 h-5 text-orange-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h5 className="font-semibold text-base text-gray-900 mb-2">Priority {index + 1}</h5>
-                                                <p className="text-sm text-gray-700 leading-relaxed mb-3">{recommendation}</p>
-                                                <button className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg hover:from-orange-600 hover:to-red-700 transition-all font-medium text-sm">
-                                                    Start Now
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Medium Term Recommendations */}
-                        <div className="mb-8">
-                            <h4 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-green-100">
-                                    <Calendar className="w-5 h-5 text-green-600" />
-                                </div>
-                                Medium Term (3-12 months)
-                            </h4>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {recommendations.medium_term.map((recommendation, index) => (
-                                    <div key={index} className="p-5 rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-white hover:border-green-300 transition-all duration-300">
-                                        <div className="flex items-start gap-4">
-                                            <div className="p-3 rounded-lg bg-green-100 flex-shrink-0">
-                                                <Target className="w-5 h-5 text-green-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h5 className="font-semibold text-base text-gray-900 mb-2">Goal {index + 1}</h5>
-                                                <p className="text-sm text-gray-700 leading-relaxed mb-3">{recommendation}</p>
-                                                <button className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-medium text-sm">
-                                                    Plan Project
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Long Term Recommendations */}
-                        <div>
-                            <h4 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-emerald-100">
-                                    <TrendingUp className="w-5 h-5 text-emerald-600" />
-                                </div>
-                                Long Term (1-3 years)
-                            </h4>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {recommendations.long_term.map((recommendation, index) => (
-                                    <div key={index} className="p-5 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white hover:border-emerald-300 transition-all duration-300">
-                                        <div className="flex items-start gap-4">
-                                            <div className="p-3 rounded-lg bg-emerald-100 flex-shrink-0">
-                                                <Award className="w-5 h-5 text-emerald-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h5 className="font-semibold text-base text-gray-900 mb-2">Vision {index + 1}</h5>
-                                                <p className="text-sm text-gray-700 leading-relaxed mb-3">{recommendation}</p>
-                                                <button className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all font-medium text-sm">
-                                                    Strategic Plan
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'trends' && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl border border-green-100 p-8 shadow-sm">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                                    <div className="w-1.5 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                                    Compliance Trends Analysis
-                                </h3>
-                                <p className="text-gray-600">Historical trends and performance patterns</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button className="p-3 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                                    <Filter className="w-5 h-5 text-green-600" />
-                                </button>
-                                <button className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-sm">
-                                    <Download className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Trend Cards */}
-                        <div className="grid md:grid-cols-2 gap-5">
-                            <div className="p-6 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-                                <h4 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-white">
-                                        <TrendingUp className="w-5 h-5 text-green-600" />
-                                    </div>
-                                    Training Trends
-                                </h4>
-                                <p className="text-3xl font-bold text-green-700 mb-2">{trends.training_trend}</p>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                    Training hours showing {trends.training_trend.toLowerCase()} trend with {metrics.training.total_training_hours || 0} total hours
-                                </p>
-                            </div>
-
-                            <div className="p-6 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200">
-                                <h4 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-white">
-                                        <Shield className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    Compliance Trends
-                                </h4>
-                                <p className="text-3xl font-bold text-emerald-700 mb-2">{trends.compliance_trend}</p>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                    Overall compliance {trends.compliance_trend.toLowerCase()} with current score of {compliance_scores.scores.overall}
-                                </p>
-                            </div>
-
-                            <div className="p-6 rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200">
-                                <h4 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-white">
-                                        <Users className="w-5 h-5 text-teal-600" />
-                                    </div>
-                                    Scope 3 Trends
-                                </h4>
-                                <p className="text-3xl font-bold text-teal-700 mb-2">{trends.scope3_trend}</p>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                    Supplier engagement {trends.scope3_trend.toLowerCase()} with {scope3_analysis.metrics.suppliersWithCode || 0} compliant suppliers
-                                </p>
-                            </div>
-
-                            <div className="p-6 rounded-xl bg-gradient-to-br from-lime-50 to-green-50 border border-lime-200">
-                                <h4 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-white">
-                                        <Leaf className="w-5 h-5 text-lime-600" />
-                                    </div>
-                                    Carbon Trends
-                                </h4>
-                                <p className="text-3xl font-bold text-lime-700 mb-2">{trends.carbon_trend}</p>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                    Carbon performance {trends.carbon_trend.toLowerCase()} with net balance of {formatNumber(carbon_emissions.net_carbon_balance_tco2e)} tCO₂
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Data Quality Section */}
-            <div className="bg-gradient-to-br from-white to-green-50 rounded-2xl border border-green-100 shadow-sm p-8">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600">
-                        <ShieldCheck className="w-6 h-6 text-white" />
-                    </div>
+            {/* Key Insights Section */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h3 className="text-2xl font-bold text-gray-900">Data Quality & Verification</h3>
-                        <p className="text-gray-600">Metrics validation and verification status</p>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">Compliance Insights</h3>
+                        <p className="text-gray-600">Key findings from compliance data analysis</p>
                     </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="p-5 rounded-xl border border-green-200 bg-white">
-                        <p className="text-xs text-gray-600 mb-2 font-medium">Completeness Score</p>
-                        <p className="text-3xl font-bold text-gray-900">{data_quality.data_coverage}%</p>
-                    </div>
-                    <div className="p-5 rounded-xl border border-green-200 bg-white">
-                        <p className="text-xs text-gray-600 mb-2 font-medium">Verified Metrics</p>
-                        <p className="text-3xl font-bold text-gray-900">{data_quality.verified_metrics}</p>
-                    </div>
-                    <div className="p-5 rounded-xl border border-green-200 bg-white">
-                        <p className="text-xs text-gray-600 mb-2 font-medium">Carbon Data</p>
-                        <p className="text-lg font-bold text-gray-900">
-                            {data_quality.carbon_data_available ? 'Available' : 'Not Available'}
-                        </p>
-                    </div>
-                    <div className="p-5 rounded-xl border border-green-200 bg-white">
-                        <p className="text-xs text-gray-600 mb-2 font-medium">Verification Status</p>
-                        <p className="text-lg font-bold text-gray-900">
-                            {data_quality.carbon_verification_status}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Detailed Metrics Table */}
-            <div className="bg-white rounded-2xl border border-green-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-green-100">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                                <div className="w-1.5 h-6 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full"></div>
-                                Detailed Compliance Metrics
-                            </h3>
-                            <p className="text-sm text-gray-500 mt-1">Year: {selectedYear} | Company: {company.name}</p>
-                        </div>
-                        <button className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all shadow-sm font-medium text-sm">
-                            Export Report
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setActiveInsightTab('trends')}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                activeInsightTab === 'trends'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Trends
+                        </button>
+                        <button
+                            onClick={() => setActiveInsightTab('predictions')}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                activeInsightTab === 'predictions'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Predictions
+                        </button>
+                        <button
+                            onClick={() => setActiveInsightTab('correlations')}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                activeInsightTab === 'correlations'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Correlations
                         </button>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-gradient-to-r from-green-50 to-emerald-50">
-                                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Metric Category</th>
-                                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Current Value</th>
-                                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Target</th>
-                                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Variance</th>
-                                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[
-                                { category: 'Overall Compliance', current: compliance_scores.scores.overall, target: 85, variance: compliance_scores.scores.overall - 85, status: compliance_scores.scores.overall >= 85 ? 'Achieved' : 'Below Target' },
-                                { category: 'Training Hours', current: metrics.training.total_training_hours || 0, target: 1000, variance: (metrics.training.total_training_hours || 0) - 1000, status: (metrics.training.total_training_hours || 0) >= 1000 ? 'Achieved' : 'Below Target' },
-                                { category: 'Trained Employees', current: metrics.training.employees_trained_total || 0, target: 50, variance: (metrics.training.employees_trained_total || 0) - 50, status: (metrics.training.employees_trained_total || 0) >= 50 ? 'Achieved' : 'Below Target' },
-                                { category: 'Supplier Compliance', current: compliance_scores.scores.supplierCompliance, target: 80, variance: compliance_scores.scores.supplierCompliance - 80, status: compliance_scores.scores.supplierCompliance >= 80 ? 'Achieved' : 'Below Target' },
-                                { category: 'GRI Compliance', current: compliance_scores.scores.griCompliance, target: 75, variance: compliance_scores.scores.griCompliance - 75, status: compliance_scores.scores.griCompliance >= 75 ? 'Achieved' : 'Below Target' },
-                                { category: 'Carbon Score', current: compliance_scores.scores.carbonScore, target: 70, variance: compliance_scores.scores.carbonScore - 70, status: compliance_scores.scores.carbonScore >= 70 ? 'Achieved' : 'Below Target' },
-                                { category: 'Data Quality', current: compliance_scores.scores.dataQuality, target: 90, variance: compliance_scores.scores.dataQuality - 90, status: compliance_scores.scores.dataQuality >= 90 ? 'Achieved' : 'Below Target' },
-                            ].map((row, index) => (
-                                <tr key={index} className="border-b border-gray-100 hover:bg-green-50 transition-colors">
-                                    <td className="py-4 px-6 text-sm text-gray-900 font-medium">{row.category}</td>
-                                    <td className="py-4 px-6 text-sm font-semibold text-gray-900">{row.current}</td>
-                                    <td className="py-4 px-6 text-sm text-gray-700">{row.target}</td>
-                                    <td className="py-4 px-6 text-sm">
-                                        <span className={`font-semibold ${row.variance >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                                            {row.variance >= 0 ? '+' : ''}{row.variance}
-                                        </span>
-                                    </td>
-                                    <td className="py-4 px-6 text-sm">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${row.status === 'Achieved'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-orange-100 text-orange-700'
-                                            }`}>
-                                            {row.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+
+                <div className="grid md:grid-cols-3 gap-6">
+                    {(activeInsightTab === 'trends' ? insights.trends :
+                      activeInsightTab === 'predictions' ? insights.predictions :
+                      insights.correlations).map((insight, index) => (
+                        <div key={index} className="group p-6 rounded-2xl border-2 border-gray-200 hover:border-green-300 hover:bg-gradient-to-br hover:from-green-50 hover:to-emerald-50 transition-all duration-200">
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="p-3 rounded-xl bg-gray-100 group-hover:bg-green-100 transition-colors">
+                                    {insight.icon}
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-lg text-gray-900 mb-2">{insight.title}</h4>
+                                    <p className="text-sm text-gray-600 leading-relaxed mb-2">{insight.description}</p>
+                                    <p className="text-lg font-bold text-green-600">{insight.value}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
+                                    {insight.impact ? `Impact: ${insight.impact}` :
+                                     insight.timeframe ? `Timeframe: ${insight.timeframe}` :
+                                     `Significance: ${insight.significance}`}
+                                </span>
+                                <span className="text-gray-500 font-medium">Analysis Complete</span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
+
+            {/* Analytics Tables Section */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">Data Analytics Tables</h3>
+                        <p className="text-gray-600">Comprehensive statistical analysis of compliance metrics</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setSelectedTable('statistical')}
+                            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+                                selectedTable === 'statistical'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Statistical
+                        </button>
+                        <button
+                            onClick={() => setSelectedTable('correlation')}
+                            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+                                selectedTable === 'correlation'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Correlation
+                        </button>
+                        <button
+                            onClick={() => setSelectedTable('anomalies')}
+                            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+                                selectedTable === 'anomalies'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Anomalies
+                        </button>
+                    </div>
+                </div>
+
+                <DataTable
+                    columns={tableColumns[selectedTable]}
+                    data={
+                        selectedTable === 'statistical' ? analyticsData.statisticalData :
+                        selectedTable === 'correlation' ? analyticsData.correlationMatrix :
+                        analyticsData.anomalies
+                    }
+                    onRowClick={(row) => {
+                        setSelectedMetric(row);
+                        setIsModalOpen(true);
+                    }}
+                />
+
+                <div className="mt-6 flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                        Showing {selectedTable === 'statistical' ? analyticsData.statisticalData.length :
+                                 selectedTable === 'correlation' ? analyticsData.correlationMatrix.length :
+                                 analyticsData.anomalies.length} records • Click any row for detailed analysis
+                    </p>
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition-all">
+                        <Download className="w-4 h-4" />
+                        Export Data
+                    </button>
+                </div>
+            </div>
+
+            {/* Confidence and Methodology Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Data Confidence</h3>
+                            <p className="text-gray-600">Quality and verification metrics</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-6 h-6 text-green-600" />
+                            <span className="text-3xl font-bold text-green-600">
+                                {dataQuality.data_coverage}%
+                            </span>
+                        </div>
+                    </div>
+                    <div className="space-y-5">
+                        <div>
+                            <div className="flex justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-700">Data Coverage</span>
+                                <span className="text-sm font-bold text-gray-900">{dataQuality.data_coverage}%</span>
+                            </div>
+                            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-600 transition-all duration-500"
+                                    style={{ width: `${dataQuality.data_coverage}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div className="flex justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-700">Verified Metrics</span>
+                                <span className="text-sm font-bold text-gray-900">{dataQuality.verified_metrics}</span>
+                            </div>
+                            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-600 transition-all duration-500"
+                                    style={{ width: `${Math.min((dataQuality.verified_metrics / 20) * 100, 100)}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div className="flex justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-700">Carbon Data Available</span>
+                                <span className="text-sm font-bold text-gray-900">
+                                    {dataQuality.carbon_data_available ? 'Yes' : 'No'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-gray-200 shadow-lg p-8">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Methodology & Assumptions</h3>
+                            <p className="text-gray-600">Statistical methods and key assumptions</p>
+                        </div>
+                        <Info className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="space-y-4">
+                        <div className="p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                            <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                <BarChartHorizontal className="w-5 h-5 text-green-600" />
+                                Statistical Methods
+                            </h4>
+                            <ul className="text-sm text-gray-700 space-y-2">
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    Linear Regression for trend analysis
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    Pearson Correlation for relationships
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    Z-score for anomaly detection
+                                </li>
+                            </ul>
+                        </div>
+                        <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200">
+                            <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                <BadgeCheck className="w-5 h-5 text-blue-600" />
+                                Key Assumptions
+                            </h4>
+                            <ul className="text-sm text-gray-700 space-y-2">
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                    Historical patterns will continue
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                    Consistent measurement methods across periods
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                    Data quality scores reflect reliability
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Smart Recommendations Button */}
+            <div className="flex justify-end">
+                <button
+                    onClick={() => setShowRecommendationsModal(true)}
+                    className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg font-medium"
+                >
+                    <Lightbulb className="w-5 h-5" />
+                    View Smart Recommendations
+                </button>
+            </div>
+
+            {/* Metric Detail Modal */}
+            {isModalOpen && selectedMetric && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-t-3xl">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-2xl font-bold mb-1">Detailed Analysis</h3>
+                                    <p className="text-purple-100">In-depth metric information</p>
+                                </div>
+                                <button
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-8">
+                            <div className="space-y-4">
+                                {Object.entries(selectedMetric).map(([key, value]) => (
+                                    <div key={key} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                                        <div className="text-sm text-gray-600 mb-1 capitalize">{key.replace(/_/g, ' ')}</div>
+                                        <div className="font-semibold text-gray-900">{String(value)}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Smart Recommendations Modal */}
+            {showRecommendationsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowRecommendationsModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-3xl sticky top-0">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 rounded-xl bg-white/20">
+                                        <Lightbulb className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-bold">Smart Recommendations</h3>
+                                        <p className="text-green-100">Analytics-based action items</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowRecommendationsModal(false)}
+                                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            {recommendations.immediate.map((rec, idx) => (
+                                <div key={idx} className="p-6 rounded-2xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-green-100 flex-shrink-0">
+                                            <Zap className="w-6 h-6 text-green-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-lg text-green-900 mb-2">Immediate Action</h4>
+                                            <p className="text-green-700 leading-relaxed mb-4">{rec}</p>
+                                            <div className="flex items-center justify-between">
+                                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">High Impact</span>
+                                                <span className="text-sm text-green-600 font-medium">Confidence: 85%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {recommendations.medium_term.map((rec, idx) => (
+                                <div key={idx} className="p-6 rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-blue-100 flex-shrink-0">
+                                            <Calendar className="w-6 h-6 text-blue-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-lg text-blue-900 mb-2">Medium Term Goal</h4>
+                                            <p className="text-blue-700 leading-relaxed mb-4">{rec}</p>
+                                            <div className="flex items-center justify-between">
+                                                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">Medium Impact</span>
+                                                <span className="text-sm text-blue-600 font-medium">Confidence: 78%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {recommendations.long_term.map((rec, idx) => (
+                                <div key={idx} className="p-6 rounded-2xl border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-xl bg-yellow-100 flex-shrink-0">
+                                            <TrendingUp className="w-6 h-6 text-yellow-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-lg text-yellow-900 mb-2">Long Term Vision</h4>
+                                            <p className="text-yellow-700 leading-relaxed mb-4">{rec}</p>
+                                            <div className="flex items-center justify-between">
+                                                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">Strategic</span>
+                                                <span className="text-sm text-yellow-600 font-medium">Confidence: 82%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

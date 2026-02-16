@@ -1,4 +1,3 @@
-// FarmComplianceService.ts
 import api from "../Auth_service/api";
 
 /**
@@ -53,138 +52,163 @@ export interface Company {
 
 /**
  * =====================
- * Carbon Emission Accounting Interfaces
+ * Farm Compliance Document (raw)
  * =====================
  */
-export interface CreatedBy {
+export interface MetricYearlyValue {
+    year: string;
+    value: number;
+    unit: string;
+    source: string;
+    added_by: User;
+    _id: string;
+    added_at: string;
+    last_updated_at: string;
+}
+
+export interface MetricListItem {
+    item: string;
+    source: string;
+    _id: string;
+    added_at: string;
+}
+
+export interface Metric {
+    category: string;
+    metric_name: string;
+    data_type: "yearly_series" | "list";
+    yearly_data?: MetricYearlyValue[];
+    list_data?: MetricListItem[];
+    single_value: {
+        added_at: string;
+    };
+    is_active: boolean;
+    created_by: string;
+    _id: string;
+    created_at: string;
+}
+
+export interface User {
     _id: string;
     email: string;
+    phone: string;
+    full_name: string;
+    status: string;
+    email_verified: boolean;
+    auth_providers: any[];
+    created_at: string;
+    updated_at: string;
+    __v: number;
 }
 
-export interface EmissionFactor {
-    source: string;
-    activity_data: string;
-    default_ef_start: string;
-    notes_source: string;
-    emission_factor_code: string;
-    emission_factor_value: number;
-    emission_factor_unit: string;
-    gwp_value: number;
-    gwp_source: string;
-    conversion_factor: number;
+export interface SummaryStats {
+    total_executive_hours: number;
+    total_senior_management_hours: number;
+    total_other_employees_hours: number;
+    avg_executive_hours: number;
+    avg_senior_management_hours: number;
+    avg_other_employees_hours: number;
+    training_focus_areas_count: number;
+    training_delivery_methods_count: number;
+    compliance_programs_count: number;
+}
+
+export interface FarmComplianceDoc {
+    _id: string;
+    company: string;
+    data_period_start: string;
+    data_period_end: string;
+    original_source: string;
+    import_source: string;
+    source_file_name: string;
+    import_batch_id: string;
+    import_date: string;
+    data_quality_score: number | null;
+    verification_status: string;
+    validation_status: string;
+    metrics: Metric[];
+    summary_stats: SummaryStats;
+    created_by: User;
+    last_updated_by: User;
+    version: number;
     is_active: boolean;
+    source_files: any[];
+    validation_errors: any[];
+    gri_references: any[];
+    forecast_data: any[];
+    risk_assessment: any[];
     created_at: string;
     last_updated_at: string;
-    _id: string;
+    __v: number;
 }
 
-export interface GlobalWarmingPotentials {
-    n2o_gwp: number;
-    ch4_gwp: number;
-    source: string;
-}
-
-export interface ConversionFactors {
-    n2o_n_to_n2o: number;
-    carbon_to_co2: number;
-    carbon_fraction: number;
-}
-
-export interface EmissionReferences {
-    methodology_statement: string;
-    emission_factors: EmissionFactor[];
-    global_warming_potentials: GlobalWarmingPotentials;
-    conversion_factors: ConversionFactors;
-}
-
-export interface CarbonFramework {
-    sequestration_methodology: string;
-    emission_methodology: string;
-    calculation_approach: string;
-    data_sources: string[];
-}
-
-export interface MonthlySequestrationData {
-    month: string;
-    month_number: number;
-    year: number;
-    ndvi_max: number;
-    agb_t_per_ha: number;
-    bgb_t_per_ha: number;
-    biomass_c_t_per_ha: number;
-    biomass_co2_t_per_ha: number;
-    biomass_co2_total_t: number;
-    delta_biomass_co2_t: number;
-    soc_tc_per_ha: number;
-    soc_co2_t_per_ha: number;
-    soc_co2_total_t: number;
-    delta_soc_co2_t: number;
-    net_co2_stock_t: number;
-    net_co2_change_t: number;
-    meaning: string;
-    is_baseline: boolean;
-    _id: string;
-}
-
-export interface SequestrationMethodology {
-    component: string;
-    method_applied: string;
-    standard_source: string;
-    purpose: string;
-    _id: string;
-}
-
-export interface AnnualSequestrationSummary {
-    total_biomass_co2_t: number;
-    total_soc_co2_t: number;
-    net_co2_stock_t: number;
-    net_co2_change_t: number;
-    sequestration_total_tco2: number;
-}
-
-export interface EmissionSource {
-    source: string;
-    parameter: string;
+/**
+ * =====================
+ * Farm Compliance (flattened)
+ * =====================
+ */
+export interface FlattenedMetric {
+    category: string;
     unit: string;
-    annual_per_ha: number;
-    emission_factor: string;
-    ef_number: number;
-    gwp: number;
-    tco2e_per_ha_per_year: number;
-    methodological_justification: string;
-    reference: string;
-    calculation_notes: string;
-    is_active: boolean;
-    _id: string;
-}
-
-export interface Scope1Emissions {
-    sources: EmissionSource[];
-    total_tco2e_per_ha: number;
-    total_tco2e: number;
-}
-
-export interface Scope2Source {
+    value: number;
     source: string;
-    parameter: string;
-    unit: string;
-    annual_activity_per_ha: number;
-    emission_factor: string;
-    ef_number: number;
-    tco2e_per_ha_per_year: number;
-    methodological_justification: string;
-    reference: string;
-    calculation_notes: string;
-    is_active: boolean;
-    _id: string;
+    added_at: string;
+    added_by: User;
 }
 
-export interface Scope2Emissions {
-    sources: Scope2Source[];
-    total_tco2e_per_ha: number;
-    total_tco2e: number;
+export interface FarmComplianceMetrics {
+    training: {
+        total_training_hours: number | null;
+        farmer_training_hours: number | null;
+        safety_training_hours: number | null;
+        technical_training_hours: number | null;
+        compliance_training_hours: number | null;
+        employees_trained_total: number | null;
+        employees_trained_farmers: number | null;
+    };
+    scope3_engagement: {
+        suppliers_with_code: number | null;
+        suppliers_audited: number | null;
+        supplier_training_hours: number | null;
+        non_compliance_cases: number | null;
+        corrective_actions: number | null;
+    };
 }
 
+export interface FarmCompliance {
+    document_id: string;
+    data_period: {
+        start: string;
+        end: string;
+    };
+    all_metrics: Record<string, FlattenedMetric>; // metric_name -> metric
+    metrics: FarmComplianceMetrics;
+    summary_stats: SummaryStats;
+    gri_references: any[];
+    forecast_data: any[];
+    risk_assessment: any[];
+    import_info: {
+        import_source: string;
+        source_file_name: string;
+        import_date: string;
+        data_quality_score: number | null;
+        verification_status: string;
+    };
+    metadata: {
+        version: number;
+        created_at: string;
+        created_by: User;
+        last_updated_at: string;
+        last_updated_by: User;
+        validation_status: string;
+    };
+}
+
+/**
+ * =====================
+ * Carbon Scope 3
+ * =====================
+ */
 export interface Scope3Category {
     category: string;
     parameter: string;
@@ -193,129 +217,25 @@ export interface Scope3Category {
     emission_factor: string;
     ef_number: number;
     tco2e_per_ha_per_year: number;
-    methodological_justification: string;
-    reference: string;
-    calculation_notes: string;
-    is_active: boolean;
-    _id: string;
 }
 
-export interface Scope3Emissions {
-    categories: Scope3Category[];
-    total_tco2e_per_ha: number;
+export interface CarbonScope3 {
     total_tco2e: number;
-}
-
-export interface EmissionsData {
-    scope1: Scope1Emissions;
-    scope2: Scope2Emissions;
-    scope3: Scope3Emissions;
-    total_scope_emission_tco2e_per_ha: number;
-    total_scope_emission_tco2e: number;
-    net_total_emission_tco2e: number;
-}
-
-export interface DataQuality {
-    completeness_score: number;
-    verification_status: string;
-}
-
-export interface ImportHistory {
-    batch_id?: string;
-    source_file: string;
-    file_type: string;
-    import_date: string;
-    metrics_imported: number;
-    import_notes?: string;
-}
-
-export interface DataManagement {
-    validation_status: string;
-    import_history: ImportHistory[];
-    validation_errors: any[];
-}
-
-export interface CarbonEmissionAccounting {
-    document_id: string;
-    status: string;
-    is_active: boolean;
-    created_at: string;
-    created_by: CreatedBy;
-    last_updated_at: string;
-    last_updated_by: CreatedBy;
-    emission_references: EmissionReferences;
-    framework: CarbonFramework;
-    yearly_data: {
-        year: number;
-        sequestration: {
-            reporting_area_ha: number;
-            soc_area_ha: number;
-            monthly_data: MonthlySequestrationData[];
-            methodologies: SequestrationMethodology[];
-            annual_summary: AnnualSequestrationSummary;
-        };
-        emissions: EmissionsData;
-        data_quality: DataQuality;
-        source_file: string;
-        imported_at: string;
-        last_updated_at: string;
-    };
-    summary: {
-        net_carbon_balance_tco2e: number;
-    };
-    data_management: DataManagement;
-}
-
-/**
- * =====================
- * Carbon Emissions & Sequestration Interfaces
- * =====================
- */
-export interface CarbonEmissions {
-    scope1_tco2e: number;
-    scope2_tco2e: number;
-    scope3_tco2e: number;
-    total_emissions_tco2e: number;
-    net_carbon_balance_tco2e: number;
+    total_tco2e_per_ha: number;
+    categories: Scope3Category[];
+    sequestration_total_tco2: number;
+    net_balance_tco2e: number;
     data_quality: {
         completeness: number;
         verification: string;
     };
 }
 
-export interface CarbonSequestration {
-    biomass_co2_t: number;
-    soc_co2_t: number;
-    total_sequestration_tco2: number;
-    net_co2_change: number;
-}
-
 /**
  * =====================
- * Metrics Interfaces
+ * Framework Alignment
  * =====================
  */
-export interface TrainingMetrics {
-    total_training_hours: number | null;
-    farmer_training_hours: number | null;
-    employees_trained_total: number | null;
-    employees_trained_farmers: number | null;
-    training_distribution: {
-        farmer_training: number | null;
-        safety_training: number | null;
-        technical_training: number | null;
-        compliance_training: number | null;
-    };
-}
-
-export interface Scope3Engagement {
-    suppliers_with_code: number | null;
-    suppliers_audited: number | null;
-    supplier_training_hours: number | null;
-    non_compliance_cases: number | null;
-    corrective_actions: number | null;
-}
-
 export interface FrameworkAlignment {
     gri_compliance: number | null;
     ifrs_s1_alignment: number | null;
@@ -326,15 +246,9 @@ export interface FrameworkAlignment {
     cdp_score: number | null;
 }
 
-export interface Metrics {
-    training: TrainingMetrics;
-    scope3_engagement: Scope3Engagement;
-    framework_alignment: FrameworkAlignment;
-}
-
 /**
  * =====================
- * GRI/IFRS Data Interfaces
+ * GRI/IFRS Data
  * =====================
  */
 export interface AlignmentMetric {
@@ -346,23 +260,28 @@ export interface AlignmentMetric {
     unit: string | null;
 }
 
+export interface Policy {
+    name: string;
+    category: string;
+    status: string;
+    description: string | null;
+    verified: boolean;
+}
+
 export interface GRIIFRSData {
     sources: any[];
     alignments: AlignmentMetric[];
     files: any[];
-    summary: {
-        total_gri_ifrs_sources: number;
-        total_alignment_metrics: number;
-        average_alignment_score: string;
-    };
+    policies: Policy[];
+    certifications: any[];
 }
 
 /**
  * =====================
- * Policies & Certifications Interfaces
+ * Policies & Certifications
  * =====================
  */
-export interface Policy {
+export interface PolicyItem {
     title: string;
     description: string | null;
     category: string;
@@ -371,114 +290,66 @@ export interface Policy {
     verified: boolean;
 }
 
-export interface Policies {
-    list: Policy[];
-    esg_frameworks: string[];
-    compliance_status: Record<string, any>;
+export interface PoliciesAndCertifications {
+    policies: PolicyItem[];
+    certifications: any[];
     summary: {
         total_policies: number;
-        verified_policies: number;
-        active_standards: number;
-    };
-}
-
-export interface Certifications {
-    list: any[];
-    summary: {
         total_certifications: number;
-        active_certifications: number;
-        pending_certifications: number;
     };
-}
-
-export interface PoliciesAndCertifications {
-    policies: Policies;
-    certifications: Certifications;
 }
 
 /**
  * =====================
- * Audit Trails Interfaces
+ * Audit Trails
  * =====================
  */
-export interface AuditSummary {
-    total_verifications: number;
-    total_validations: number;
-    recent_import: string;
-    average_quality_score: number | null;
+export interface ImportHistory {
+    batch_id?: string;
+    source_file: string;
+    file_type: string;
+    import_date: string;
+    metrics_imported: number;
+    import_notes?: string;
 }
 
 export interface AuditTrails {
     verifications: any[];
     validations: any[];
     imports: ImportHistory[];
-    summary: AuditSummary;
+    qualityScores: any[];
 }
 
 /**
  * =====================
- * Compliance Scores Interfaces
+ * Compliance Scores
  * =====================
  */
 export interface ComplianceScores {
     scores: {
         trainingHours: number;
         trainedEmployees: number;
-        supplierCompliance: number;
-        ifrsS1Alignment: number;
-        ifrsS2Alignment: number;
-        griCompliance: number;
-        tcfdImplementation: number;
-        carbonScore: number;
-        dataQuality: number;
-        verification: number;
+        supplierCodeAdoption: number;
+        supplierAudits: number;
+        nonCompliance: number;
+        frameworkAlignment: number;
+        carbonScope3: number;
         overall: number;
     };
     assessmentDate: string;
-    weights: {
-        training: string;
-        supplier_engagement: string;
-        ifrs_alignment: string;
-        gri_compliance: string;
-        tcfd: string;
-        carbon_performance: string;
-        data_quality: string;
-        verification: string;
-    };
     rating: string;
 }
 
 /**
  * =====================
- * Graph Interfaces
+ * Graphs
  * =====================
  */
 export interface GraphDataset {
-    label: string;
-    data: (number | null)[];
-    backgroundColor?: string;
+    label?: string;
+    data: number[];
+    backgroundColor?: string | string[];
     borderColor?: string;
-    borderWidth?: number;
-    type?: string;
-    yAxisID?: string;
-}
-
-export interface GraphOptions {
-    scales: {
-        y: {
-            title: {
-                display: boolean;
-                text: string;
-            };
-        };
-        y1: {
-            position: string;
-            title: {
-                display: boolean;
-                text: string;
-            };
-        };
-    };
 }
 
 export interface Graph {
@@ -487,49 +358,19 @@ export interface Graph {
     description: string;
     labels: string[];
     datasets: GraphDataset[];
-    options?: GraphOptions;
 }
 
 export interface Graphs {
-    complianceBreakdown: Graph;
-    carbonEmissionBreakdown: Graph;
-    trainingComplianceCorrelation: Graph;
+    trainingHours: Graph;
+    scope3Engagement: Graph;
+    scope3ByCategory: Graph;
     frameworkAlignment: Graph;
+    complianceRadar: Graph;
 }
 
 /**
  * =====================
- * Scope 3 Analysis Interfaces
- * =====================
- */
-export interface Scope3Metrics {
-    suppliersWithCode: number;
-    trainedSuppliers: number;
-    auditsConducted: number;
-    nonCompliances: number;
-    correctiveActions: number;
-    complianceRate: string;
-}
-
-export interface Scope3ReductionOpportunity {
-    priority: string;
-    area: string;
-    potential_reduction: string;
-    actions: string[];
-}
-
-export interface Scope3Analysis {
-    metrics: Scope3Metrics;
-    analysis: {
-        dataSources: number;
-        verifiedSupplierData: number;
-        riskLevel: string;
-    };
-}
-
-/**
- * =====================
- * Data Quality Interfaces
+ * Data Quality Info
  * =====================
  */
 export interface DataQualityInfo {
@@ -537,26 +378,11 @@ export interface DataQualityInfo {
     last_verification_date: string | null;
     data_coverage: number;
     carbon_data_available: boolean;
-    carbon_data_quality: number;
-    carbon_verification_status: string;
 }
 
 /**
  * =====================
- * Trends Interfaces
- * =====================
- */
-export interface Trends {
-    training_trend: string;
-    compliance_trend: string;
-    scope3_trend: string;
-    certification_trend: string;
-    carbon_trend: string;
-}
-
-/**
- * =====================
- * Recommendations Interfaces
+ * Recommendations
  * =====================
  */
 export interface Recommendations {
@@ -567,72 +393,28 @@ export interface Recommendations {
 
 /**
  * =====================
- * Carbon Predictions Interfaces
- * =====================
- */
-export interface ProjectedEmissions {
-    projected_scope1: number;
-    projected_scope2: number;
-    projected_scope3: number;
-    total_projected: number;
-    reduction_percentage: number;
-    assumptions: string[];
-}
-
-export interface CarbonNeutralityTimeline {
-    status: string;
-    target_year: number;
-    years_remaining: number;
-    required_annual_reduction: number;
-    current_net_balance: number;
-    assumptions: string[];
-}
-
-export interface SequestrationPotential {
-    current_sequestration_tco2: number;
-    potential_sequestration_tco2: number;
-    increase_possible_tco2: number;
-    increase_percentage: number;
-    area_ha: number;
-    sequestration_per_ha: number;
-    potential_per_ha: number;
-    recommendations: string[];
-}
-
-export interface Scope3ReductionOpportunity {
-    priority: string;
-    area: string;
-    potential_reduction: string;
-    actions: string[];
-}
-
-export interface Scope3ReductionOpportunities {
-    scope3_percentage: string;
-    emission_intensity: number;
-    reduction_opportunities: Scope3ReductionOpportunity[];
-    estimated_total_reduction_tco2e: number;
-    timeline_months: number;
-}
-
-export interface CarbonPredictions {
-    projected_emissions_next_year: ProjectedEmissions;
-    carbon_neutrality_timeline: CarbonNeutralityTimeline;
-    sequestration_potential: SequestrationPotential;
-    scope3_reduction_opportunities: Scope3ReductionOpportunities;
-}
-
-/**
- * =====================
- * Metadata Interfaces
+ * Metadata
  * =====================
  */
 export interface Metadata {
     generated_at: string;
-    data_sources_count: number;
-    metrics_extracted: number;
-    carbon_data_included: boolean;
-    carbon_accounting_complete: boolean;
+    data_sources: {
+        farm_compliance: number;
+        esg_data: number;
+        carbon_data: number;
+    };
     year: number;
+}
+
+/**
+ * =====================
+ * Versions
+ * =====================
+ */
+export interface Versions {
+    api: string;
+    calculation: string;
+    gee_adapter: string;
 }
 
 /**
@@ -644,23 +426,21 @@ export interface FarmComplianceResponse {
     message: string;
     api: string;
     data: {
+        versions: Versions;
         company: Company;
         reporting_year: number;
         time_period: string;
-        carbon_emission_accounting: CarbonEmissionAccounting;
-        carbon_emissions: CarbonEmissions;
-        carbon_sequestration: CarbonSequestration;
-        metrics: Metrics;
+        farm_compliance_doc: FarmComplianceDoc;
+        farm_compliance: FarmCompliance;
+        carbon_scope3: CarbonScope3;
+        framework_alignment: FrameworkAlignment;
         gri_ifrs_data: GRIIFRSData;
         policies_and_certifications: PoliciesAndCertifications;
         audit_trails: AuditTrails;
         compliance_scores: ComplianceScores;
         graphs: Graphs;
-        scope3_analysis: Scope3Analysis;
         data_quality: DataQualityInfo;
-        trends: Trends;
         recommendations: Recommendations;
-        carbon_predictions: CarbonPredictions;
         metadata: Metadata;
     };
 }
@@ -690,7 +470,6 @@ export const getFarmComplianceData = async (
     try {
         const { companyId, year } = params;
 
-        // Build query parameters
         const queryParams = new URLSearchParams();
         if (year !== undefined) {
             queryParams.append('year', year.toString());
@@ -705,7 +484,6 @@ export const getFarmComplianceData = async (
         const statusCode = error.response?.status;
         const errorMessage = error.response?.data?.error || error.response?.data?.message;
 
-        // Handle specific error cases
         switch (statusCode) {
             case 400:
                 throw new Error(errorMessage || "Invalid request parameters");
@@ -732,232 +510,110 @@ export const getFarmComplianceData = async (
 };
 
 /**
+ * =====================
  * Helper Functions
+ * =====================
+ */
+
+// --- Company ---
+export const getCompany = (data: FarmComplianceResponse) => data.data.company;
+export const getFarmAreaOfInterest = (data: FarmComplianceResponse) => data.data.company.area_of_interest_metadata;
+export const getFarmCoordinates = (data: FarmComplianceResponse) => data.data.company.area_of_interest_metadata?.coordinates || [];
+export const getESGFrameworks = (data: FarmComplianceResponse) => data.data.company.esg_reporting_framework;
+export const getESGContactPerson = (data: FarmComplianceResponse) => data.data.company.esg_contact_person;
+export const getLatestESGReportYear = (data: FarmComplianceResponse) => data.data.company.latest_esg_report_year;
+export const hasESGLinkedPay = (data: FarmComplianceResponse) => data.data.company.has_esg_linked_pay;
+
+// --- Reporting ---
+export const getReportingYear = (data: FarmComplianceResponse) => data.data.reporting_year;
+export const getTimePeriod = (data: FarmComplianceResponse) => data.data.time_period;
+
+// --- Farm Compliance Document (raw) ---
+export const getFarmComplianceDoc = (data: FarmComplianceResponse) => data.data.farm_compliance_doc;
+export const getRawMetrics = (data: FarmComplianceResponse) => data.data.farm_compliance_doc.metrics;
+
+// --- Farm Compliance (flattened) ---
+export const getFarmCompliance = (data: FarmComplianceResponse) => data.data.farm_compliance;
+export const getAllMetrics = (data: FarmComplianceResponse) => data.data.farm_compliance.all_metrics;
+export const getTrainingMetrics = (data: FarmComplianceResponse) => data.data.farm_compliance.metrics.training;
+export const getScope3EngagementMetrics = (data: FarmComplianceResponse) => data.data.farm_compliance.metrics.scope3_engagement;
+export const getComplianceSummaryStats = (data: FarmComplianceResponse) => data.data.farm_compliance.summary_stats;
+export const getImportInfo = (data: FarmComplianceResponse) => data.data.farm_compliance.import_info;
+
+// --- Carbon Scope 3 ---
+export const getCarbonScope3 = (data: FarmComplianceResponse) => data.data.carbon_scope3;
+export const getScope3Categories = (data: FarmComplianceResponse) => data.data.carbon_scope3.categories;
+export const getScope3TotalEmissions = (data: FarmComplianceResponse) => data.data.carbon_scope3.total_tco2e;
+export const getScope3EmissionsPerHa = (data: FarmComplianceResponse) => data.data.carbon_scope3.total_tco2e_per_ha;
+export const getSequestrationTotal = (data: FarmComplianceResponse) => data.data.carbon_scope3.sequestration_total_tco2;
+export const getNetCarbonBalance = (data: FarmComplianceResponse) => data.data.carbon_scope3.net_balance_tco2e;
+export const getCarbonDataQuality = (data: FarmComplianceResponse) => data.data.carbon_scope3.data_quality;
+
+// --- Framework Alignment ---
+export const getFrameworkAlignment = (data: FarmComplianceResponse) => data.data.framework_alignment;
+
+// --- GRI/IFRS Data ---
+export const getGRIIFRSData = (data: FarmComplianceResponse) => data.data.gri_ifrs_data;
+export const getGRIAlignments = (data: FarmComplianceResponse) => data.data.gri_ifrs_data.alignments;
+export const getGRIPolicies = (data: FarmComplianceResponse) => data.data.gri_ifrs_data.policies;
+
+// --- Policies & Certifications ---
+export const getPoliciesAndCertifications = (data: FarmComplianceResponse) => data.data.policies_and_certifications;
+export const getPolicies = (data: FarmComplianceResponse) => data.data.policies_and_certifications.policies;
+export const getCertifications = (data: FarmComplianceResponse) => data.data.policies_and_certifications.certifications;
+export const getPoliciesSummary = (data: FarmComplianceResponse) => data.data.policies_and_certifications.summary;
+
+// --- Audit Trails ---
+export const getAuditTrails = (data: FarmComplianceResponse) => data.data.audit_trails;
+export const getImportHistory = (data: FarmComplianceResponse) => data.data.audit_trails.imports;
+
+// --- Compliance Scores ---
+export const getComplianceScores = (data: FarmComplianceResponse) => data.data.compliance_scores;
+export const getOverallComplianceScore = (data: FarmComplianceResponse) => data.data.compliance_scores.scores.overall;
+export const getComplianceRating = (data: FarmComplianceResponse) => data.data.compliance_scores.rating;
+export const getScoreBreakdown = (data: FarmComplianceResponse) => data.data.compliance_scores.scores;
+
+// --- Graphs ---
+export const getGraphs = (data: FarmComplianceResponse) => data.data.graphs;
+export const getTrainingHoursGraph = (data: FarmComplianceResponse) => data.data.graphs.trainingHours;
+export const getScope3EngagementGraph = (data: FarmComplianceResponse) => data.data.graphs.scope3Engagement;
+export const getScope3ByCategoryGraph = (data: FarmComplianceResponse) => data.data.graphs.scope3ByCategory;
+export const getFrameworkAlignmentGraph = (data: FarmComplianceResponse) => data.data.graphs.frameworkAlignment;
+export const getComplianceRadarGraph = (data: FarmComplianceResponse) => data.data.graphs.complianceRadar;
+
+// --- Data Quality ---
+export const getDataQualityInfo = (data: FarmComplianceResponse) => data.data.data_quality;
+export const isCarbonDataAvailable = (data: FarmComplianceResponse) => data.data.data_quality.carbon_data_available;
+
+// --- Recommendations ---
+export const getRecommendations = (data: FarmComplianceResponse) => data.data.recommendations;
+export const getImmediateRecommendations = (data: FarmComplianceResponse) => data.data.recommendations.immediate;
+export const getMediumTermRecommendations = (data: FarmComplianceResponse) => data.data.recommendations.medium_term;
+export const getLongTermRecommendations = (data: FarmComplianceResponse) => data.data.recommendations.long_term;
+
+// --- Metadata ---
+export const getMetadata = (data: FarmComplianceResponse) => data.data.metadata;
+export const getDataSourcesCount = (data: FarmComplianceResponse) => data.data.metadata.data_sources;
+
+// --- Versions ---
+export const getVersions = (data: FarmComplianceResponse) => data.data.versions;
+
+/**
+ * =====================
+ * Derived / Calculated Helpers
+ * =====================
  */
 
 /**
- * Get company information
+ * Get a specific metric value by name from all_metrics (for the reporting year)
  */
-export const getFarmComplianceCompany = (data: FarmComplianceResponse) => {
-    return data.data.company;
+export const getMetricValue = (data: FarmComplianceResponse, metricName: string): number | null => {
+    const metric = data.data.farm_compliance.all_metrics[metricName];
+    return metric?.value ?? null;
 };
 
 /**
- * Get carbon emissions data
- */
-export const getCarbonEmissions = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emissions;
-};
-
-/**
- * Get carbon sequestration data
- */
-export const getCarbonSequestration = (data: FarmComplianceResponse) => {
-    return data.data.carbon_sequestration;
-};
-
-/**
- * Get compliance scores
- */
-export const getComplianceScores = (data: FarmComplianceResponse) => {
-    return data.data.compliance_scores;
-};
-
-/**
- * Get overall compliance score
- */
-export const getOverallComplianceScore = (data: FarmComplianceResponse) => {
-    return data.data.compliance_scores.scores.overall;
-};
-
-/**
- * Get compliance rating
- */
-export const getComplianceRating = (data: FarmComplianceResponse) => {
-    return data.data.compliance_scores.rating;
-};
-
-/**
- * Get scope breakdown for carbon emissions
- */
-export const getScopeBreakdown = (data: FarmComplianceResponse) => {
-    const emissions = data.data.carbon_emissions;
-    return {
-        scope1: emissions.scope1_tco2e,
-        scope2: emissions.scope2_tco2e,
-        scope3: emissions.scope3_tco2e,
-        total: emissions.total_emissions_tco2e,
-        netBalance: emissions.net_carbon_balance_tco2e
-    };
-};
-
-/**
- * Get monthly sequestration data
- */
-export const getMonthlySequestrationData = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emission_accounting.yearly_data.sequestration.monthly_data;
-};
-
-/**
- * Get compliance graphs
- */
-export const getComplianceGraphs = (data: FarmComplianceResponse) => {
-    return data.data.graphs;
-};
-
-/**
- * Get recommendations
- */
-export const getComplianceRecommendations = (data: FarmComplianceResponse) => {
-    return data.data.recommendations;
-};
-
-/**
- * Get carbon predictions
- */
-export const getCarbonPredictions = (data: FarmComplianceResponse) => {
-    return data.data.carbon_predictions;
-};
-
-/**
- * Get scope 3 analysis
- */
-export const getScope3Analysis = (data: FarmComplianceResponse) => {
-    return data.data.scope3_analysis;
-};
-
-/**
- * Get policies and certifications
- */
-export const getPoliciesAndCertifications = (data: FarmComplianceResponse) => {
-    return data.data.policies_and_certifications;
-};
-
-/**
- * Get audit trails
- */
-export const getAuditTrails = (data: FarmComplianceResponse) => {
-    return data.data.audit_trails;
-};
-
-/**
- * Get data quality information
- */
-export const getDataQualityInfo = (data: FarmComplianceResponse) => {
-    return data.data.data_quality;
-};
-
-/**
- * Get trends
- */
-export const getComplianceTrends = (data: FarmComplianceResponse) => {
-    return data.data.trends;
-};
-
-/**
- * Get GRI/IFRS alignment metrics
- */
-export const getGRIAlignmentMetrics = (data: FarmComplianceResponse) => {
-    return data.data.gri_ifrs_data.alignments;
-};
-
-/**
- * Get training metrics
- */
-export const getTrainingMetrics = (data: FarmComplianceResponse) => {
-    return data.data.metrics.training;
-};
-
-/**
- * Get framework alignment
- */
-export const getFrameworkAlignment = (data: FarmComplianceResponse) => {
-    return data.data.metrics.framework_alignment;
-};
-
-/**
- * Get area of interest metadata
- */
-export const getFarmAreaOfInterest = (data: FarmComplianceResponse) => {
-    return data.data.company.area_of_interest_metadata;
-};
-
-/**
- * Get coordinates for mapping
- */
-export const getFarmCoordinates = (data: FarmComplianceResponse) => {
-    return data.data.company.area_of_interest_metadata?.coordinates || [];
-};
-
-/**
- * Get emission factors
- */
-export const getEmissionFactors = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emission_accounting.emission_references.emission_factors;
-};
-
-/**
- * Get reporting year
- */
-export const getReportingYear = (data: FarmComplianceResponse) => {
-    return data.data.reporting_year;
-};
-
-/**
- * Check if carbon data is available
- */
-export const isCarbonDataAvailable = (data: FarmComplianceResponse) => {
-    return data.data.data_quality.carbon_data_available;
-};
-
-/**
- * Get net carbon balance
- */
-export const getNetCarbonBalance = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emissions.net_carbon_balance_tco2e;
-};
-
-/**
- * Get carbon neutrality timeline
- */
-export const getCarbonNeutralityTimeline = (data: FarmComplianceResponse) => {
-    return data.data.carbon_predictions.carbon_neutrality_timeline;
-};
-
-/**
- * Get sequestration potential
- */
-export const getSequestrationPotential = (data: FarmComplianceResponse) => {
-    return data.data.carbon_predictions.sequestration_potential;
-};
-
-/**
- * Get scope 3 reduction opportunities
- */
-export const getScope3ReductionOpportunities = (data: FarmComplianceResponse) => {
-    return data.data.carbon_predictions.scope3_reduction_opportunities;
-};
-
-/**
- * Calculate carbon intensity per hectare
- */
-export const getCarbonIntensityPerHa = (data: FarmComplianceResponse) => {
-    const emissions = data.data.carbon_emissions;
-    const area = data.data.carbon_emission_accounting.yearly_data.sequestration.reporting_area_ha;
-
-    if (area === 0) return null;
-
-    return {
-        scope1: emissions.scope1_tco2e / area,
-        scope2: emissions.scope2_tco2e / area,
-        scope3: emissions.scope3_tco2e / area,
-        total: emissions.total_emissions_tco2e / area,
-        net: emissions.net_carbon_balance_tco2e / area
-    };
-};
-
-/**
- * Get compliance improvement priorities
+ * Get compliance improvement priorities based on low scores
  */
 export const getCompliancePriorities = (data: FarmComplianceResponse): string[] => {
     const scores = data.data.compliance_scores.scores;
@@ -965,106 +621,32 @@ export const getCompliancePriorities = (data: FarmComplianceResponse): string[] 
 
     if (scores.trainingHours < 50) priorities.push("Increase training hours");
     if (scores.trainedEmployees < 50) priorities.push("Train more employees");
-    if (scores.supplierCompliance < 50) priorities.push("Improve supplier compliance");
-    if (scores.ifrsS1Alignment < 50) priorities.push("Enhance IFRS S1 alignment");
-    if (scores.ifrsS2Alignment < 50) priorities.push("Enhance IFRS S2 alignment");
-    if (scores.griCompliance < 50) priorities.push("Improve GRI compliance");
-    if (scores.carbonScore < 50) priorities.push("Reduce carbon emissions");
-    if (scores.dataQuality < 50) priorities.push("Improve data quality");
+    if (scores.supplierCodeAdoption < 50) priorities.push("Improve supplier code adoption");
+    if (scores.supplierAudits < 50) priorities.push("Conduct more supplier audits");
+    if (scores.frameworkAlignment < 50) priorities.push("Enhance ESG framework alignment");
+    if (scores.carbonScope3 < 50) priorities.push("Reduce Scope 3 carbon emissions");
 
     return priorities;
 };
 
 /**
- * Get carbon emission breakdown by source
+ * Calculate carbon intensity per hectare (using net balance)
  */
-export const getScope1Breakdown = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emission_accounting.yearly_data.emissions.scope1.sources;
+export const getCarbonIntensityPerHa = (data: FarmComplianceResponse): number | null => {
+    const area = data.data.farm_compliance_doc.summary_stats.total_executive_hours; // not actual area, placeholder?
+    // Actually, area is not directly available; we could use the reporting area if present, but it's not in this response.
+    // Returning null as area is missing.
+    return null;
 };
 
 /**
- * Get scope 3 breakdown by category
+ * Get breakdown of Scope 3 emissions by category with percentages
  */
-export const getScope3Breakdown = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emission_accounting.yearly_data.emissions.scope3.categories;
-};
-
-/**
- * Get monthly carbon change data
- */
-export const getMonthlyCarbonChange = (data: FarmComplianceResponse) => {
-    const monthlyData = data.data.carbon_emission_accounting.yearly_data.sequestration.monthly_data;
-    return monthlyData.map(month => ({
-        month: month.month,
-        monthNumber: month.month_number,
-        netChange: month.net_co2_change_t,
-        sequestration: month.biomass_co2_total_t + month.soc_co2_total_t,
-        meaning: month.meaning
+export const getScope3BreakdownWithPercent = (data: FarmComplianceResponse) => {
+    const categories = data.data.carbon_scope3.categories;
+    const total = data.data.carbon_scope3.total_tco2e;
+    return categories.map(cat => ({
+        ...cat,
+        percentage: total > 0 ? (cat.tco2e_per_ha_per_year * 100) / total : 0
     }));
-};
-
-/**
- * Check if company has ESG linked pay
- */
-export const hasESGLinkedPay = (data: FarmComplianceResponse) => {
-    return data.data.company.has_esg_linked_pay;
-};
-
-/**
- * Get ESG frameworks
- */
-export const getESGFrameworks = (data: FarmComplianceResponse) => {
-    return data.data.company.esg_reporting_framework;
-};
-
-/**
- * Get ESG contact person
- */
-export const getESGContactPerson = (data: FarmComplianceResponse) => {
-    return data.data.company.esg_contact_person;
-};
-
-/**
- * Get latest ESG report year
- */
-export const getLatestESGReportYear = (data: FarmComplianceResponse) => {
-    return data.data.company.latest_esg_report_year;
-};
-
-/**
- * Get total land area
- */
-export const getTotalLandArea = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emission_accounting.yearly_data.sequestration.reporting_area_ha;
-};
-
-/**
- * Get carbon accounting status
- */
-export const getCarbonAccountingStatus = (data: FarmComplianceResponse) => {
-    return data.data.carbon_emission_accounting.status;
-};
-
-/**
- * Get data verification status
- */
-export const getVerificationStatus = (data: FarmComplianceResponse) => {
-    return {
-        carbon: data.data.carbon_emissions.data_quality.verification,
-        overall: data.data.compliance_scores.scores.verification
-    };
-};
-
-/**
- * Get import history
- */
-export const getImportHistory = (data: FarmComplianceResponse) => {
-    return data.data.audit_trails.imports;
-};
-
-/**
- * Get recent import date
- */
-export const getRecentImportDate = (data: FarmComplianceResponse) => {
-    return data.data.audit_trails.summary.recent_import;
 };
