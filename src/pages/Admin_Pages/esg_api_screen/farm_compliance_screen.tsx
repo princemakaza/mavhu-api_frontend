@@ -16,14 +16,24 @@ import {
     FileText,
     Users,
 } from "lucide-react";
-import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
+
+// Services and types
+import { getCompanies, type Company as AdminCompany } from "../../../services/Admin_Service/companies_service";
 import {
     getFarmComplianceData,
     type FarmComplianceResponse,
     type FarmComplianceParams,
+    getOverallComplianceScore,
+    getTrainingMetrics,
+    getComplianceScores,
+    getScope3TotalEmissions,
+    getNetCarbonBalance,
+    getFarmCoordinates,
+    getFarmAreaOfInterest,
+    getCarbonScope3,
 } from "../../../services/Admin_Service/esg_apis/farm_compliance_service";
 
-// Import tab components
+// Tab components
 import ComplianceOverviewTab from "./compliance_tabs/ComplianceOverviewTab";
 import ComplianceAnalyticsTab from "./compliance_tabs/ComplianceAnalyticsTab";
 import ComplianceReportsTab from "./compliance_tabs/ComplianceReportsTab";
@@ -46,7 +56,7 @@ const Shimmer = () => (
     <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-gray-100/50 to-transparent"></div>
 );
 
-// Helper function to parse data_range string
+// Helper function to parse data_range string (from AdminCompany)
 const parseDataRange = (dataRange: string | undefined): number[] => {
     if (!dataRange) return [];
 
@@ -70,7 +80,6 @@ const parseDataRange = (dataRange: string | undefined): number[] => {
         for (let year = start; year <= end; year++) {
             years.push(year);
         }
-
         return years;
     } catch (error) {
         console.error('Error parsing data_range:', error, dataRange);
@@ -94,7 +103,7 @@ const FarmComplianceScreen = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [complianceData, setComplianceData] = useState<FarmComplianceResponse | null>(null);
-    const [companies, setCompanies] = useState<Company[]>([]);
+    const [companies, setCompanies] = useState<AdminCompany[]>([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>(paramCompanyId || "");
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -103,7 +112,7 @@ const FarmComplianceScreen = () => {
     const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "reports">("overview");
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Format helpers
+    // Format helpers (unchanged)
     const formatNumber = (num: number | null) => {
         if (num === null || num === undefined) return "N/A";
         return new Intl.NumberFormat('en-US').format(num);
@@ -124,7 +133,7 @@ const FarmComplianceScreen = () => {
         return `${num.toFixed(1)}%`;
     };
 
-    // Get trend icon
+    // Get trend icon (unchanged)
     const getTrendIcon = (trend: string) => {
         if (trend.toLowerCase().includes('improving') ||
             trend.toLowerCase().includes('increase') ||
@@ -154,8 +163,8 @@ const FarmComplianceScreen = () => {
         }
     };
 
-    // Get available years from company's data_range
-    const getAvailableYearsForCompany = (company: Company | undefined): number[] => {
+    // Get available years from company's data_range (AdminCompany)
+    const getAvailableYearsForCompany = (company: AdminCompany | undefined): number[] => {
         if (!company) return [];
 
         if (company.data_range) {
@@ -193,7 +202,7 @@ const FarmComplianceScreen = () => {
                 setAvailableYears(years);
 
                 if (years.length > 0) {
-                    const latest = years[0]; // First in descending sorted array
+                    const latest = years[0];
                     setLatestYear(latest);
 
                     const yearToFetch = selectedYear !== null ? selectedYear : latest;
@@ -258,46 +267,45 @@ const FarmComplianceScreen = () => {
         setSelectedYear(newYear);
     };
 
-    // Handle metric click
+    // Handle metric click (placeholder)
     const handleMetricClick = (metric: any, modalType: string) => {
         console.log("Metric clicked:", metric, modalType);
     };
 
-    // Handle calculation click
+    // Handle calculation click (placeholder)
     const handleCalculationClick = (calculationType: string, data?: any) => {
         console.log("Calculation clicked:", calculationType, data);
     };
 
-    // Calculate summary metrics for compliance data
+    // Calculate summary metrics for compliance data using new helpers
     const summaryMetrics = useMemo(() => {
         if (!complianceData) return null;
 
-        const scores = complianceData.data.compliance_scores.scores;
-        const training = complianceData.data.metrics.training;
-        const scope3 = complianceData.data.scope3_analysis;
-        const carbon = complianceData.data.carbon_emissions;
+        const scores = getComplianceScores(complianceData).scores;
+        const training = getTrainingMetrics(complianceData);
+        const carbon = getCarbonScope3(complianceData);
 
         return {
-            overallScore: scores.overall,
+            overallScore: getOverallComplianceScore(complianceData),
             trainingHours: training.total_training_hours,
             trainedEmployees: training.employees_trained_total,
-            supplierCompliance: scores.supplierCompliance,
-            carbonScore: scores.carbonScore,
-            scope3Emissions: carbon.scope3_tco2e,
-            netCarbonBalance: carbon.net_carbon_balance_tco2e,
+            supplierCompliance: scores.supplierCodeAdoption, // using supplierCodeAdoption as proxy
+            carbonScore: scores.carbonScope3,
+            scope3Emissions: getScope3TotalEmissions(complianceData),
+            netCarbonBalance: getNetCarbonBalance(complianceData),
         };
     }, [complianceData]);
 
-    // Get coordinates from compliance data
+    // Get coordinates from compliance data using helper
     const getCoordinates = () => {
         if (!complianceData) return [];
-        return complianceData.data.company.area_of_interest_metadata?.coordinates || [];
+        return getFarmCoordinates(complianceData);
     };
 
-    // Get area name and coverage from compliance data
+    // Get area name and coverage from compliance data using helper
     const getAreaInfo = () => {
         if (!complianceData) return { name: "", covered: "" };
-        const metadata = complianceData.data.company.area_of_interest_metadata;
+        const metadata = getFarmAreaOfInterest(complianceData);
         return {
             name: metadata?.name || "Farm Area",
             covered: metadata?.area_covered || "N/A"
@@ -318,7 +326,7 @@ const FarmComplianceScreen = () => {
         }
     }, [selectedCompanyId, selectedYear]);
 
-    // Get selected company
+    // Get selected company (from AdminCompany list)
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
 
     // Get area info
@@ -357,7 +365,7 @@ const FarmComplianceScreen = () => {
         colors: overviewTabColors,
     };
 
-    // Loading State
+    // Loading State (unchanged)
     if (loading) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -398,7 +406,7 @@ const FarmComplianceScreen = () => {
         );
     }
 
-    // Company Selector
+    // Company Selector (unchanged, uses AdminCompany)
     if (showCompanySelector && !paramCompanyId) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
