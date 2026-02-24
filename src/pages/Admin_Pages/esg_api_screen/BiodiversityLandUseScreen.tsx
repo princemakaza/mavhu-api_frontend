@@ -15,6 +15,7 @@ import {
     PieChart,
     FileText,
     Trees,
+    Loader2,
 } from "lucide-react";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
@@ -92,7 +93,8 @@ const BiodiversityLandUseScreen = () => {
     const navigate = useNavigate();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Start with false, only true when fetching biodiversity data
+    const [loadingCompanies, setLoadingCompanies] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [biodiversityData, setBiodiversityData] = useState<BiodiversityLandUseResponse | null>(null);
     const [companies, setCompanies] = useState<Company[]>([]);
@@ -133,13 +135,13 @@ const BiodiversityLandUseScreen = () => {
     // Fetch companies
     const fetchCompanies = async () => {
         try {
+            setLoadingCompanies(true);
             const response = await getCompanies(1, 100);
             setCompanies(response.items);
-            if (!selectedCompanyId && response.items.length > 0) {
-                setSelectedCompanyId(response.items[0]._id);
-            }
         } catch (err: any) {
             console.error("Failed to fetch companies:", err);
+        } finally {
+            setLoadingCompanies(false);
         }
     };
 
@@ -309,19 +311,30 @@ const BiodiversityLandUseScreen = () => {
     const areaName = "Protected Wildlife Corridor";
     const areaCovered = "12,500 hectares";
 
+    // Fetch companies on mount
+    useEffect(() => {
+        fetchCompanies();
+    }, []);
+
+    // Set company from location state or param
     useEffect(() => {
         if (location.state?.companyId) {
             setSelectedCompanyId(location.state.companyId);
             setShowCompanySelector(false);
+            setSelectedYear(null);
+        } else if (paramCompanyId) {
+            setSelectedCompanyId(paramCompanyId);
+            setShowCompanySelector(false);
+            setSelectedYear(null);
         }
-        fetchCompanies();
-    }, [location.state]);
+    }, [location.state, paramCompanyId]);
 
+    // Fetch biodiversity data when company is selected and companies are loaded
     useEffect(() => {
         if (selectedCompanyId && companies.length > 0) {
             fetchBiodiversityData();
         }
-    }, [selectedCompanyId, selectedYear]);
+    }, [selectedCompanyId, selectedYear, companies]);
 
     // Get selected company
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
@@ -355,7 +368,95 @@ const BiodiversityLandUseScreen = () => {
         },
     };
 
-    // Loading State
+    // Company selector (when no companyId in URL)
+    if (showCompanySelector && !paramCompanyId) {
+        return (
+            <div className="flex min-h-screen bg-gray-50 text-gray-900">
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <main className="flex-1 p-6">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
+                            <div className="flex items-center gap-3 mb-8">
+                                <Trees className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
+                                <div>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
+                                        Select Company
+                                    </h1>
+                                    <p className="text-gray-600">Choose a company to view Biodiversity & Land Use Data</p>
+                                </div>
+                            </div>
+
+                            {loadingCompanies ? (
+                                <div className="flex justify-center items-center py-12">
+                                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: PRIMARY_GREEN }} />
+                                    <span className="ml-2 text-gray-600">Loading companies...</span>
+                                </div>
+                            ) : companies.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    No companies found. Please add a company first.
+                                </div>
+                            ) : (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    {companies.map((company) => {
+                                        const dataRangeYears = parseDataRange(company.data_range);
+                                        const endYear = getEndYearFromDataRange(company.data_range);
+
+                                        return (
+                                            <button
+                                                key={company._id}
+                                                onClick={() => handleCompanyChange(company._id)}
+                                                className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
+                                            >
+                                                <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
+                                                    <Trees className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
+                                                    <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <div
+                                                            className="text-xs px-2 py-1 rounded-full"
+                                                            style={{
+                                                                background: company.esg_data_status === 'complete'
+                                                                    ? 'rgba(34, 197, 94, 0.2)'
+                                                                    : company.esg_data_status === 'partial'
+                                                                        ? 'rgba(251, 191, 36, 0.2)'
+                                                                        : 'rgba(239, 68, 68, 0.2)',
+                                                                color: company.esg_data_status === 'complete'
+                                                                    ? PRIMARY_GREEN
+                                                                    : company.esg_data_status === 'partial'
+                                                                        ? '#FBBF24'
+                                                                        : '#EF4444'
+                                                            }}
+                                                        >
+                                                            {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
+                                                        </div>
+                                                        {company.data_range && (
+                                                            <div className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                                Data: {company.data_range}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {company.data_range && dataRangeYears.length > 0 && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // Loading state for biodiversity data (only when company selected)
     if (loading) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -397,82 +498,7 @@ const BiodiversityLandUseScreen = () => {
         );
     }
 
-    // Company Selector
-    if (showCompanySelector && !paramCompanyId) {
-        return (
-            <div className="flex min-h-screen bg-gray-50 text-gray-900">
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-                <main className="flex-1 p-6">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
-                            <div className="flex items-center gap-3 mb-8">
-                                <Trees className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
-                                <div>
-                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
-                                        Select Company
-                                    </h1>
-                                    <p className="text-gray-600">Choose a company to view Biodiversity & Land Use Data</p>
-                                </div>
-                            </div>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {companies.map((company) => {
-                                    const dataRangeYears = parseDataRange(company.data_range);
-                                    const endYear = getEndYearFromDataRange(company.data_range);
-
-                                    return (
-                                        <button
-                                            key={company._id}
-                                            onClick={() => handleCompanyChange(company._id)}
-                                            className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
-                                        >
-                                            <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
-                                                <Trees className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
-                                                <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div
-                                                        className="text-xs px-2 py-1 rounded-full"
-                                                        style={{
-                                                            background: company.esg_data_status === 'complete'
-                                                                ? 'rgba(34, 197, 94, 0.2)'
-                                                                : company.esg_data_status === 'partial'
-                                                                    ? 'rgba(251, 191, 36, 0.2)'
-                                                                    : 'rgba(239, 68, 68, 0.2)',
-                                                            color: company.esg_data_status === 'complete'
-                                                                ? PRIMARY_GREEN
-                                                                : company.esg_data_status === 'partial'
-                                                                    ? '#FBBF24'
-                                                                    : '#EF4444'
-                                                        }}
-                                                    >
-                                                        {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
-                                                    </div>
-                                                    {company.data_range && (
-                                                        <div className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-                                                            Data: {company.data_range}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {company.data_range && dataRangeYears.length > 0 && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
+    // Main content when company is selected (or data loaded)
     return (
         <div className="flex min-h-screen bg-gray-50 text-gray-900">
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

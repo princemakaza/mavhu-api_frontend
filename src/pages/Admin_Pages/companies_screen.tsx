@@ -56,6 +56,16 @@ import {
     type CreateCompanyPayload,
     type Coordinate,
 } from "../../services/Admin_Service/companies_service";
+// Import member service
+import {
+    getMembers,
+    createMember,
+    updateMember,
+    deactivateMember,
+    type Member,
+    type CreateMemberPayload,
+    type UpdateMemberPayload,
+} from "../../services/Admin_Service/member_service";
 
 // Fix Leaflet default marker icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -131,6 +141,30 @@ const CompanyManagementScreen = () => {
 
     // Temporary coordinate input
     const [newCoordinate, setNewCoordinate] = useState({ lat: "", lon: "" });
+
+    // --- Member Management State ---
+    const [members, setMembers] = useState<Member[]>([]);
+    const [membersLoading, setMembersLoading] = useState(false);
+    const [membersPagination, setMembersPagination] = useState({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+    });
+    const [showMemberModal, setShowMemberModal] = useState(false);
+    const [editingMember, setEditingMember] = useState<Member | null>(null);
+    const [memberFormData, setMemberFormData] = useState<CreateMemberPayload | UpdateMemberPayload>({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        title: '',
+        role: '',
+        department: '',
+        phone: '',
+        companyId: '',
+    });
+    // ---------------------------------
 
     // API items for navigation with full descriptions
     const apiItems = [
@@ -235,6 +269,12 @@ const CompanyManagementScreen = () => {
             const response = await getCompanyById(companyId);
             setSelectedCompany(response.company);
             setShowViewModal(true);
+            // Reset members when viewing a new company
+            setMembers([]);
+            setMembersPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
+            if (response.company) {
+                fetchMembers(response.company._id, 1);
+            }
         } catch (err: any) {
             setError(err.message || "Failed to fetch company details");
         }
@@ -414,6 +454,91 @@ const CompanyManagementScreen = () => {
             setPagination(prev => ({ ...prev, page }));
         }
     };
+
+    // --- Member Management Functions ---
+    const fetchMembers = async (companyId: string, page: number = membersPagination.page) => {
+        if (!companyId) return;
+        try {
+            setMembersLoading(true);
+            const response = await getMembers(companyId, page, membersPagination.limit);
+            setMembers(response.items);
+            setMembersPagination({
+                page: response.page,
+                limit: response.limit,
+                total: response.total,
+                totalPages: response.totalPages,
+            });
+        } catch (err: any) {
+            setError(err.message || "Failed to fetch members");
+        } finally {
+            setMembersLoading(false);
+        }
+    };
+
+    const handleAddMember = () => {
+        if (!selectedCompany) return;
+        setEditingMember(null);
+        setMemberFormData({
+            firstName: '',
+            lastName: '',
+            email: '',
+            password: '',
+            title: '',
+            role: '',
+            department: '',
+            phone: '',
+            companyId: selectedCompany._id,
+        });
+        setShowMemberModal(true);
+    };
+
+    const handleEditMember = (member: Member) => {
+        setEditingMember(member);
+        setMemberFormData({
+            firstName: member.firstName,
+            lastName: member.lastName,
+            email: member.email, // read-only in edit mode
+            title: member.title,
+            role: member.role,
+            department: member.department,
+            phone: member.phone,
+            // password not included for edit
+        });
+        setShowMemberModal(true);
+    };
+
+    const handleDeactivateMember = async (memberId: string) => {
+        if (!window.confirm('Are you sure you want to deactivate this member?')) return;
+        try {
+            await deactivateMember(memberId);
+            if (selectedCompany) {
+                fetchMembers(selectedCompany._id);
+            }
+        } catch (err: any) {
+            setError(err.message || "Failed to deactivate member");
+        }
+    };
+
+    const handleMemberSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCompany) return;
+
+        try {
+            if (editingMember) {
+                // Update member
+                await updateMember(editingMember._id, memberFormData as UpdateMemberPayload);
+            } else {
+                // Create member
+                await createMember(memberFormData as CreateMemberPayload);
+            }
+            setShowMemberModal(false);
+            fetchMembers(selectedCompany._id, membersPagination.page);
+        } catch (err: any) {
+            setError(err.message || `Failed to ${editingMember ? 'update' : 'create'} member`);
+        }
+    };
+
+    // ------------------------------------
 
     // Initialize
     useEffect(() => {
@@ -1286,7 +1411,7 @@ const CompanyManagementScreen = () => {
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="p-6">
+                            <div className="p-6 bg-white">
                                 <form onSubmit={(e) => { e.preventDefault(); handleCreateCompany(); }}>
                                     {renderFormFields()}
 
@@ -1620,6 +1745,119 @@ const CompanyManagementScreen = () => {
                                     </div>
                                 </div>
 
+                                {/* ===== MEMBERS SECTION ===== */}
+                                <div className="mb-8">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                                            <Users className="w-5 h-5" style={{ color: logoGreen }} />
+                                            Members
+                                        </h3>
+                                        <button
+                                            onClick={handleAddMember}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors"
+                                            style={{ borderColor: logoGreen, color: logoGreen }}
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Add Member
+                                        </button>
+                                    </div>
+                                    {membersLoading ? (
+                                        <div className="text-center py-8">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{ borderColor: logoGreen }}></div>
+                                            <p className={themeClasses.textMuted}>Loading members...</p>
+                                        </div>
+                                    ) : members.length === 0 ? (
+                                        <div className={`p-8 text-center rounded-lg border ${themeClasses.border}`}>
+                                            <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                            <p className={themeClasses.textMuted}>No members found for this company</p>
+                                            <button
+                                                onClick={handleAddMember}
+                                                className="mt-3 text-sm font-medium hover:underline"
+                                                style={{ color: logoGreen }}
+                                            >
+                                                Add your first member
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead>
+                                                        <tr className={`border-b ${themeClasses.border}`}>
+                                                            <th className="py-2 px-4 text-left">Name</th>
+                                                            <th className="py-2 px-4 text-left">Email</th>
+                                                            <th className="py-2 px-4 text-left">Role</th>
+                                                            <th className="py-2 px-4 text-left">Department</th>
+                                                            <th className="py-2 px-4 text-left">Status</th>
+                                                            <th className="py-2 px-4 text-left">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {members.map(member => (
+                                                            <tr key={member._id} className={`border-b ${themeClasses.border}`}>
+                                                                <td className="py-2 px-4 font-medium">{member.firstName} {member.lastName}</td>
+                                                                <td className="py-2 px-4">{member.email}</td>
+                                                                <td className="py-2 px-4">{member.role}</td>
+                                                                <td className="py-2 px-4">{member.department}</td>
+                                                                <td className="py-2 px-4">
+                                                                    <span className={`px-2 py-1 rounded-full text-xs ${member.status === 'active'
+                                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                                                        }`}>
+                                                                        {member.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2 px-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            onClick={() => handleEditMember(member)}
+                                                                            className={`p-1 rounded ${themeClasses.hoverBg}`}
+                                                                            title="Edit member"
+                                                                        >
+                                                                            <Edit className="w-4 h-4" />
+                                                                        </button>
+                                                                        {member.status === 'active' && (
+                                                                            <button
+                                                                                onClick={() => handleDeactivateMember(member._id)}
+                                                                                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+                                                                                title="Deactivate member"
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            {membersPagination.totalPages > 1 && (
+                                                <div className="flex items-center justify-end gap-2 mt-4">
+                                                    <button
+                                                        onClick={() => fetchMembers(selectedCompany._id, membersPagination.page - 1)}
+                                                        disabled={membersPagination.page === 1}
+                                                        className={`p-1 rounded ${membersPagination.page === 1 ? 'opacity-50 cursor-not-allowed' : themeClasses.hoverBg}`}
+                                                    >
+                                                        <ChevronLeft className="w-4 h-4" />
+                                                    </button>
+                                                    <span className="text-sm">
+                                                        Page {membersPagination.page} of {membersPagination.totalPages}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => fetchMembers(selectedCompany._id, membersPagination.page + 1)}
+                                                        disabled={membersPagination.page === membersPagination.totalPages}
+                                                        className={`p-1 rounded ${membersPagination.page === membersPagination.totalPages ? 'opacity-50 cursor-not-allowed' : themeClasses.hoverBg}`}
+                                                    >
+                                                        <ChevronRight className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                                {/* ===== END MEMBERS SECTION ===== */}
+
                                 {/* Quick Actions */}
                                 <div className={`p-4 rounded-xl border ${themeClasses.border} ${themeClasses.cardBg}`}>
                                     <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
@@ -1693,6 +1931,138 @@ const CompanyManagementScreen = () => {
                                     Delete Company
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Member Create/Edit Modal */}
+            {showMemberModal && selectedCompany && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowMemberModal(false)}></div>
+                    <div className={`relative w-full max-w-lg rounded-2xl border ${themeClasses.border} ${themeClasses.modalBg} shadow-2xl`}>
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-bold" style={{ color: logoGreen }}>
+                                    {editingMember ? 'Edit Member' : 'Add New Member'}
+                                </h2>
+                                <button
+                                    onClick={() => setShowMemberModal(false)}
+                                    className={`p-2 rounded-lg ${themeClasses.hoverBg}`}
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <form onSubmit={handleMemberSubmit}>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>First Name *</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={(memberFormData as any).firstName || ''}
+                                                onChange={(e) => setMemberFormData({ ...memberFormData, firstName: e.target.value })}
+                                                className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Last Name *</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={(memberFormData as any).lastName || ''}
+                                                onChange={(e) => setMemberFormData({ ...memberFormData, lastName: e.target.value })}
+                                                className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Email *</label>
+                                        <input
+                                            type="email"
+                                            required
+                                            disabled={!!editingMember} // Email cannot be changed
+                                            value={(memberFormData as any).email || ''}
+                                            onChange={(e) => setMemberFormData({ ...memberFormData, email: e.target.value })}
+                                            className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"} ${editingMember ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        />
+                                        {editingMember && (
+                                            <p className="text-xs mt-1 text-gray-500">Email cannot be changed after creation.</p>
+                                        )}
+                                    </div>
+                                    {!editingMember && (
+                                        <div>
+                                            <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Password *</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                value={(memberFormData as CreateMemberPayload).password || ''}
+                                                onChange={(e) => setMemberFormData({ ...memberFormData, password: e.target.value })}
+                                                className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                            />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Title *</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={(memberFormData as any).title || ''}
+                                            onChange={(e) => setMemberFormData({ ...memberFormData, title: e.target.value })}
+                                            className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Role *</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={(memberFormData as any).role || ''}
+                                            onChange={(e) => setMemberFormData({ ...memberFormData, role: e.target.value })}
+                                            className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Department *</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={(memberFormData as any).department || ''}
+                                            onChange={(e) => setMemberFormData({ ...memberFormData, department: e.target.value })}
+                                            className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-medium mb-1 ${themeClasses.textSecondary}`}>Phone *</label>
+                                        <input
+                                            type="tel"
+                                            required
+                                            value={(memberFormData as any).phone || ''}
+                                            onChange={(e) => setMemberFormData({ ...memberFormData, phone: e.target.value })}
+                                            className={`w-full px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.bg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? "focus:ring-green-500" : "focus:ring-green-600"}`}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-end gap-4 mt-6">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMemberModal(false)}
+                                        className={`px-6 py-2.5 rounded-lg font-medium ${themeClasses.hoverBg} border ${themeClasses.border}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2.5 rounded-lg font-medium text-white transition-all hover:opacity-90"
+                                        style={{
+                                            background: `linear-gradient(to right, ${logoGreen}, ${isDarkMode ? '#00CC00' : '#006400'})`,
+                                        }}
+                                    >
+                                        {editingMember ? 'Save Changes' : 'Create Member'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>

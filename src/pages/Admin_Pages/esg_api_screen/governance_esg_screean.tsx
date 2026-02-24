@@ -14,20 +14,8 @@ import {
     BarChart3,
     PieChart,
     FileText,
-    Users,
-    UserCog,
-    Target,
-    Award,
     Building,
-    Shield,
-    Gavel,
-    Scale,
-    BadgeCheck,
-    Landmark,
-    Briefcase,
-    Vote,
-    DollarSign,
-    CheckCircle,
+    Loader2,
 } from "lucide-react";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
@@ -51,22 +39,21 @@ import {
     getExternalBenchmarks,
     getKeyPerformanceIndicators,
     getMetricsVerificationStatus,
-    type GovernanceBoardData,
 } from "../../../services/Admin_Service/esg_apis/governance_esg_service";
 
-// Import tab components (you'll need to create these)
+// Import tab components
 import GovernanceOverviewTab from "./governance_esg_tabs/GovernanceOverviewTab";
 import GovernanceAnalyticsTab from "./governance_esg_tabs/GovernanceAnalyticsTab";
 import GovernanceReportsTab from "./governance_esg_tabs/GovernanceReportsTab";
 
-// Color Palette (same as Workforce Diversity Screen)
-const PRIMARY_GREEN = '#22c55e';       // Green-500
-const SECONDARY_GREEN = '#16a34a';     // Green-600
-const LIGHT_GREEN = '#86efac';         // Green-300
-const DARK_GREEN = '#15803d';          // Green-700
-const EMERALD = '#10b981';             // Emerald-500
-const LIME = '#84cc16';                // Lime-500
-const BACKGROUND_GRAY = '#f9fafb';     // Gray-50
+// Color Palette
+const PRIMARY_GREEN = '#22c55e';
+const SECONDARY_GREEN = '#16a34a';
+const LIGHT_GREEN = '#86efac';
+const DARK_GREEN = '#15803d';
+const EMERALD = '#10b981';
+const LIME = '#84cc16';
+const BACKGROUND_GRAY = '#f9fafb';
 
 // Loading Skeleton
 const SkeletonCard = () => (
@@ -122,7 +109,8 @@ const GovernanceBoardScreen = () => {
     const navigate = useNavigate();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Start false
+    const [loadingCompanies, setLoadingCompanies] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [governanceData, setGovernanceData] = useState<GovernanceBoardResponse | null>(null);
     const [companies, setCompanies] = useState<Company[]>([]);
@@ -180,13 +168,13 @@ const GovernanceBoardScreen = () => {
     // Fetch companies
     const fetchCompanies = async () => {
         try {
+            setLoadingCompanies(true);
             const response = await getCompanies(1, 100);
             setCompanies(response.items);
-            if (!selectedCompanyId && response.items.length > 0) {
-                setSelectedCompanyId(response.items[0]._id);
-            }
         } catch (err: any) {
             console.error("Failed to fetch companies:", err);
+        } finally {
+            setLoadingCompanies(false);
         }
     };
 
@@ -229,7 +217,7 @@ const GovernanceBoardScreen = () => {
                 setAvailableYears(years);
 
                 if (years.length > 0) {
-                    const latest = years[0]; // First in descending sorted array
+                    const latest = years[0];
                     setLatestYear(latest);
 
                     const yearToFetch = selectedYear !== null ? selectedYear : latest;
@@ -408,19 +396,30 @@ const GovernanceBoardScreen = () => {
         return getAllGraphs(governanceData.data);
     };
 
+    // Fetch companies on mount
+    useEffect(() => {
+        fetchCompanies();
+    }, []);
+
+    // Set company from location state or param
     useEffect(() => {
         if (location.state?.companyId) {
             setSelectedCompanyId(location.state.companyId);
             setShowCompanySelector(false);
+            setSelectedYear(null);
+        } else if (paramCompanyId) {
+            setSelectedCompanyId(paramCompanyId);
+            setShowCompanySelector(false);
+            setSelectedYear(null);
         }
-        fetchCompanies();
-    }, [location.state]);
+    }, [location.state, paramCompanyId]);
 
+    // Fetch governance data when company is selected and companies are loaded
     useEffect(() => {
         if (selectedCompanyId && companies.length > 0) {
             fetchGovernanceData();
         }
-    }, [selectedCompanyId, selectedYear]);
+    }, [selectedCompanyId, selectedYear, companies]);
 
     // Get selected company
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
@@ -429,7 +428,7 @@ const GovernanceBoardScreen = () => {
     const areaInfo = getAreaInfo();
     const coordinates = getCoordinates();
 
-    // Prepare colors for tabs - matching what they expect
+    // Prepare colors for tabs
     const tabColors = {
         primary: PRIMARY_GREEN,
         secondary: SECONDARY_GREEN,
@@ -479,7 +478,95 @@ const GovernanceBoardScreen = () => {
         getMetricsVerificationStatus: () => governanceData?.data ? getMetricsVerificationStatus(governanceData.data) : null,
     };
 
-    // Loading State
+    // Company Selector (when no companyId in URL)
+    if (showCompanySelector && !paramCompanyId) {
+        return (
+            <div className="flex min-h-screen bg-gray-50 text-gray-900">
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <main className="flex-1 p-6">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
+                            <div className="flex items-center gap-3 mb-8">
+                                <Building className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
+                                <div>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
+                                        Select Company
+                                    </h1>
+                                    <p className="text-gray-600">Choose a company to view Governance & Board Metrics</p>
+                                </div>
+                            </div>
+
+                            {loadingCompanies ? (
+                                <div className="flex justify-center items-center py-12">
+                                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: PRIMARY_GREEN }} />
+                                    <span className="ml-2 text-gray-600">Loading companies...</span>
+                                </div>
+                            ) : companies.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    No companies found. Please add a company first.
+                                </div>
+                            ) : (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    {companies.map((company) => {
+                                        const dataRangeYears = parseDataRange(company.data_range);
+                                        const endYear = getEndYearFromDataRange(company.data_range);
+
+                                        return (
+                                            <button
+                                                key={company._id}
+                                                onClick={() => handleCompanyChange(company._id)}
+                                                className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
+                                            >
+                                                <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
+                                                    <Building className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
+                                                    <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <div
+                                                            className="text-xs px-2 py-1 rounded-full"
+                                                            style={{
+                                                                background: company.esg_data_status === 'complete'
+                                                                    ? 'rgba(34, 197, 94, 0.2)'
+                                                                    : company.esg_data_status === 'partial'
+                                                                        ? 'rgba(251, 191, 36, 0.2)'
+                                                                        : 'rgba(239, 68, 68, 0.2)',
+                                                                color: company.esg_data_status === 'complete'
+                                                                    ? PRIMARY_GREEN
+                                                                    : company.esg_data_status === 'partial'
+                                                                        ? '#FBBF24'
+                                                                        : '#EF4444'
+                                                            }}
+                                                        >
+                                                            {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
+                                                        </div>
+                                                        {company.data_range && (
+                                                            <div className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 border border-green-200">
+                                                                Data: {company.data_range}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {company.data_range && dataRangeYears.length > 0 && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // Loading state for governance data (only when company selected)
     if (loading) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
@@ -520,82 +607,7 @@ const GovernanceBoardScreen = () => {
         );
     }
 
-    // Company Selector
-    if (showCompanySelector && !paramCompanyId) {
-        return (
-            <div className="flex min-h-screen bg-gray-50 text-gray-900">
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-                <main className="flex-1 p-6">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
-                            <div className="flex items-center gap-3 mb-8">
-                                <Building className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
-                                <div>
-                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
-                                        Select Company
-                                    </h1>
-                                    <p className="text-gray-600">Choose a company to view Governance & Board Metrics</p>
-                                </div>
-                            </div>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {companies.map((company) => {
-                                    const dataRangeYears = parseDataRange(company.data_range);
-                                    const endYear = getEndYearFromDataRange(company.data_range);
-
-                                    return (
-                                        <button
-                                            key={company._id}
-                                            onClick={() => handleCompanyChange(company._id)}
-                                            className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
-                                        >
-                                            <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
-                                                <Building className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
-                                                <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div
-                                                        className="text-xs px-2 py-1 rounded-full"
-                                                        style={{
-                                                            background: company.esg_data_status === 'complete'
-                                                                ? 'rgba(34, 197, 94, 0.2)'
-                                                                : company.esg_data_status === 'partial'
-                                                                    ? 'rgba(251, 191, 36, 0.2)'
-                                                                    : 'rgba(239, 68, 68, 0.2)',
-                                                            color: company.esg_data_status === 'complete'
-                                                                ? PRIMARY_GREEN
-                                                                : company.esg_data_status === 'partial'
-                                                                    ? '#FBBF24'
-                                                                    : '#EF4444'
-                                                        }}
-                                                    >
-                                                        {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
-                                                    </div>
-                                                    {company.data_range && (
-                                                        <div className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                                            Data: {company.data_range}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {company.data_range && dataRangeYears.length > 0 && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
+    // Main content when company is selected (or data loaded)
     return (
         <div className="flex min-h-screen bg-gray-50 text-gray-900">
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -680,10 +692,11 @@ const GovernanceBoardScreen = () => {
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as any)}
-                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
-                                            ? 'text-white shadow-md'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                                            }`}
+                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${
+                                            activeTab === tab.id
+                                                ? 'text-white shadow-md'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                        }`}
                                         style={activeTab === tab.id ? {
                                             background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
                                         } : {}}

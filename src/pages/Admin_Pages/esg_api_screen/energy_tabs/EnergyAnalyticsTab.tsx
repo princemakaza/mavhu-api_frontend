@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     TrendingUp,
     TrendingDown,
@@ -68,7 +68,17 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
     const [selectedMetric, setSelectedMetric] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    if (!energyData) {
+    // Extract data using service helpers
+    const data = energyData?.data;
+    const summary = useMemo(() => data ? getEnergyConsumptionSummary(data) : null, [data]);
+    const detailedMetrics = useMemo(() => data ? getDetailedEnergyMetrics(data) : null, [data]);
+    const energyMix = useMemo(() => data ? getEnergyMixData(data) : null, [data]);
+    const gridOps = useMemo(() => data ? getGridOperationsData(data) : null, [data]);
+    const trends = useMemo(() => data ? getEnergyTrends(data) : null, [data]);
+    const kpis = useMemo(() => data ? getEnergyKPIs(data) : null, [data]);
+    const companyInfo = useMemo(() => data ? getEnergyCompanyInfo(data) : null, [data]);
+
+    if (!data || !summary || !energyMix || !gridOps || !trends || !kpis) {
         return (
             <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl">
                 <div className="text-center max-w-md p-8">
@@ -81,26 +91,6 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
             </div>
         );
     }
-
-    const {
-        company,
-        reporting_period,
-        all_metrics,
-        energy_mix,
-        grid_operations,
-        trends,
-        kpis,
-        summary,
-    } = energyData.data;
-
-    // Get derived data using service functions
-    const energySummary = getEnergyConsumptionSummary(energyData.data);
-    const detailedMetrics = getDetailedEnergyMetrics(energyData.data);
-    const energyMix = getEnergyMixData(energyData.data);
-    const gridOps = getGridOperationsData(energyData.data);
-    const energyTrends = getEnergyTrends(energyData.data);
-    const energyKPIs = getEnergyKPIs(energyData.data);
-    const companyInfo = getEnergyCompanyInfo(energyData.data);
 
     // Helper function to get trend icon
     const getTrendIcon = (trend: string) => {
@@ -123,9 +113,9 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
     const electricityGenerated = parseFloat(gridOps.electricity_generated_mwh) || 0;
     const electricityPurchased = parseFloat(gridOps.electricity_purchased_mwh) || 0;
 
-    // Calculate carbon intensity (simplified - would need actual carbon data)
-    const estimatedCarbonEmissions = fossilEnergyGJ * 0.07; // Rough estimate: 0.07 tCO2e per GJ of fossil energy
-    const carbonIntensity = totalEnergyGJ > 0 ? (estimatedCarbonEmissions / totalEnergyGJ) * 1000 : 0; // tCO2e per 1000 GJ
+    // Carbon data from API (if available)
+    const netCarbonEmissions = data.carbon_emissions?.emissions?.totals?.net_total_emission_tco2e || 0;
+    const carbonIntensity = parseFloat(kpis.carbon_intensity_tco2e_per_gj as any) || 0; // string to number
 
     // Key insights data
     const insights = {
@@ -146,7 +136,7 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
             },
             {
                 title: 'Energy Efficiency Trend',
-                description: `Energy efficiency shows ${energyTrends.energy_efficiency.toLowerCase()} trend`,
+                description: `Energy efficiency shows ${trends.energy_efficiency.toLowerCase()} trend`,
                 icon: <Zap className="w-5 h-5 text-amber-600" />,
                 impact: 'Medium',
                 confidence: 0.75,
@@ -164,14 +154,14 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
                 title: 'Grid Dependency Risk',
                 description: `Company purchases ${electricityPurchased.toLocaleString()} MWh from grid`,
                 icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
-                priority: gridOps.grid_dependency > '50' ? 'High' : gridOps.grid_dependency > '20' ? 'Medium' : 'Low',
+                priority: parseFloat(gridOps.grid_dependency) > 50 ? 'High' : parseFloat(gridOps.grid_dependency) > 20 ? 'Medium' : 'Low',
                 timeframe: 'Monitor',
             },
             {
                 title: 'Carbon Intensity',
-                description: `Estimated carbon intensity: ${carbonIntensity.toFixed(2)} tCO₂e per 1000 GJ`,
+                description: `Carbon intensity: ${carbonIntensity.toFixed(2)} tCO₂e per GJ`,
                 icon: <Cloud className="w-5 h-5 text-gray-600" />,
-                priority: carbonIntensity > 50 ? 'High' : carbonIntensity > 20 ? 'Medium' : 'Low',
+                priority: carbonIntensity > 0.07 ? 'High' : carbonIntensity > 0.03 ? 'Medium' : 'Low', // example thresholds
                 timeframe: 'Strategic',
             },
         ],
@@ -206,14 +196,14 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
             title: 'Total Energy Consumption',
             value: totalEnergyGJ,
             unit: 'GJ',
-            trend: energyTrends.energy_efficiency,
+            trend: trends.energy_efficiency,
             icon: <Zap className="w-6 h-6 text-green-600" />,
         },
         {
             title: 'Renewable Energy',
             value: renewableEnergyGJ,
             unit: 'GJ',
-            trend: energyTrends.renewable_energy_adoption,
+            trend: trends.renewable_energy_adoption,
             percentage: renewablePercentage,
             icon: <Sun className="w-6 h-6 text-yellow-600" />,
         },
@@ -310,16 +300,16 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
     const performanceIndicators = [
         {
             title: 'Energy Intensity',
-            value: totalEnergyGJ > 0 ? (totalEnergyGJ / 1000000).toFixed(4) : 0, // Simplified intensity metric
-            unit: 'GJ/$M Revenue',
-            trend: energyTrends.energy_efficiency,
+            value: kpis.energy_intensity,
+            unit: 'GJ', // unit might be per something, but we'll keep as is
+            trend: trends.energy_efficiency,
             icon: <BarChart3 className="w-5 h-5 text-amber-600" />,
         },
         {
             title: 'Renewable Share',
             value: renewablePercentage,
             unit: '%',
-            trend: energyTrends.renewable_energy_adoption,
+            trend: trends.renewable_energy_adoption,
             icon: <Leaf className="w-5 h-5 text-green-600" />,
         },
         {
@@ -330,10 +320,10 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
             icon: <Shield className="w-5 h-5 text-blue-600" />,
         },
         {
-            title: 'Carbon Avoidance',
-            value: estimatedCarbonEmissions * 0.3, // Simplified: 30% of emissions avoided through renewables
+            title: 'Carbon Emissions',
+            value: netCarbonEmissions,
             unit: 'tCO₂e',
-            trend: renewablePercentage > 20 ? 'Improving' : 'Stable',
+            trend: 'Stable', // could derive from trends if available
             icon: <Recycle className="w-5 h-5 text-emerald-600" />,
         },
     ];
@@ -666,15 +656,15 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
                     <div className="space-y-4">
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Reporting Year</p>
-                            <p className="text-xl font-bold text-gray-900">{reporting_period.year}</p>
+                            <p className="text-xl font-bold text-gray-900">{data.reporting_period.year}</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Metrics Tracked</p>
-                            <p className="text-xl font-bold text-gray-900">{energySummary.metricsCount} metrics</p>
+                            <p className="text-xl font-bold text-gray-900">{summary.metricsCount} metrics</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-50">
                             <p className="text-sm text-gray-600 mb-2">Data Completeness</p>
-                            <p className="text-xl font-bold text-gray-900">High</p>
+                            <p className="text-xl font-bold text-gray-900">{data.data_quality.completeness_score}%</p>
                         </div>
                     </div>
                 </div>
@@ -695,7 +685,7 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
                         </div>
                         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
                             <p className="text-sm font-semibold text-gray-900 mb-2">Carbon Intensity</p>
-                            <p className="text-sm text-gray-700">Estimated based on fossil fuel consumption</p>
+                            <p className="text-sm text-gray-700">From API calculation (based on fuel consumption)</p>
                         </div>
                     </div>
                 </div>
@@ -709,7 +699,7 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
                     </div>
                     <div className="flex-1">
                         <h3 className="text-2xl font-bold text-gray-900 mb-4">Key Summary & Insight</h3>
-                        <p className="text-gray-700 text-lg mb-4">{summary.message}</p>
+                        <p className="text-gray-700 text-lg mb-4">{data.summary.message}</p>
                         <div className="flex gap-4">
                             <button
                                 onClick={() => setShowRecommendationsModal(true)}
@@ -827,9 +817,9 @@ const EnergyAnalyticsTab: React.FC<EnergyAnalyticsTabProps> = ({
                                     timeframe: '3 months',
                                     icon: <Zap className="w-6 h-6 text-amber-600" />,
                                 },
-                                estimatedCarbonEmissions > 1000 && {
+                                netCarbonEmissions > 1000 && {
                                     title: 'Carbon Reduction Program',
-                                    description: `Estimated carbon emissions: ${estimatedCarbonEmissions.toFixed(0)} tCO₂e. Develop and implement carbon reduction initiatives.`,
+                                    description: `Total carbon emissions: ${netCarbonEmissions.toFixed(0)} tCO₂e. Develop and implement carbon reduction initiatives.`,
                                     impact: 'High',
                                     effort: 'High',
                                     timeframe: '2 years',

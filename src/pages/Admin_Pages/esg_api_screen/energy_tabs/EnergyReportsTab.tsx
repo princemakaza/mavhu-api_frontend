@@ -110,26 +110,16 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
         );
     }
 
-    const {
-        company,
-        reporting_period,
-        all_metrics,
-        energy_mix,
-        grid_operations,
-        trends,
-        kpis,
-        summary,
-        graphs,
-    } = energyData.data;
+    const data = energyData.data;
 
     // Get derived data using service functions
-    const energySummary = getEnergyConsumptionSummary(energyData.data);
-    const detailedMetrics = getDetailedEnergyMetrics(energyData.data);
-    const energyMix = getEnergyMixData(energyData.data);
-    const gridOps = getGridOperationsData(energyData.data);
-    const energyTrends = getEnergyTrends(energyData.data);
-    const energyKPIs = getEnergyKPIs(energyData.data);
-    const companyInfo = getEnergyCompanyInfo(energyData.data);
+    const energySummary = getEnergyConsumptionSummary(data);
+    const detailedMetrics = getDetailedEnergyMetrics(data);
+    const energyMix = getEnergyMixData(data);
+    const gridOps = getGridOperationsData(data);
+    const trends = getEnergyTrends(data);
+    const kpis = getEnergyKPIs(data);
+    const companyInfo = getEnergyCompanyInfo(data);
 
     // Calculate derived metrics
     const renewablePercentage = parseFloat(energyMix.renewable_sources.percentage) || 0;
@@ -139,22 +129,23 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
     const fossilEnergyGJ = parseFloat(energyMix.fossil_sources.consumption_gj) || 0;
     const gridSelfSufficiency = gridOps.grid_self_sufficiency_percentage || 0;
 
+    // Carbon emissions from API (if available)
+    const netCarbonEmissions = data.carbon_emissions?.emissions?.totals?.net_total_emission_tco2e || 0;
+    const carbonIntensity = parseFloat(kpis.carbon_intensity_tco2e_per_gj as any) || 0;
+
     // Get ESG frameworks from company
-    const esgFrameworks = company.esg_reporting_framework || [];
+    const esgFrameworks = data.company.esg_reporting_framework || [];
 
-    // Calculate estimated carbon emissions (simplified)
-    const estimatedCarbonEmissions = fossilEnergyGJ * 0.07; // Rough estimate: 0.07 tCO2e per GJ of fossil energy
-    const carbonIntensity = totalEnergyGJ > 0 ? (estimatedCarbonEmissions / totalEnergyGJ) * 1000 : 0; // tCO2e per 1000 GJ
-
-    // Create metadata for technical section
+    // Create metadata for technical section using versions from API
     const metadata = {
-        api_version: "1.0",
-        calculation_version: "1.0",
-        generated_at: new Date().toISOString(),
+        api_version: data.versions.api,
+        calculation_version: data.versions.calculation,
+        gee_adapter_version: data.versions.gee_adapter,
+        last_updated: data.versions.last_updated,
         endpoint: "energy-renewables",
-        company_id: company._id || company.id || "N/A",
-        period_requested: reporting_period.year.toString(),
-        data_sources: [
+        company_id: data.company._id,
+        period_requested: data.reporting_period.year.toString(),
+        data_sources: data.company.data_source || [
             "Energy consumption records",
             "Electricity generation data",
             "Fuel purchase records",
@@ -165,11 +156,12 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
     // Key statistics
     const keyStats = {
         years_covered: availableYears.length || 1,
-        total_metrics_analyzed: Object.keys(all_metrics?.by_category?.environmental || {}).length || 0,
-        current_year: reporting_period.year,
+        total_metrics_analyzed: data.energy_consumption_data?.metrics?.length || 0,
+        current_year: data.reporting_period.year,
         renewable_share: renewablePercentage,
         grid_independence: gridSelfSufficiency,
-        carbon_emissions_estimated: estimatedCarbonEmissions
+        carbon_emissions: netCarbonEmissions,
+        data_quality_score: data.data_quality.completeness_score
     };
 
     return (
@@ -231,23 +223,23 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                                     <div className="space-y-3">
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Company Name</p>
-                                            <p className="text-lg font-bold text-gray-900">{company.name}</p>
+                                            <p className="text-lg font-bold text-gray-900">{data.company.name}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Industry</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.industry}</p>
+                                            <p className="text-lg font-medium text-gray-800">{data.company.industry}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Country</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.country}</p>
+                                            <p className="text-lg font-medium text-gray-800">{data.company.country}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">ESG Contact</p>
                                             <p className="text-lg font-medium text-gray-800">
-                                                {company.esg_contact_person ?
-                                                    `${company.esg_contact_person.name} (${company.esg_contact_person.email})` :
+                                                {data.company.esg_contact_person ?
+                                                    `${data.company.esg_contact_person.name} (${data.company.esg_contact_person.email})` :
                                                     'Not specified'
                                                 }
                                             </p>
@@ -255,12 +247,12 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Latest ESG Report</p>
                                             <p className="text-lg font-medium text-gray-800">
-                                                {company.latest_esg_report_year ? `Year ${company.latest_esg_report_year}` : 'Not available'}
+                                                {data.company.latest_esg_report_year ? `Year ${data.company.latest_esg_report_year}` : 'Not available'}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">ESG Data Status</p>
-                                            <p className="text-lg font-medium text-gray-800">{company.esg_data_status || 'Not specified'}</p>
+                                            <p className="text-lg font-medium text-gray-800">{data.company.esg_data_status || 'Not specified'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -271,15 +263,15 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                                 <div className="space-y-4">
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">Reporting Period</p>
-                                        <p className="text-gray-800">{reporting_period.year} ({reporting_period.date_range})</p>
+                                        <p className="text-gray-800">{data.reporting_period.year} ({data.reporting_period.date_range})</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">Fiscal Year</p>
-                                        <p className="text-gray-800">{reporting_period.fiscal_year}</p>
+                                        <p className="text-gray-800">{data.reporting_period.fiscal_year}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">Energy Analysis Scope</p>
-                                        <p className="text-gray-800">{company.scope || 'Comprehensive energy consumption analysis'}</p>
+                                        <p className="text-gray-800">{data.company.scope || 'Comprehensive energy consumption analysis'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -317,7 +309,7 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                             </div>
                             <div className="flex-1">
                                 <h3 className="text-2xl font-bold text-gray-900 mb-4">Energy Summary</h3>
-                                <p className="text-gray-700 text-lg mb-4">{summary.message || 'Comprehensive energy consumption analysis completed for the reporting period.'}</p>
+                                <p className="text-gray-700 text-lg mb-4">{data.summary.message || 'Comprehensive energy consumption analysis completed for the reporting period.'}</p>
                                 <div className="flex gap-4">
                                     <button
                                         onClick={() => setIsExportModalOpen(true)}
@@ -374,7 +366,7 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200">
                                 <h4 className="font-bold text-lg text-gray-900 mb-4">Energy Key Performance Indicators</h4>
                                 <div className="space-y-4">
-                                    {Object.entries(energyKPIs).map(([key, value], index) => (
+                                    {Object.entries(kpis).map(([key, value], index) => (
                                         <div key={index} className="flex justify-between items-center p-4 bg-white rounded-xl border border-blue-100">
                                             <div className="flex items-center gap-3">
                                                 <Zap className="w-5 h-5 text-blue-600" />
@@ -392,7 +384,7 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
                                 <h4 className="font-bold text-lg text-gray-900 mb-4">Energy Consumption Trends</h4>
                                 <div className="space-y-4">
-                                    {Object.entries(energyTrends).map(([key, value], index) => (
+                                    {Object.entries(trends).map(([key, value], index) => (
                                         <div key={index} className="flex items-center gap-4 p-4 bg-white rounded-xl">
                                             <div className="p-2 rounded-lg bg-purple-100">
                                                 {key.includes('renewable') ? <Sun className="w-5 h-5 text-purple-600" /> :
@@ -566,9 +558,9 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-sm text-gray-600 mb-2 font-medium">Estimated Carbon Emissions</p>
+                                    <p className="text-sm text-gray-600 mb-2 font-medium">Carbon Emissions</p>
                                     <p className="text-4xl font-bold text-gray-700">
-                                        {estimatedCarbonEmissions.toFixed(0)} <span className="text-lg">tCO₂e</span>
+                                        {netCarbonEmissions.toFixed(0)} <span className="text-lg">tCO₂e</span>
                                     </p>
                                 </div>
                             </div>
@@ -683,8 +675,8 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                                         <p className="text-lg font-bold text-gray-900">{metadata.calculation_version}</p>
                                     </div>
                                     <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
-                                        <p className="text-sm text-gray-600 mb-1">Energy Module Version</p>
-                                        <p className="text-lg font-bold text-gray-900">1.0</p>
+                                        <p className="text-sm text-gray-600 mb-1">GEE Adapter Version</p>
+                                        <p className="text-lg font-bold text-gray-900">{metadata.gee_adapter_version}</p>
                                     </div>
                                 </div>
                             </div>
@@ -696,9 +688,9 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                             <div className="p-6 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-700">Generated At</span>
+                                        <span className="text-gray-700">Last Updated</span>
                                         <span className="font-bold text-gray-900">
-                                            {new Date(metadata.generated_at).toLocaleString()}
+                                            {new Date(metadata.last_updated).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
@@ -750,14 +742,14 @@ const EnergyReportsTab: React.FC<EnergyReportsTabProps> = ({
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">Renewable Energy Data</p>
+                                        <p className="text-sm text-gray-600 mb-2">Data Quality Score</p>
                                         <p className="text-lg font-bold text-gray-900">
-                                            Available
+                                            {keyStats.data_quality_score}%
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">Grid Operations Data</p>
-                                        <p className="text-lg font-bold text-gray-900">
+                                        <p className="text-sm text-gray-600 mb-2">Renewable Data</p>
+                                        <p className="text-lg font-bold text-green-600">
                                             Available
                                         </p>
                                     </div>

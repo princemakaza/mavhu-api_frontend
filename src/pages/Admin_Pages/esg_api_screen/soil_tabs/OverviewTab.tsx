@@ -821,12 +821,6 @@ const OverviewTab = ({
                         </ResponsiveContainer>
                     </GraphDisplay>
                 )}
-
-                {/* Monthly SOC CO2 and Delta */}
-
-
-                {/* Monthly NDVI Max */}
-
             </div>
             {chartData?.monthlySocCO2Data && chartData.monthlySocCO2Data.length > 0 && (
                 <GraphDisplay

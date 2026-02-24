@@ -33,7 +33,7 @@ import OverviewTab from "./yield_tabs/OverviewTab";
 import AnalyticsTab from "./yield_tabs/AnalyticsTab";
 import ReportsTab from "./yield_tabs/ReportsTab";
 
-// Color Palette (matched to GhgEmissionScreen)
+// Color Palette
 const PRIMARY_GREEN = '#22c55e';
 const SECONDARY_GREEN = '#16a34a';
 const LIGHT_GREEN = '#86efac';
@@ -353,11 +353,12 @@ const CropYieldCarbonEmissionScreen = () => {
         fetchCompanies();
     }, [location.state]);
 
+    // 🔥 FIX: Remove dependency on companies.length – fetch data as soon as we have a companyId
     useEffect(() => {
-        if (selectedCompanyId && companies.length > 0) {
+        if (selectedCompanyId) {
             fetchCropYieldData();
         }
-    }, [selectedCompanyId, selectedYear]);
+    }, [selectedCompanyId, selectedYear]); // Only depends on ID and year
 
     // Loading State
     if (loading && !cropYieldData) {
@@ -482,7 +483,7 @@ const CropYieldCarbonEmissionScreen = () => {
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="flex-1">
-                {/* Header — matches GhgEmissionScreen layout */}
+                {/* Header */}
                 <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
                     <div className="px-4 sm:px-6 py-3">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
@@ -512,7 +513,7 @@ const CropYieldCarbonEmissionScreen = () => {
                             </div>
 
                             <div className="flex items-center gap-2 flex-wrap">
-                                {/* Year Selector — uses numeric years from API response */}
+                                {/* Year Selector */}
                                 {availableYears.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4 text-gray-500" />
@@ -551,7 +552,7 @@ const CropYieldCarbonEmissionScreen = () => {
                             </div>
                         </div>
 
-                        {/* Tabs — same style as GhgEmissionScreen */}
+                        {/* Tabs */}
                         <div className="flex space-x-2 overflow-x-auto pb-1">
                             {[
                                 { id: "overview", label: "Overview", icon: BarChart3 },
@@ -590,7 +591,7 @@ const CropYieldCarbonEmissionScreen = () => {
                     </div>
                 )}
 
-                {/* Quick Stats Bar — now driven by real data from the API */}
+                {/* Quick Stats Bar */}
                 {summaryMetrics && !error && (
                     <div className="mx-4 sm:mx-6 mt-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
