@@ -44,7 +44,12 @@ import {
     ArrowRight,
     Link,
     Map as MapIcon,
-    BarChart3
+    BarChart3,
+    ToggleLeft,
+    ToggleRight,
+    ShieldPlus,
+    ShieldOff,
+    Loader2
 } from "lucide-react";
 import {
     getCompanies,
@@ -56,7 +61,6 @@ import {
     type CreateCompanyPayload,
     type Coordinate,
 } from "../../services/Admin_Service/companies_service";
-// Import member service
 import {
     getMembers,
     createMember,
@@ -66,6 +70,16 @@ import {
     type CreateMemberPayload,
     type UpdateMemberPayload,
 } from "../../services/Admin_Service/member_service";
+// Import permissions service
+import {
+    createCompanyPermission,
+    getCompanyPermission,
+    updateCompanyPermission,
+    deleteCompanyPermission,
+    type Permission,
+    type CreatePermissionPayload,
+    type UpdatePermissionPayload,
+} from "../../services/Admin_Service/api_permissions_service";
 
 // Fix Leaflet default marker icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -164,22 +178,28 @@ const CompanyManagementScreen = () => {
         phone: '',
         companyId: '',
     });
-    // ---------------------------------
+
+    // --- Permissions State ---
+    const [companyPermissions, setCompanyPermissions] = useState<Permission | null>(null);
+    const [permissionsLoading, setPermissionsLoading] = useState(false);
+    const [permissionsError, setPermissionsError] = useState<string | null>(null);
+    // For individual row permission actions
+    const [permissionActionLoading, setPermissionActionLoading] = useState<string | null>(null);
 
     // API items for navigation with full descriptions
     const apiItems = [
-        { icon: Leaf, label: "Soil Health", path: "/portal/esg-dashboard/soil-health-carbon", description: "Soil quality and health metrics" },
-        { icon: TrendingUp, label: "Crop Yield", path: "/portal/esg-dashboard/crop-yield", description: "Agricultural productivity data" },
-        { icon: Cloud, label: "GHG Emissions", path: "/portal/esg-dashboard/ghg-emissions", description: "Greenhouse gas emissions tracking" },
-        { icon: Globe, label: "Biodiversity", path: "/apis/biodiversity", description: "Ecosystem and species diversity" },
-        { icon: Droplet, label: "Water Risk", path: "/apis/water-risk", description: "Water scarcity and quality assessment" },
-        { icon: Shield, label: "Compliance", path: "/apis/compliance", description: "Regulatory compliance monitoring" },
-        { icon: Zap, label: "Energy", path: "/apis/energy", description: "Energy consumption and efficiency" },
-        { icon: Recycle, label: "Waste", path: "/apis/waste", description: "Waste management and recycling metrics" },
-        { icon: Users, label: "Workforce", path: "/apis/workforce", description: "Employee and labor metrics" },
-        { icon: Heart, label: "Health & Safety", path: "/apis/health-safety", description: "Workplace safety and health" },
-        { icon: Building, label: "Governance", path: "/apis/governance", description: "Corporate governance metrics" },
-        { icon: BarChart, label: "ESG Score", path: "/apis/esg-score", description: "Overall ESG performance scoring" },
+        { icon: Leaf, label: "Soil Health", field: "soilHealthCarbon" as const, description: "Soil quality and health metrics" },
+        { icon: TrendingUp, label: "Crop Yield", field: "cropYieldForecastRisk" as const, description: "Agricultural productivity data" },
+        { icon: Cloud, label: "GHG Emissions", field: "ghgEmissions" as const, description: "Greenhouse gas emissions tracking" },
+        { icon: Globe, label: "Biodiversity", field: "biodiversityLandUse" as const, description: "Ecosystem and species diversity" },
+        { icon: Droplet, label: "Water Risk", field: "irrigationWater" as const, description: "Water scarcity and quality assessment" },
+        { icon: Shield, label: "Compliance", field: "farmManagementCompliance" as const, description: "Regulatory compliance monitoring" },
+        { icon: Zap, label: "Energy", field: "energyConsumptionRenewables" as const, description: "Energy consumption and efficiency" },
+        { icon: Recycle, label: "Waste", field: "wasteManagement" as const, description: "Waste management and recycling metrics" },
+        { icon: Users, label: "Workforce", field: "workforceDiversity" as const, description: "Employee and labor metrics" },
+        { icon: Heart, label: "Health & Safety", field: "healthSafety" as const, description: "Workplace safety and health" },
+        { icon: Building, label: "Governance", field: "governanceBoardMetrics" as const, description: "Corporate governance metrics" },
+        { icon: BarChart, label: "ESG Score", field: "overallESGScore" as const, description: "Overall ESG performance scoring" },
     ];
 
     // Colors for both modes
@@ -274,6 +294,7 @@ const CompanyManagementScreen = () => {
             setMembersPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
             if (response.company) {
                 fetchMembers(response.company._id, 1);
+                fetchCompanyPermissions(response.company._id);
             }
         } catch (err: any) {
             setError(err.message || "Failed to fetch company details");
@@ -538,9 +559,97 @@ const CompanyManagementScreen = () => {
         }
     };
 
-    // ------------------------------------
+    // --- Permissions Functions ---
+    const fetchCompanyPermissions = async (companyId: string) => {
+        try {
+            setPermissionsLoading(true);
+            setPermissionsError(null);
+            const response = await getCompanyPermission(companyId);
+            setCompanyPermissions(response.permissions);
+        } catch (err: any) {
+            // If 404, it means no permissions exist yet
+            if (err.message?.includes('404') || err.response?.status === 404) {
+                setCompanyPermissions(null);
+            } else {
+                setPermissionsError(err.message || "Failed to fetch permissions");
+            }
+        } finally {
+            setPermissionsLoading(false);
+        }
+    };
 
-    // Initialize
+    const handleCreatePermissions = async (companyId: string) => {
+        try {
+            setPermissionActionLoading(companyId);
+            // Create default permissions (all false)
+            const defaultPayload: CreatePermissionPayload = {
+                soilHealthCarbon: false,
+                cropYieldForecastRisk: false,
+                ghgEmissions: false,
+                biodiversityLandUse: false,
+                irrigationWater: false,
+                farmManagementCompliance: false,
+                energyConsumptionRenewables: false,
+                wasteManagement: false,
+                workforceDiversity: false,
+                healthSafety: false,
+                governanceBoardMetrics: false,
+                communityEngagement: false,
+                overallESGScore: false,
+            };
+            await createCompanyPermission(companyId, defaultPayload);
+            // If we are currently viewing this company, refresh permissions
+            if (selectedCompany?._id === companyId) {
+                await fetchCompanyPermissions(companyId);
+            }
+            setError(null); // Clear any previous error
+        } catch (err: any) {
+            setError(err.message || "Failed to create permissions");
+        } finally {
+            setPermissionActionLoading(null);
+        }
+    };
+
+    const handleDeletePermissions = async (companyId: string) => {
+        if (!window.confirm('Are you sure you want to delete all permissions for this company?')) return;
+        try {
+            setPermissionActionLoading(companyId);
+            await deleteCompanyPermission(companyId);
+            if (selectedCompany?._id === companyId) {
+                setCompanyPermissions(null);
+            }
+            setError(null);
+        } catch (err: any) {
+            setError(err.message || "Failed to delete permissions");
+        } finally {
+            setPermissionActionLoading(null);
+        }
+    };
+
+    const handlePermissionToggle = async (field: keyof CreatePermissionPayload) => {
+        if (!selectedCompany || !companyPermissions) return;
+
+        // Optimistic update
+        const newValue = !companyPermissions[field];
+        setCompanyPermissions({
+            ...companyPermissions,
+            [field]: newValue,
+        });
+
+        try {
+            const payload: UpdatePermissionPayload = { [field]: newValue };
+            await updateCompanyPermission(selectedCompany._id, payload);
+        } catch (err: any) {
+            // Revert on error
+            setCompanyPermissions({
+                ...companyPermissions,
+                [field]: !newValue,
+            });
+            setError(err.message || "Failed to update permission");
+        }
+    };
+
+    // --- Initialize ---
     useEffect(() => {
         fetchCompanies();
     }, [pagination.page, pagination.limit]);
@@ -1321,6 +1430,32 @@ const CompanyManagementScreen = () => {
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
+                                                            {/* Add Permissions Button */}
+                                                            <button
+                                                                onClick={() => handleCreatePermissions(company._id)}
+                                                                disabled={permissionActionLoading === company._id}
+                                                                className={`p-2 rounded-lg ${themeClasses.hoverBg} transition-colors hover:text-green-600 dark:hover:text-green-400`}
+                                                                title="Create Permissions"
+                                                            >
+                                                                {permissionActionLoading === company._id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <ShieldPlus className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                            {/* Delete Permissions Button */}
+                                                            <button
+                                                                onClick={() => handleDeletePermissions(company._id)}
+                                                                disabled={permissionActionLoading === company._id}
+                                                                className={`p-2 rounded-lg ${themeClasses.hoverBg} transition-colors hover:text-red-600 dark:hover:text-red-400`}
+                                                                title="Delete Permissions"
+                                                            >
+                                                                {permissionActionLoading === company._id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <ShieldOff className="w-4 h-4" />
+                                                                )}
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1708,41 +1843,82 @@ const CompanyManagementScreen = () => {
                                         </div>
                                     )}
 
-                                {/* API Navigation */}
+                                {/* API Permissions Toggles */}
                                 <div className="mb-8">
                                     <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold">Available APIs for {selectedCompany.name}</h3>
-                                        <div className="flex items-center gap-2 text-sm" style={{ color: logoGreen }}>
-                                            <Link className="w-4 h-4" />
-                                            <span>Click to navigate with company ID</span>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {apiItems.map((api, index) => (
+                                        <h3 className="text-lg font-semibold">API Access Permissions for {selectedCompany.name}</h3>
+                                        {!companyPermissions && !permissionsLoading && (
                                             <button
-                                                key={index}
-                                                onClick={() => handleApiNavigation(api.path)}
-                                                className={`flex flex-col items-start gap-2 p-3 rounded-lg border ${themeClasses.border} transition-all duration-300 ${themeClasses.hoverBg} hover:${themeClasses.borderHover} group`}
+                                                onClick={() => handleCreatePermissions(selectedCompany._id)}
+                                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium"
+                                                style={{ borderColor: logoGreen, color: logoGreen }}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <div
-                                                        className="p-1.5 rounded-md"
-                                                        style={{
-                                                            background: `linear-gradient(to right, ${logoGreen}${isDarkMode ? '30' : '10'}, ${logoGreen}${isDarkMode ? '20' : '05'})`,
-                                                            border: `1px solid ${logoGreen}${isDarkMode ? '40' : '20'}`
-                                                        }}
-                                                    >
-                                                        <api.icon className="w-3.5 h-3.5" style={{ color: logoGreen }} />
-                                                    </div>
-                                                    <span className="text-sm font-medium">{api.label}</span>
-                                                </div>
-                                                <span className={`text-xs ${themeClasses.textMuted} text-left`}>{api.description}</span>
-                                                <div className="w-full flex justify-end">
-                                                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: logoGreen }} />
-                                                </div>
+                                                <ShieldPlus className="w-4 h-4" />
+                                                Create Default Permissions
                                             </button>
-                                        ))}
+                                        )}
                                     </div>
+                                    {permissionsLoading ? (
+                                        <div className="text-center py-8">
+                                            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" style={{ color: logoGreen }} />
+                                            <p className={themeClasses.textMuted}>Loading permissions...</p>
+                                        </div>
+                                    ) : permissionsError ? (
+                                        <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-red-900/20 border-red-700" : "bg-red-50 border-red-200"}`}>
+                                            <p className="text-red-600 dark:text-red-400">{permissionsError}</p>
+                                            <button
+                                                onClick={() => fetchCompanyPermissions(selectedCompany._id)}
+                                                className="mt-2 text-sm underline"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    ) : !companyPermissions ? (
+                                        <div className={`p-8 text-center rounded-lg border ${themeClasses.border}`}>
+                                            <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                            <p className={themeClasses.textMuted}>No permissions set for this company</p>
+                                            <p className="text-sm mt-2">Use the button above to create default permissions (all false) and then toggle individual APIs.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {apiItems.map((api) => {
+                                                const value = companyPermissions[api.field];
+                                                return (
+                                                    <div
+                                                        key={api.field}
+                                                        className={`flex items-center justify-between p-3 rounded-lg border ${themeClasses.border} ${themeClasses.cardBg}`}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="p-1.5 rounded-md"
+                                                                style={{
+                                                                    background: `linear-gradient(to right, ${logoGreen}${isDarkMode ? '30' : '10'}, ${logoGreen}${isDarkMode ? '20' : '05'})`,
+                                                                    border: `1px solid ${logoGreen}${isDarkMode ? '40' : '20'}`
+                                                                }}
+                                                            >
+                                                                <api.icon className="w-3.5 h-3.5" style={{ color: logoGreen }} />
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-sm font-medium">{api.label}</span>
+                                                                <p className={`text-xs ${themeClasses.textMuted}`}>{api.description}</p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handlePermissionToggle(api.field)}
+                                                            className={`p-1 rounded-full transition-colors ${value ? 'text-green-600' : 'text-gray-400'}`}
+                                                            title={value ? 'Disable' : 'Enable'}
+                                                        >
+                                                            {value ? (
+                                                                <ToggleRight className="w-6 h-6" style={{ color: logoGreen }} />
+                                                            ) : (
+                                                                <ToggleLeft className="w-6 h-6" />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* ===== MEMBERS SECTION ===== */}

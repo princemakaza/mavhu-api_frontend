@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../../components/Sidebar";
 import {
     TrendingUp,
     Users,
@@ -32,13 +31,15 @@ import {
     Layers,
     Loader2,
     Shield as ShieldIcon,
+    DollarSign,
+    Scale,
 } from "lucide-react";
 import { getCompanyByIdMe, Company } from "../../services/Admin_Service/companies_service";
-// Import permissions service
 import { getCompanyPermission, type Permission } from "../../services/Admin_Service/api_permissions_service";
 import { MapContainer, TileLayer, Polygon, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import BankSidebar from "@/components/bank_sidebar";
 
 // Fix for default marker icons in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -48,7 +49,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const Customer_Dashboard = () => {
+const BankDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [company, setCompany] = useState<Company | null>(null);
@@ -60,18 +61,17 @@ const Customer_Dashboard = () => {
     const [permissionsLoading, setPermissionsLoading] = useState(false);
     const [permissionsError, setPermissionsError] = useState<string | null>(null);
 
-    // Light mode colors only
-    const logoGreen = "#008000";
-    const logoYellow = "#B8860B";
-    const lightBg = "#F5F5F5";
+    // Bank color palette (matching BankLogin)
+    const primaryNavy = "#0A3B5C";
+    const secondaryGold = "#D4AF37";
+    const lightBg = "#F0F4F8";
 
-    // Get companyId from localStorage (needed for API navigation)
+    // Get companyId from localStorage
     const companyId = localStorage.getItem("companyId");
 
     useEffect(() => {
         const fetchCompany = async () => {
             try {
-                // The getCompanyByIdMe function uses the /companies/me endpoint
                 const response = await getCompanyByIdMe(companyId || "");
                 setCompany(response.company);
             } catch (err: any) {
@@ -81,7 +81,11 @@ const Customer_Dashboard = () => {
             }
         };
 
-        fetchCompany();
+        if (companyId) fetchCompany();
+        else {
+            setError("No company ID found");
+            setLoading(false);
+        }
     }, [companyId]);
 
     // Fetch permissions after company is loaded
@@ -94,7 +98,6 @@ const Customer_Dashboard = () => {
                     const response = await getCompanyPermission(companyId);
                     setPermissions(response.permissions);
                 } catch (err: any) {
-                    // If 404, no permissions exist -> all APIs are hidden
                     if (err.message?.includes('404') || err.response?.status === 404) {
                         setPermissions(null);
                     } else {
@@ -111,7 +114,7 @@ const Customer_Dashboard = () => {
     // If no companyId, redirect to login after a short delay
     useEffect(() => {
         if (error && error.includes("No company ID found")) {
-            const timer = setTimeout(() => navigate("/login"), 3000);
+            const timer = setTimeout(() => navigate("/bank-login"), 3000);
             return () => clearTimeout(timer);
         }
     }, [error, navigate]);
@@ -128,17 +131,9 @@ const Customer_Dashboard = () => {
             { name: "GHG Emissions API", icon: Database, path: "/admin_ghg_emission", permissionField: "ghgEmissions" },
             { name: "Biodiversity API", icon: Globe, path: "/admin_biodiversity_land_use", permissionField: "biodiversityLandUse" },
             { name: "Water Risk API", icon: Droplet, path: "/admin_irrigation_water", permissionField: "irrigationWater" },
-            { name: "Compliance API", icon: Shield, path: "/admin_farm_compliance", permissionField: "farmManagementCompliance" },
-            { name: "Energy API", icon: Zap, path: "/admin_energy_consumption", permissionField: "energyConsumptionRenewables" },
-            { name: "Waste API", icon: Recycle, path: "/admin_waste_management", permissionField: "wasteManagement" },
-            { name: "Workforce API", icon: Users, path: "/admin_workforce_diversity", permissionField: "workforceDiversity" },
-            { name: "Health & Safety API", icon: Heart, path: "/admin_health_safety", permissionField: "healthSafety" },
-            { name: "Governance API", icon: Building, path: "/admin_governance_board_metrics", permissionField: "governanceBoardMetrics" },
-            { name: "Community API", icon: Users, path: "/admin_community_engagement", permissionField: "communityEngagement" },
-            { name: "ESG Score API", icon: BarChart, path: "/admin_overall_esg_score", permissionField: "overallESGScore" },
         ];
 
-    // Filter APIs based on permissions (for customers, only show those with true)
+    // Filter APIs based on permissions
     const permittedApis = permissions
         ? allApis.filter(api => permissions[api.permissionField] === true)
         : [];
@@ -158,9 +153,7 @@ const Customer_Dashboard = () => {
         { name: "Water Risk", usage: 0, icon: Droplet },
         { name: "Energy", usage: 0, icon: Zap },
         { name: "Compliance", usage: 0, icon: Shield },
-        { name: "Biodiversity", usage: 0, icon: Globe },
-        { name: "Waste", usage: 0, icon: Recycle },
-        { name: "Safety", usage: 0, icon: Heart },
+
     ];
 
     // Helper functions for score styling
@@ -200,7 +193,7 @@ const Customer_Dashboard = () => {
                             <Popup>{company.area_of_interest_metadata?.name || "Area of Interest"}</Popup>
                         </Marker>
                     ) : (
-                        <Polygon positions={coords} color={logoGreen} />
+                        <Polygon positions={coords} color={primaryNavy} />
                     )}
                 </MapContainer>
             </div>
@@ -211,8 +204,8 @@ const Customer_Dashboard = () => {
         return (
             <div className="flex min-h-screen bg-gray-50 items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-800 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading your banking dashboard...</p>
                 </div>
             </div>
         );
@@ -226,7 +219,7 @@ const Customer_Dashboard = () => {
                     <h2 className="text-xl font-bold text-gray-900 mb-2">Error</h2>
                     <p className="text-gray-600 mb-4">{error}</p>
                     {error.includes("No company ID found") && (
-                        <p className="text-sm text-gray-500">Redirecting to login...</p>
+                        <p className="text-sm text-gray-500">Redirecting to bank login...</p>
                     )}
                 </div>
             </div>
@@ -244,21 +237,22 @@ const Customer_Dashboard = () => {
     };
     const apiUsage = { totalCalls: 0, lastUpdated: "" };
 
-    // Dashboard stats for this single company
+    // Dashboard stats for a bank
     const dashboardStats = [
+        // Inside dashboardStats array:
         {
-            title: "ESG Score",
-            value: esgScores.overall.toString(),
-            change: `${esgScores.overall >= 60 ? "Good" : "Needs improvement"}`,
-            icon: TrendingUp,
-            trending: true,
+            title: "Financed Emissions",
+            value: "245K tCO₂e",
+            change: "-5.2% vs last year",
+            icon: Leaf,
+            trending: true, // decreasing emissions is positive
         },
         {
-            title: "Total API Calls",
-            value: 13, // Placeholder, could be dynamic
-            change: "Last 30 days",
-            icon: Activity,
-            trending: true,
+            title: "Risk Rating",
+            value: "A-",
+            change: "Stable outlook",
+            icon: Scale,
+            trending: false,
         },
         {
             title: "Active APIs",
@@ -268,11 +262,11 @@ const Customer_Dashboard = () => {
             trending: false,
         },
         {
-            title: "Last Updated",
-            value: new Date(apiUsage.lastUpdated || Date.now()).toLocaleDateString(),
-            change: "ESG data",
-            icon: Database,
-            trending: false,
+            title: "ESG Score",
+            value: esgScores.overall.toString(),
+            change: `${esgScores.overall >= 60 ? "Above threshold" : "Needs attention"}`,
+            icon: Award,
+            trending: true,
         },
     ];
 
@@ -282,25 +276,25 @@ const Customer_Dashboard = () => {
             category: "Environmental",
             score: esgScores.environmental,
             icon: Leaf,
-            description: "Carbon emissions, energy use, water management",
+            description: "Carbon footprint, energy use, water management",
         },
         {
             category: "Social",
             score: esgScores.social,
             icon: Users,
-            description: "Employee welfare, community impact, diversity",
+            description: "Community investment, labor practices",
         },
         {
             category: "Governance",
             score: esgScores.governance,
             icon: ShieldIcon,
-            description: "Board diversity, ethics, transparency",
+            description: "Board oversight, ethics, transparency",
         },
     ];
 
     return (
         <div className="flex min-h-screen bg-gray-50 text-gray-900 transition-colors duration-300">
-            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+            <BankSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             {/* Main Content */}
             <main className="flex-1 lg:ml-0 transition-all duration-300 bg-gray-50">
@@ -311,8 +305,8 @@ const Customer_Dashboard = () => {
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold" style={{ color: logoGreen }}>
-                                {company.name} – ESG Dashboard
+                            <h1 className="text-2xl font-bold" style={{ color: primaryNavy }}>
+                                Banking Dashboard
                             </h1>
                             <p className="text-sm text-gray-700">
                                 {company.industry} • {company.country}
@@ -337,7 +331,7 @@ const Customer_Dashboard = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         {dashboardStats.map((stat, index) => {
                             const IconComponent = stat.icon;
-                            const color = index === 0 ? logoGreen : index === 2 ? logoYellow : logoGreen;
+                            const color = index === 0 ? primaryNavy : index === 2 ? secondaryGold : primaryNavy;
 
                             return (
                                 <div
@@ -371,55 +365,58 @@ const Customer_Dashboard = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        {/* ESG Scores Overview */}
-                        <div className="lg:col-span-2 bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
-                                    ESG Performance
-                                </h2>
-                                <div className="flex items-center space-x-2">
-                                    <Award className="w-5 h-5" style={{ color: logoYellow }} />
-                                    <span className="text-sm text-gray-700">
-                                        {esgScores.overall >= 60 ? "On Track" : "Attention Needed"}
-                                    </span>
+                        {/* Left Column (2/3 width) */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* ESG Performance Card */}
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-lg font-semibold" style={{ color: primaryNavy }}>
+                                        ESG Performance
+                                    </h2>
+                                    <div className="flex items-center space-x-2">
+                                        <Award className="w-5 h-5" style={{ color: secondaryGold }} />
+                                        <span className="text-sm text-gray-700">
+                                            {esgScores.overall >= 60 ? "On Track" : "Attention Needed"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {esgMetrics.map((metric, index) => {
+                                        const scoreColor = getScoreColor(metric.score);
+                                        return (
+                                            <div
+                                                key={index}
+                                                className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-5 transition-all duration-300 hover:border-gray-400"
+                                            >
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div
+                                                        className="p-2 rounded-lg"
+                                                        style={{
+                                                            background: `linear-gradient(to right, ${primaryNavy}10, ${primaryNavy}05)`,
+                                                            border: `1px solid ${primaryNavy}20`,
+                                                        }}
+                                                    >
+                                                        <metric.icon className="w-5 h-5" style={{ color: primaryNavy }} />
+                                                    </div>
+                                                    <div
+                                                        className={`px-3 py-1 rounded-full ${scoreColor.bg} ${scoreColor.text}`}
+                                                    >
+                                                        <span className="text-sm font-semibold">{metric.score}/100</span>
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-lg font-semibold mb-2">{metric.category}</h3>
+                                                <p className="text-sm text-gray-700">{metric.description}</p>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                {esgMetrics.map((metric, index) => {
-                                    const scoreColor = getScoreColor(metric.score);
-                                    return (
-                                        <div
-                                            key={index}
-                                            className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-5 transition-all duration-300 hover:border-gray-400"
-                                        >
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div
-                                                    className="p-2 rounded-lg"
-                                                    style={{
-                                                        background: `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`,
-                                                        border: `1px solid ${logoGreen}20`,
-                                                    }}
-                                                >
-                                                    <metric.icon className="w-5 h-5" style={{ color: logoGreen }} />
-                                                </div>
-                                                <div
-                                                    className={`px-3 py-1 rounded-full ${scoreColor.bg} ${scoreColor.text}`}
-                                                >
-                                                    <span className="text-sm font-semibold">{metric.score}/100</span>
-                                                </div>
-                                            </div>
-                                            <h3 className="text-lg font-semibold mb-2">{metric.category}</h3>
-                                            <p className="text-sm text-gray-700">{metric.description}</p>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Company Details Card - Enhanced */}
-                            <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-5">
-                                <h3 className="text-lg font-semibold mb-4" style={{ color: logoGreen }}>
-                                    Company Information
+                            {/* Minimal Company Overview Card */}
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
+                                <h3 className="text-lg font-semibold mb-4" style={{ color: primaryNavy }}>
+                                    Company Overview
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                     <div>
@@ -473,98 +470,38 @@ const Customer_Dashboard = () => {
                                             <p className="font-medium">{company.description}</p>
                                         </div>
                                     )}
-                                    {company.purpose && (
-                                        <div className="col-span-2">
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Target className="w-4 h-4" /> Purpose
-                                            </p>
-                                            <p className="font-medium">{company.purpose}</p>
-                                        </div>
-                                    )}
-                                    {company.scope && (
-                                        <div>
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Layers className="w-4 h-4" /> Scope
-                                            </p>
-                                            <p className="font-medium">{company.scope}</p>
-                                        </div>
-                                    )}
-                                    {company.data_source && company.data_source.length > 0 && (
-                                        <div>
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Database className="w-4 h-4" /> Data Sources
-                                            </p>
-                                            <p className="font-medium">{company.data_source.join(', ')}</p>
-                                        </div>
-                                    )}
-                                    {company.esg_reporting_framework && company.esg_reporting_framework.length > 0 && (
-                                        <div>
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Award className="w-4 h-4" /> ESG Frameworks
-                                            </p>
-                                            <p className="font-medium">{company.esg_reporting_framework.join(', ')}</p>
-                                        </div>
-                                    )}
-                                    {company.latest_esg_report_year && (
-                                        <div>
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Calendar className="w-4 h-4" /> Latest ESG Report Year
-                                            </p>
-                                            <p className="font-medium">{company.latest_esg_report_year}</p>
-                                        </div>
-                                    )}
-                                    {company.esg_data_status && (
-                                        <div>
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Activity className="w-4 h-4" /> ESG Data Status
-                                            </p>
-                                            <p className="font-medium capitalize">{company.esg_data_status.replace('_', ' ')}</p>
-                                        </div>
-                                    )}
-                                    {company.has_esg_linked_pay !== undefined && (
-                                        <div>
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Briefcase className="w-4 h-4" /> ESG Linked Pay
-                                            </p>
-                                            <p className="font-medium">{company.has_esg_linked_pay ? 'Yes' : 'No'}</p>
-                                        </div>
-                                    )}
-                                    {company.esg_contact_person && (
-                                        <div className="col-span-2">
-                                            <p className="text-gray-600 flex items-center gap-1">
-                                                <Users className="w-4 h-4" /> ESG Contact
-                                            </p>
-                                            <p className="font-medium">
-                                                {company.esg_contact_person.name} – {company.esg_contact_person.email} – {company.esg_contact_person.phone}
-                                            </p>
-                                        </div>
-                                    )}
                                 </div>
+                            </div>
 
-                                {/* Area of Interest Map */}
-                                {company.area_of_interest_metadata && (
-                                    <div className="mt-6">
-                                        <h4 className="text-md font-semibold mb-2" style={{ color: logoGreen }}>
-                                            Area of Interest: {company.area_of_interest_metadata.name}
-                                        </h4>
-                                        <p className="text-sm text-gray-600 mb-2">
-                                            Area covered: {company.area_of_interest_metadata.area_covered}
+                            {/* Area of Interest Card - Prominent */}
+                            {company.area_of_interest_metadata && (
+                                <div className="bg-white/95 backdrop-blur-xl rounded-2xl border-2 border-gray-300/80 p-6 shadow-lg shadow-gray-200/50">
+                                    <h3 className="text-lg font-semibold mb-4" style={{ color: primaryNavy }}>
+                                        Area of Interest
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="w-5 h-5" style={{ color: secondaryGold }} />
+                                            <span className="font-medium">{company.area_of_interest_metadata.name}</span>
+                                        </div>
+                                        <p className="text-sm text-gray-700">
+                                            <span className="font-medium">Area covered:</span> {company.area_of_interest_metadata.area_covered}
                                         </p>
                                         {renderMap()}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
 
-                        {/* API Usage & Available APIs */}
+                        {/* Right Column (1/3 width) - API Usage & Available APIs */}
                         <div className="space-y-6">
                             {/* API Usage */}
                             <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
                                 <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
+                                    <h2 className="text-lg font-semibold" style={{ color: primaryNavy }}>
                                         API Usage
                                     </h2>
-                                    <Target className="w-5 h-5" style={{ color: logoGreen }} />
+                                    <Target className="w-5 h-5" style={{ color: primaryNavy }} />
                                 </div>
                                 <div className="space-y-4">
                                     {apiCategories.map((api, index) => (
@@ -573,11 +510,11 @@ const Customer_Dashboard = () => {
                                                 <div
                                                     className="p-2 rounded-lg"
                                                     style={{
-                                                        background: `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`,
-                                                        border: `1px solid ${logoGreen}20`,
+                                                        background: `linear-gradient(to right, ${primaryNavy}10, ${primaryNavy}05)`,
+                                                        border: `1px solid ${primaryNavy}20`,
                                                     }}
                                                 >
-                                                    <api.icon className="w-4 h-4" style={{ color: logoGreen }} />
+                                                    <api.icon className="w-4 h-4" style={{ color: primaryNavy }} />
                                                 </div>
                                                 <span className="text-sm font-medium">{api.name}</span>
                                             </div>
@@ -598,18 +535,18 @@ const Customer_Dashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Available APIs - Now Filtered by Permissions */}
+                            {/* Available APIs - Filtered by Permissions */}
                             <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
                                 <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-lg font-semibold" style={{ color: logoGreen }}>
+                                    <h2 className="text-lg font-semibold" style={{ color: primaryNavy }}>
                                         Available APIs
                                     </h2>
-                                    <Database className="w-5 h-5" style={{ color: logoGreen }} />
+                                    <Database className="w-5 h-5" style={{ color: primaryNavy }} />
                                 </div>
 
                                 {permissionsLoading ? (
                                     <div className="flex items-center justify-center py-8">
-                                        <Loader2 className="w-6 h-6 animate-spin" style={{ color: logoGreen }} />
+                                        <Loader2 className="w-6 h-6 animate-spin" style={{ color: primaryNavy }} />
                                         <span className="ml-2 text-sm text-gray-600">Loading permissions...</span>
                                     </div>
                                 ) : permissionsError ? (
@@ -640,11 +577,11 @@ const Customer_Dashboard = () => {
                                                 <div
                                                     className="p-1.5 rounded-md"
                                                     style={{
-                                                        background: `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`,
-                                                        border: `1px solid ${logoGreen}20`,
+                                                        background: `linear-gradient(to right, ${primaryNavy}10, ${primaryNavy}05)`,
+                                                        border: `1px solid ${primaryNavy}20`,
                                                     }}
                                                 >
-                                                    <api.icon className="w-3.5 h-3.5" style={{ color: logoGreen }} />
+                                                    <api.icon className="w-3.5 h-3.5" style={{ color: primaryNavy }} />
                                                 </div>
                                                 <span className="text-xs font-medium truncate">{api.name}</span>
                                             </button>
@@ -657,7 +594,7 @@ const Customer_Dashboard = () => {
                                         <button
                                             className="w-full py-2.5 rounded-lg font-medium transition-all hover:opacity-90 flex items-center justify-center space-x-2"
                                             style={{
-                                                background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                                                background: `linear-gradient(to right, ${primaryNavy}, ${secondaryGold})`,
                                                 color: "#FFFFFF",
                                             }}
                                         >
@@ -670,30 +607,30 @@ const Customer_Dashboard = () => {
                         </div>
                     </div>
 
-                    {/* Recent Activity (filtered to this company) */}
+                    {/* Recent Activity */}
                     <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-300/70 p-6 shadow-lg shadow-gray-200/50">
-                        <h2 className="text-lg font-semibold mb-6" style={{ color: logoGreen }}>
+                        <h2 className="text-lg font-semibold mb-6" style={{ color: primaryNavy }}>
                             Recent Activity
                         </h2>
                         <div className="space-y-4">
                             {[
                                 {
-                                    company: company.name,
-                                    action: "ESG data updated",
+                                    company: "CBZ", // or keep company.name if desired
+                                    action: "Quarterly financial report generated",
                                     time: "2 hours ago",
-                                    type: "update",
+                                    type: "report",
                                 },
                                 {
-                                    company: company.name,
-                                    action: "New compliance data added",
+                                    company: "CBZ",
+                                    action: "New ESG compliance data uploaded",
                                     time: "1 day ago",
                                     type: "add",
                                 },
                                 {
-                                    company: company.name,
-                                    action: "Quarterly report generated",
+                                    company: "CBZ",
+                                    action: "Risk assessment updated",
                                     time: "3 days ago",
-                                    type: "report",
+                                    type: "update",
                                 },
                             ].map((activity, index) => (
                                 <div
@@ -706,26 +643,26 @@ const Customer_Dashboard = () => {
                                             style={{
                                                 background:
                                                     activity.type === "update"
-                                                        ? `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)`
+                                                        ? `linear-gradient(to right, ${primaryNavy}10, ${primaryNavy}05)`
                                                         : activity.type === "add"
-                                                            ? `linear-gradient(to right, ${logoYellow}10, ${logoYellow}05)`
+                                                            ? `linear-gradient(to right, ${secondaryGold}10, ${secondaryGold}05)`
                                                             : "bg-gray-100",
                                                 border:
                                                     activity.type === "update"
-                                                        ? `1px solid ${logoGreen}20`
+                                                        ? `1px solid ${primaryNavy}20`
                                                         : activity.type === "add"
-                                                            ? `1px solid ${logoYellow}20`
+                                                            ? `1px solid ${secondaryGold}20`
                                                             : "1px solid transparent",
                                             }}
                                         >
                                             {activity.type === "update" && (
-                                                <TrendingUp className="w-4 h-4" style={{ color: logoGreen }} />
+                                                <TrendingUp className="w-4 h-4" style={{ color: primaryNavy }} />
                                             )}
                                             {activity.type === "add" && (
-                                                <CheckCircle className="w-4 h-4" style={{ color: logoYellow }} />
+                                                <CheckCircle className="w-4 h-4" style={{ color: secondaryGold }} />
                                             )}
                                             {activity.type === "report" && (
-                                                <BarChart className="w-4 h-4" style={{ color: logoGreen }} />
+                                                <BarChart className="w-4 h-4" style={{ color: primaryNavy }} />
                                             )}
                                         </div>
                                         <div>
@@ -745,4 +682,4 @@ const Customer_Dashboard = () => {
     );
 };
 
-export default Customer_Dashboard;
+export default BankDashboard;

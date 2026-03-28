@@ -31,14 +31,15 @@ import AnalyticsTab from "./biodiversity_tabs/AnalyticsTab";
 import ReportsTab from "./biodiversity_tabs/ReportsTab";
 
 // Color Palette (matched to CropYieldCarbonEmissionScreen)
-const PRIMARY_GREEN = '#22c55e';
-const SECONDARY_GREEN = '#16a34a';
-const LIGHT_GREEN = '#86efac';
-const DARK_GREEN = '#15803d';
-const EMERALD = '#10b981';
-const LIME = '#84cc16';
-const BACKGROUND_GRAY = '#f9fafb';
-
+// Color Palette (Cool Teal Theme)
+// Color Palette (Light Indigo Theme)
+const PRIMARY_GREEN = '#6366f1';      // Indigo 500
+const SECONDARY_GREEN = '#4f46e5';    // Indigo 600
+const LIGHT_GREEN = '#c7d2fe';        // Indigo 200
+const DARK_GREEN = '#4338ca';         // Indigo 700
+const EMERALD = '#818cf8';            // Indigo 400
+const LIME = '#a5b4fc';               // Indigo 300
+const BACKGROUND_GRAY = '#f5f7ff';    // Soft light indigo background
 // Loading Skeleton
 const SkeletonCard = () => (
     <div className="animate-pulse h-full rounded-xl bg-gray-100"></div>

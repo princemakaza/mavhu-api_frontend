@@ -81,7 +81,12 @@ import HealthSafetyScreen from "./pages/Admin_Pages/esg_api_screen/health_and_sa
 import GovernanceBoardScreen from "./pages/Admin_Pages/esg_api_screen/governance_esg_screean";
 import CommunityEngagementScreen from "./pages/Admin_Pages/esg_api_screen/community_engagement_screen";
 import Member_login from "./pages/Admin_Pages/member_login";
+import BankLogin from "./pages/Admin_Pages/bank_login";
 import Customer_Dashboard from "./pages/Admin_Pages/Customer_Dashboard";
+import BankDashboard from "./pages/Admin_Pages/bank_dashboard";
+import BankFinancedEmissionsScreen from "./pages/Admin_Pages/esg_api_screen/bank_soil_carbon";
+import BankCropYieldScreen from "./pages/Admin_Pages/esg_api_screen/bank_crop_yield_screen";
+import BankGhgEmmisionsScreen from "./pages/Admin_Pages/esg_api_screen/bank_ghg_emmisions_screen";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -109,6 +114,24 @@ const App = () => (
             <Route path="/reserourcewalle" element={<ReserourceWalle />} />
             <Route path="/admin_dashboard" element={<Admin_Dashboard />} />
             <Route path="/admin_report" element={<Report_Page />} />
+            <Route path="/bank_login" element={<BankLogin />} />
+            <Route path="/bank_financed_emissions" element={<BankFinancedEmissionsScreen />} />
+            <Route
+              path="/bank_financed_emissions/:companyId"
+              element={<BankFinancedEmissionsScreen />}
+            />
+
+            <Route path="/bank_crop_yield" element={<BankCropYieldScreen />} />
+            <Route
+              path="/bank_crop_yield/:companyId"
+              element={<BankCropYieldScreen />}
+            />
+            <Route path="/bank_ghg_emissions" element={<BankGhgEmmisionsScreen />} />
+            <Route
+              path="/bank_ghg_emissions/:companyId"
+              element={<BankGhgEmmisionsScreen />}
+            />
+            <Route path="/bank_dashboard" element={<BankDashboard />} />
             <Route
               path="/admin_companies"
               element={<CompanyManagementScreen />}

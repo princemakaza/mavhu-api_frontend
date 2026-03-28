@@ -1,4 +1,4 @@
-// File: GhgEmissionScreen.tsx
+// File: BankGhgEmmisionsScreen.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler, ScatterController } from 'chart.js';
@@ -6,7 +6,7 @@ import { Line, Doughnut } from 'react-chartjs-2';
 import { MapContainer, TileLayer, Marker, Popup, Polygon } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L, { LatLngExpression } from 'leaflet';
-import Sidebar from "../../../components/Sidebar";
+import BankSidebar from "../../../components/bank_sidebar";
 import {
     RefreshCw,
     ChevronLeft,
@@ -36,8 +36,8 @@ import {
 } from "../../../services/Admin_Service/esg_apis/ghg_emmision";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 
-// Import tab components
-import OverviewTab from "./ghg_tabs/OverviewTab";
+// Import tab components (reused from admin)
+import OverviewTab from "./bank_ghg/bank_ghg_emssions";
 import GHGAnalyticsTab from "./ghg_tabs/GHGAnalyticsTab";
 import GHGReportsTab from "./ghg_tabs/ReportsTab";
 
@@ -64,13 +64,11 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const PRIMARY_GREEN   = '#8b5cf6';  // violet-500
-const SECONDARY_GREEN = '#7c3aed';  // violet-600
-const LIGHT_GREEN     = '#c4b5fd';  // violet-300
-const DARK_GREEN      = '#6d28d9';  // violet-700
-const EMERALD         = '#a855f7';  // purple-500
-const LIME            = '#e879f9';  // fuchsia-400
-const BACKGROUND_GRAY = '#faf5ff';  // violet-50
+// Bank colour palette
+const PRIMARY_NAVY = "#0A3B5C";
+const SECONDARY_GOLD = "#D4AF37";
+const LIGHT_BG = "#F0F4F8";
+const CARD_BG = "#FFFFFF";
 
 // Loading Skeleton
 const SkeletonCard = () => (
@@ -129,12 +127,12 @@ const extractNumericYears = (yearStrings: string[]): number[] => {
     return Array.from(years).sort((a, b) => b - a);
 };
 
-const GhgEmissionScreen = () => {
+const BankGhgEmmisionsScreen = () => {
     const { companyId: paramCompanyId } = useParams<{ companyId: string }>();
     const location = useLocation();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [loading, setLoading] = useState(false); // Start with false, only true when fetching GHG data
+    const [loading, setLoading] = useState(false);
     const [loadingCompanies, setLoadingCompanies] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [ghgData, setGhgData] = useState<GHGEmissionsResponse | null>(null);
@@ -175,7 +173,6 @@ const GhgEmissionScreen = () => {
             setCompanies(response.items);
         } catch (err: any) {
             console.error("Failed to fetch companies:", err);
-            // Optionally show error in the selector
         } finally {
             setLoadingCompanies(false);
         }
@@ -249,7 +246,6 @@ const GhgEmissionScreen = () => {
         if (location.state?.companyId) {
             setSelectedCompanyId(location.state.companyId);
             setShowCompanySelector(false);
-            // Reset year when company changes via location state
             setSelectedYear(null);
         } else if (paramCompanyId) {
             setSelectedCompanyId(paramCompanyId);
@@ -274,7 +270,7 @@ const GhgEmissionScreen = () => {
         setSelectedCompanyId(companyId);
         setSelectedYear(null);
         setShowCompanySelector(false);
-        navigate(`/admin_ghg_emission/${companyId}`);
+        navigate(`/bank_ghg_emission/${companyId}`); // bank route
     };
 
     const handleYearChange = (year: string) => {
@@ -313,13 +309,10 @@ const GhgEmissionScreen = () => {
         onCalculationClick: handleCalculationClick,
         onMetricClick: handleMetricClick,
         colors: {
-            primary: PRIMARY_GREEN,
-            secondary: SECONDARY_GREEN,
-            lightGreen: LIGHT_GREEN,
-            darkGreen: DARK_GREEN,
-            emerald: EMERALD,
-            lime: LIME,
-            background: BACKGROUND_GRAY
+            primary: PRIMARY_NAVY,
+            secondary: SECONDARY_GOLD,
+            lightBg: LIGHT_BG,
+            cardBg: CARD_BG,
         }
     };
 
@@ -330,32 +323,32 @@ const GhgEmissionScreen = () => {
 
     // --- Render logic ---
 
-    // If we are in company selector mode (no param and no forced company)
+    // Company selector
     if (showCompanySelector && !paramCompanyId) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <BankSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <main className="flex-1 p-6">
                     <div className="max-w-6xl mx-auto">
                         <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
                             <div className="flex items-center gap-3 mb-8">
-                                <Building className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
+                                <Building className="w-10 h-10" style={{ color: PRIMARY_NAVY }} />
                                 <div>
-                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
-                                        Select Company
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-900 to-yellow-700 bg-clip-text text-transparent">
+                                        Select Client
                                     </h1>
-                                    <p className="text-gray-600">Choose a company to view GHG emissions data</p>
+                                    <p className="text-gray-600">Choose a client to view GHG emissions data</p>
                                 </div>
                             </div>
 
                             {loadingCompanies ? (
                                 <div className="flex justify-center items-center py-12">
-                                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: PRIMARY_GREEN }} />
-                                    <span className="ml-2 text-gray-600">Loading companies...</span>
+                                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: PRIMARY_NAVY }} />
+                                    <span className="ml-2 text-gray-600">Loading clients...</span>
                                 </div>
                             ) : companies.length === 0 ? (
                                 <div className="text-center py-12 text-gray-500">
-                                    No companies found. Please add a company first.
+                                    No clients found. Please add a client first.
                                 </div>
                             ) : (
                                 <div className="grid md:grid-cols-2 gap-4">
@@ -366,10 +359,10 @@ const GhgEmissionScreen = () => {
                                             <button
                                                 key={company._id}
                                                 onClick={() => handleCompanyChange(company._id)}
-                                                className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
+                                                className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-blue-900 hover:bg-gray-50 transition-all duration-300 text-left group"
                                             >
-                                                <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
-                                                    <Factory className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 group-hover:bg-blue-100 transition-colors">
+                                                    <Factory className="w-6 h-6" style={{ color: PRIMARY_NAVY }} />
                                                 </div>
                                                 <div className="flex-1">
                                                     <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
@@ -379,14 +372,14 @@ const GhgEmissionScreen = () => {
                                                             className="text-xs px-2 py-1 rounded-full"
                                                             style={{
                                                                 background: company.esg_data_status === 'complete'
-                                                                    ? 'rgba(34, 197, 94, 0.2)'
+                                                                    ? 'rgba(10, 59, 92, 0.2)'
                                                                     : company.esg_data_status === 'partial'
-                                                                        ? 'rgba(251, 191, 36, 0.2)'
+                                                                        ? 'rgba(212, 175, 55, 0.2)'
                                                                         : 'rgba(239, 68, 68, 0.2)',
                                                                 color: company.esg_data_status === 'complete'
-                                                                    ? PRIMARY_GREEN
+                                                                    ? PRIMARY_NAVY
                                                                     : company.esg_data_status === 'partial'
-                                                                        ? '#FBBF24'
+                                                                        ? SECONDARY_GOLD
                                                                         : '#EF4444'
                                                             }}
                                                         >
@@ -404,7 +397,7 @@ const GhgEmissionScreen = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <ArrowRight className="w-5 h-5 text-blue-900 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             </button>
                                         );
                                     })}
@@ -417,18 +410,16 @@ const GhgEmissionScreen = () => {
         );
     }
 
-    // Loading state for GHG data (only when we have a company selected)
+    // Loading state for GHG data
     if (loading) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <BankSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <main className="flex-1 p-6">
-                    {/* Shimmer Header */}
                     <div className="mb-8 relative overflow-hidden">
                         <div className="h-12 rounded-xl bg-gray-100"></div>
                         <Shimmer />
                     </div>
-                    {/* Shimmer Metrics */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         {[1, 2, 3, 4].map(i => (
                             <div key={i} className="relative overflow-hidden">
@@ -437,7 +428,6 @@ const GhgEmissionScreen = () => {
                             </div>
                         ))}
                     </div>
-                    {/* Shimmer Graphs */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                         {[1, 2].map(i => (
                             <div key={i} className="relative overflow-hidden">
@@ -446,7 +436,6 @@ const GhgEmissionScreen = () => {
                             </div>
                         ))}
                     </div>
-                    {/* Shimmer Table */}
                     <div className="relative overflow-hidden">
                         <div className="h-96 rounded-xl bg-gray-100"></div>
                         <Shimmer />
@@ -456,10 +445,10 @@ const GhgEmissionScreen = () => {
         );
     }
 
-    // Main content when company is selected and data loaded (or at least we have a company)
+    // Main content
     return (
         <div className="flex min-h-screen bg-gray-50 text-gray-900">
-            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+            <BankSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="flex-1">
                 {/* Header */}
@@ -468,13 +457,13 @@ const GhgEmissionScreen = () => {
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => navigate("/company-management")}
+                                    onClick={() => navigate("/bank-dashboard")}
                                     className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
-                                    style={{ color: PRIMARY_GREEN }}
+                                    style={{ color: PRIMARY_NAVY }}
                                 >
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
+                                <h1 className="text-lg sm:text-xl font-bold" style={{ color: PRIMARY_NAVY }}>
                                     GHG Emissions
                                 </h1>
                             </div>
@@ -484,7 +473,7 @@ const GhgEmissionScreen = () => {
                                     <select
                                         value={selectedYear || ""}
                                         onChange={(e) => handleYearChange(e.target.value)}
-                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-900"
                                     >
                                         {availableYears.map((year) => (
                                             <option key={year} value={year}>
@@ -498,14 +487,14 @@ const GhgEmissionScreen = () => {
                                     onClick={handleRefresh}
                                     disabled={isRefreshing}
                                     className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
-                                    style={{ color: PRIMARY_GREEN }}
+                                    style={{ color: PRIMARY_NAVY }}
                                 >
                                     <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                                 </button>
                                 <button
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
                                     style={{
-                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                        background: `linear-gradient(to right, ${PRIMARY_NAVY}, ${SECONDARY_GOLD})`,
                                     }}
                                 >
                                     <Download className="w-3.5 h-3.5" />
@@ -529,7 +518,7 @@ const GhgEmissionScreen = () => {
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                                         }`}
                                     style={activeTab === tab.id ? {
-                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                        background: `linear-gradient(to right, ${PRIMARY_NAVY}, #05283e)`,
                                     } : {}}
                                 >
                                     {tab.label}
@@ -549,7 +538,7 @@ const GhgEmissionScreen = () => {
                     </div>
                 )}
 
-                {/* Content */}
+                {/* Tab Content */}
                 <div className="p-4 sm:p-6">
                     {activeTab === "overview" && <OverviewTab {...sharedData} />}
                     {activeTab === "analytics" && <GHGAnalyticsTab {...sharedData} />}
@@ -559,10 +548,10 @@ const GhgEmissionScreen = () => {
                     {ghgData?.data?.metadata && (
                         <div className="bg-white backdrop-blur-xl rounded-2xl border border-gray-200 p-6 mt-8 shadow-lg shadow-gray-200/50">
                             <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-sm font-semibold" style={{ color: PRIMARY_GREEN }}>
+                                <h4 className="text-sm font-semibold" style={{ color: PRIMARY_NAVY }}>
                                     Data Source Information
                                 </h4>
-                                <Database className="w-4 h-4" style={{ color: PRIMARY_GREEN }} />
+                                <Database className="w-4 h-4" style={{ color: PRIMARY_NAVY }} />
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
@@ -603,7 +592,7 @@ const GhgEmissionScreen = () => {
             {showCalculationModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCalculationModal(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="sticky top-0 z-10 p-5 border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-2xl">
+                        <div className="sticky top-0 z-10 p-5 border-b border-gray-200 bg-gradient-to-r from-blue-900 to-yellow-700 text-white rounded-t-2xl">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-xl bg-white/20">
@@ -611,7 +600,7 @@ const GhgEmissionScreen = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-bold">GHG Emissions Calculation Methodology</h3>
-                                        <p className="text-sm text-green-100">How we calculate greenhouse gas emissions</p>
+                                        <p className="text-sm text-yellow-100">How we calculate greenhouse gas emissions</p>
                                     </div>
                                 </div>
                                 <button
@@ -629,7 +618,7 @@ const GhgEmissionScreen = () => {
                                 <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
                                     <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
                                     <div className="bg-white p-3 rounded-lg border border-gray-200 mb-2">
-                                        <code className="text-green-600 font-mono text-sm">
+                                        <code className="text-navy-600 font-mono text-sm">
                                             Scope 1 Emissions = Σ(Activity Data × Emission Factor × GWP)
                                         </code>
                                     </div>
@@ -642,10 +631,10 @@ const GhgEmissionScreen = () => {
 
                             <div className="space-y-3">
                                 <h4 className="text-base font-bold text-gray-900 mb-2">Scope 2: Indirect Energy Emissions</h4>
-                                <div className="p-3 rounded-xl bg-green-50 border border-green-200">
+                                <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-200">
                                     <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
-                                    <div className="bg-white p-3 rounded-lg border border-green-200 mb-2">
-                                        <code className="text-green-600 font-mono text-sm">
+                                    <div className="bg-white p-3 rounded-lg border border-yellow-200 mb-2">
+                                        <code className="text-gold-600 font-mono text-sm">
                                             Scope 2 Emissions = Electricity Consumption × Grid Emission Factor
                                         </code>
                                     </div>
@@ -657,10 +646,10 @@ const GhgEmissionScreen = () => {
 
                             <div className="space-y-3">
                                 <h4 className="text-base font-bold text-gray-900 mb-2">Scope 3: Value Chain Emissions</h4>
-                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
                                     <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
-                                    <div className="bg-white p-3 rounded-lg border border-blue-200 mb-2">
-                                        <code className="text-blue-600 font-mono text-sm">
+                                    <div className="bg-white p-3 rounded-lg border border-purple-200 mb-2">
+                                        <code className="text-purple-600 font-mono text-sm">
                                             Scope 3 Emissions = Σ(Category Activity × Emission Factor)
                                         </code>
                                     </div>
@@ -673,10 +662,10 @@ const GhgEmissionScreen = () => {
 
                             <div className="space-y-3">
                                 <h4 className="text-base font-bold text-gray-900 mb-2">Carbon Sequestration</h4>
-                                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
+                                <div className="p-3 rounded-xl bg-green-50 border border-green-200">
                                     <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
-                                    <div className="bg-white p-3 rounded-lg border border-purple-200 mb-2">
-                                        <code className="text-purple-600 font-mono text-sm">
+                                    <div className="bg-white p-3 rounded-lg border border-green-200 mb-2">
+                                        <code className="text-green-600 font-mono text-sm">
                                             Sequestration = (Biomass Carbon + SOC) × 3.6667
                                         </code>
                                     </div>
@@ -733,4 +722,4 @@ const GhgEmissionScreen = () => {
     );
 };
 
-export default GhgEmissionScreen;
+export default BankGhgEmmisionsScreen;
