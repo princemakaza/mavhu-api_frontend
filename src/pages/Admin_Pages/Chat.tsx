@@ -15,10 +15,7 @@ import {
   ChevronUp,
   Info,
   Menu,
-  Plus,
-  Search,
-  Send,
-  UserCircle2,
+
   Users,
   X,
   Trash2,

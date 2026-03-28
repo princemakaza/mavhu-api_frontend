@@ -68,6 +68,20 @@ import GhgEmissionScreen from "./pages/Admin_Pages/esg_api_screen/ghg_emmision_s
 import CropYieldCarbonEmissionScreen from "./pages/Admin_Pages/esg_api_screen/crop_yield_screen";
 import EsgMetricsScreen from "./pages/Admin_Pages/esg_api_screen/esg_metric_screen";
 import BiodiversityLandUseScreen from "./pages/Admin_Pages/esg_api_screen/BiodiversityLandUseScreen";
+import IrrigationWaterScreen from "./pages/Admin_Pages/esg_api_screen/irrigation_water_screen";
+import EnvironmentalDataScreen from "./pages/Admin_Pages/esg_api_screen/environment_screen";
+import SocialDataScreen from "./pages/Admin_Pages/esg_api_screen/social_esg_screen";
+import GovernanceDataScreen from "./pages/Admin_Pages/esg_api_screen/governace_esg_screen";
+import Report_Page from "./pages/Admin_Pages/report_admin_screen";
+import FarmComplianceScreen from "./pages/Admin_Pages/esg_api_screen/farm_compliance_screen";
+import EnergyConsumptionScreen from "./pages/Admin_Pages/esg_api_screen/energy_renewables_screen";
+import WasteManagementScreen from "./pages/Admin_Pages/esg_api_screen/waste_management_screen";
+import WorkforceDiversityScreen from "./pages/Admin_Pages/esg_api_screen/workforce_diversity_screen";
+import HealthSafetyScreen from "./pages/Admin_Pages/esg_api_screen/health_and_safety_screen";
+import GovernanceBoardScreen from "./pages/Admin_Pages/esg_api_screen/governance_esg_screean";
+import CommunityEngagementScreen from "./pages/Admin_Pages/esg_api_screen/community_engagement_screen";
+import Member_login from "./pages/Admin_Pages/member_login";
+import Customer_Dashboard from "./pages/Admin_Pages/Customer_Dashboard";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -94,17 +108,133 @@ const App = () => (
             <Route path="/reserourceupload" element={<ReserourceUpload />} />
             <Route path="/reserourcewalle" element={<ReserourceWalle />} />
             <Route path="/admin_dashboard" element={<Admin_Dashboard />} />
-            <Route path="/admin_companies" element={<CompanyManagementScreen />} />
-            <Route path="/admin_soil_health_carbon" element={<SoilHealthCarbonEmissionScreen />} />
-            <Route path="/admin_soil_health_carbon/:companyId" element={<SoilHealthCarbonEmissionScreen />} />
+            <Route path="/admin_report" element={<Report_Page />} />
+            <Route
+              path="/admin_companies"
+              element={<CompanyManagementScreen />}
+            />
+            <Route
+              path="/admin_soil_health_carbon"
+              element={<SoilHealthCarbonEmissionScreen />}
+            />
+            <Route
+              path="/admin_soil_health_carbon/:companyId"
+              element={<SoilHealthCarbonEmissionScreen />}
+            />
             <Route path="/admin_ghg_emission" element={<GhgEmissionScreen />} />
-            <Route path="/admin_ghg_emission/:companyId" element={<GhgEmissionScreen />} />  //
-            <Route path="/admin_crop_yield_carbon" element={<CropYieldCarbonEmissionScreen />} />
-            <Route path="/admin_crop_yield_carbon/:companyId" element={<CropYieldCarbonEmissionScreen />} />  //
+            <Route
+              path="/admin_ghg_emission/:companyId"
+              element={<GhgEmissionScreen />}
+            />{" "}
+            <Route
+              path="/admin_crop_yield_carbon"
+              element={<CropYieldCarbonEmissionScreen />}
+            />
+            <Route
+              path="/admin_crop_yield_carbon/:companyId"
+              element={<CropYieldCarbonEmissionScreen />}
+            />
             <Route path="/admin_esg_metrics" element={<EsgMetricsScreen />} />
-            <Route path="/admin_esg_metric/:companyId" element={<EsgMetricsScreen />} />
-            <Route path="/admin_biodiversity_land_use" element={<BiodiversityLandUseScreen />} />
-            <Route path="/admin_biodiversity_land_use/:companyId" element={<BiodiversityLandUseScreen />} />
+            <Route
+              path="/admin_esg_metric/:companyId"
+              element={<EsgMetricsScreen />}
+            />
+            <Route path="/member_dashboard" element={<Customer_Dashboard />} />
+
+            <Route
+              path="/admin_biodiversity_land_use"
+              element={<BiodiversityLandUseScreen />}
+            />
+            <Route
+              path="/admin_biodiversity_land_use/:companyId"
+              element={<BiodiversityLandUseScreen />}
+            />
+            <Route
+              path="/admin_irrigation_water"
+              element={<IrrigationWaterScreen />}
+            />
+            <Route
+              path="/admin_irrigation_water/:companyId"
+              element={<IrrigationWaterScreen />}
+            />
+            <Route
+              path="/admin_farm_compliance"
+              element={<FarmComplianceScreen />}
+            />
+            <Route
+              path="/admin_farm_compliance/:companyId"
+              element={<FarmComplianceScreen />}
+            />
+            <Route
+              path="/admin_governance_data"
+              element={<GovernanceDataScreen />}
+            />
+            <Route
+              path="/admin_governance_data/:companyId"
+              element={<GovernanceDataScreen />}
+            />
+            <Route
+              path="/admin_governance_board_metrics"
+              element={<GovernanceBoardScreen />}
+            />
+            <Route
+              path="/admin_governance_board_metrics/:companyId"
+              element={<GovernanceBoardScreen />}
+            />
+            <Route path="/admin_member_login" element={<Member_login />} />
+            <Route
+              path="/admin_community_engagement"
+              element={<CommunityEngagementScreen />}
+            />
+            <Route
+              path="/admin_community_engagement/:companyId"
+              element={<CommunityEngagementScreen />}
+            />
+            <Route
+              path="/admin_health_safety"
+              element={<HealthSafetyScreen />}
+            />
+            <Route
+              path="/admin_health_safety/:companyId"
+              element={<HealthSafetyScreen />}
+            />
+            <Route
+              path="/admin_workforce_diversity"
+              element={<WorkforceDiversityScreen />}
+            />
+            <Route
+              path="/admin_workforce_diversity/:companyId"
+              element={<WorkforceDiversityScreen />}
+            />
+            <Route
+              path="/admin_waste_management"
+              element={<WasteManagementScreen />}
+            />
+            <Route
+              path="/admin_waste_management/:companyId"
+              element={<WasteManagementScreen />}
+            />
+            <Route
+              path="/admin_energy_consumption"
+              element={<EnergyConsumptionScreen />}
+            />
+            <Route
+              path="/admin_energy_consumption/:companyId"
+              element={<EnergyConsumptionScreen />}
+            />
+            <Route path="/admin_social_data" element={<SocialDataScreen />} />
+            <Route
+              path="/admin_social_data/:companyId"
+              element={<SocialDataScreen />}
+            />
+            <Route
+              path="/admin_environmental_data"
+              element={<EnvironmentalDataScreen />}
+            />
+            <Route
+              path="/admin_environmental_data/:companyId"
+              element={<EnvironmentalDataScreen />}
+            />
             <Route path="/students_dashboard" element={<StudentDashboard />} />
             <Route path="/chat" element={<ChatApp />} />
             <Route path="/library" element={<Library />} />
@@ -113,33 +243,46 @@ const App = () => (
             <Route path="/content_trash" element={<ContentTrashManagement />} />
             <Route path="/admin_profile" element={<AdminProfile />} />
             <Route path="/all_admins_page" element={<AdminManagement />} />
-            <Route path="/student_activities/:studentId" element={<ViewStudentActivities />} />
+            <Route
+              path="/student_activities/:studentId"
+              element={<ViewStudentActivities />}
+            />
             <Route path="/createExam" element={<CreateExam />} />
             <Route path="/exam/:examId/" element={<EditExam />} />
-
             {/* topics for a specific subject */}
-            <Route path="/admin/subjects/:subjectId" element={<TopicsScreen />} />
+            <Route
+              path="/admin/subjects/:subjectId"
+              element={<TopicsScreen />}
+            />
             <Route path="/exam/view/:examId/" element={<ViewStudentMarks />} />
             <Route path="/reserourceupload" element={<ReserourceUpload />} />
             <Route path="/settingspage" element={<SettingsPage />} />
             <Route path="/admin/courses/:id" element={<CourseDetailPage />} />
-            <Route path="courses/topics/:topicId/content/new" element={<CreateNewContent />} />
+            <Route
+              path="courses/topics/:topicId/content/new"
+              element={<CreateNewContent />}
+            />
             <Route
               path="/admin/topic-contents/:contentId/add-lesson"
               element={<AddLessonToContent />}
             />
-
-            <Route path="/admin/content/:topicId/lesson/:lessonId/quiz/create" element={<CreateEndLessonQuiz />} />
+            <Route
+              path="/admin/content/:topicId/lesson/:lessonId/quiz/create"
+              element={<CreateEndLessonQuiz />}
+            />
             <Route path="/admin_home_banner" element={<AdminHomeBanner />} />
-
-            <Route path="/admin/content/:topicId/lesson/:lessonId/quiz/edit" element={<ToEditEndLesson />} />
-
+            <Route
+              path="/admin/content/:topicId/lesson/:lessonId/quiz/edit"
+              element={<ToEditEndLesson />}
+            />
             <Route
               path="/admin_dashboard/courses/topics/:topicId/content/edit/:contentId"
               element={<EditContent />}
             />
-            <Route path="/content/:contentId/lessons/:lessonId/edit" element={<EditLesson />} />
-
+            <Route
+              path="/content/:contentId/lessons/:lessonId/edit"
+              element={<EditLesson />}
+            />
             {/* <Route path="/dashboard" element={<Dashboard />} /> */}
             <Route path="/courses" element={<AdminSubjects />} />
             <Route path="/homepage" element={<Homepage />} />
@@ -153,8 +296,7 @@ const App = () => (
               <Route path="/welcome/contact" element={<Contact />} />
               <Route path="/welcome/pricing" element={<Pricing />} />
             </Route>
-            <Route
-              element={<Auth_Layout />}>
+            <Route element={<Auth_Layout />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot_password" element={<Forgot_password />} />
@@ -167,7 +309,6 @@ const App = () => (
                 element={<Email_Password_Reset />}
               />
             </Route>
-
             {/* Protect routes using PrivateRoute */}
             <Route
               element={

@@ -167,6 +167,29 @@ export const getCompanyById = async (
     }
 };
 
+
+
+
+export const getCompanyByIdMe = async (
+    companyId: string
+): Promise<CompanyResponse> => {
+    try {
+        const { data } = await api.get<CompanyResponse>(
+            `/companies/me`
+        );
+        return data;
+    } catch (error: unknown) {
+        if (isApiError(error)) {
+            throw new Error(
+                error.response?.data?.error ||
+                error.response?.data?.message ||
+                "Failed to fetch company"
+            );
+        }
+        throw new Error("Failed to fetch company");
+    }
+};
+
 /**
  * Create company (Admin)
  */

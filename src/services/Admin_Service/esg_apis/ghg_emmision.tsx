@@ -1,3 +1,4 @@
+// File: services/ghgEmissionsService.ts
 import api from "../Auth_service/api";
 
 /**
@@ -58,34 +59,70 @@ export interface Metadata {
     generated_at: string;
     endpoint: string;
     company_id: string;
-    year_requested: number | null;
+    year: number;
     data_sources: string[];
-    calculation_methods: string[];
-    compliance_frameworks: string[];
 }
 
-export interface ReportingPeriod {
-    current_year: number;
-    baseline_year: number;
-    previous_year: number | null;
-    available_years: number[];
-    carbon_data_available: boolean;
-    data_coverage: string;
+export interface MetricValue {
+    year: number;
+    value: string;
+    numeric_value: number;
+    source_notes: string;
+    added_by: string;
+    added_at: string;
+    last_updated_at: string;
+    last_updated_by?: string;
 }
 
-export interface ConfidenceAssessment {
-    overall_score: number;
-    data_completeness: number;
-    methodological_rigor: number;
-    verification_status: number;
-    temporal_coverage: number;
-    interpretation: string;
-}
-
-export interface KeyTotal {
-    value: number;
+export interface EnvironmentalMetric {
+    id: string;
+    name: string;
+    category: string;
     unit: string;
     description: string;
+    values: MetricValue[];
+    is_active: boolean;
+    created_at: string;
+    created_by: string;
+}
+
+export interface KeyMetrics {
+    total_ghg_emissions: {
+        value: number;
+        unit: string;
+        description: string;
+        scope1: number;
+        scope2: number;
+        scope3: number;
+    };
+    net_carbon_balance: {
+        value: number;
+        unit: string;
+        description: string;
+        emissions: number;
+        sequestration: number;
+        is_positive: boolean;
+    };
+    carbon_intensity: {
+        value: number;
+        unit: string;
+        description: string;
+        area_ha: number;
+    };
+    scope_composition: {
+        scope1_percentage: number;
+        scope2_percentage: number;
+        scope3_percentage: number;
+        unit: string;
+        description: string;
+    };
+    sequestration_capacity: {
+        value: number;
+        unit: string;
+        description: string;
+        sequestration_rate: number;
+        sequestration_unit: string;
+    };
 }
 
 export interface DetailedSource {
@@ -103,72 +140,37 @@ export interface DetailedSource {
     total_tco2e: number;
 }
 
-// FIXED: Made categories optional since Scope 1 and Scope 2 don't have it
-export interface ScopeData {
-    definition: string;
-    examples: string[];
-    current_year: number;
-    trend: string;
-    percentage_of_total: number;
-    detailed_sources?: DetailedSource[];
-    categories?: Record<string, number>; // Only exists in Scope 3
-    detailed_categories?: DetailedSource[]; // Only exists in Scope 3
+export interface SequestrationMonthlyData {
+    month: string;
+    month_number: number;
+    year: number;
+    ndvi_max: number;
+    agb_t_per_ha: number;
+    bgb_t_per_ha: number;
+    biomass_c_t_per_ha: number;
+    biomass_co2_t_per_ha: number;
+    biomass_co2_total_t: number;
+    delta_biomass_co2_t: number;
+    soc_tc_per_ha: number;
+    soc_co2_t_per_ha: number;
+    soc_co2_total_t: number;
+    delta_soc_co2_t: number;
+    net_co2_stock_t: number;
+    net_co2_change_t: number;
+    meaning: string;
+    reporting_area_ha?: number;
+    soc_area_ha?: number;
+    is_baseline: boolean;
+    _id: string;
 }
 
-export interface ScopeBreakdown {
-    scope1: ScopeData;
-    scope2: ScopeData;
-    scope3: ScopeData;
-}
-
-export interface IntensityAnalysis {
-    carbon_intensity: number;
-    unit: string;
-    benchmark: number;
-    performance: string;
-    trend: string;
-}
-
-export interface TargetAlignment {
-    paris_agreement: string;
-    science_based_targets: string;
-    net_zero: string;
-}
-
-export interface FutureTarget {
-    target_year: number;
-    years_to_target: number;
-    target_value: number;
-    required_annual_reduction: number;
-    current_progress: number;
-    alignment: TargetAlignment;
-}
-
-export interface CurrentPerformance {
-    baseline_year: number;
-    baseline_emissions: number;
-    current_emissions: number;
-    reduction_achieved: number;
-    annual_reduction_rate: number;
-}
-
-export interface Alignment {
-    paris_agreement: string;
-    national_contributions: string;
-    corporate_commitments: string;
-}
-
-export interface ReductionTargets {
-    current_performance: CurrentPerformance;
-    future_targets: FutureTarget[];
-    alignment: Alignment;
-}
-
-export interface CarbonEmissionFramework {
-    sequestration_methodology: string;
-    emission_methodology: string;
-    calculation_approach: string;
-    data_sources: string[];
+export interface SequestrationMethodology {
+    component: string;
+    method_applied: string;
+    standard_source: string;
+    purpose: string;
+    parameters?: any;
+    _id: string;
 }
 
 export interface EmissionFactor {
@@ -200,142 +202,102 @@ export interface ConversionFactors {
     carbon_fraction: number;
 }
 
-export interface Scope1Data {
-    total_tco2e: number;
-    total_tco2e_per_ha: number;
-    categories: Record<string, number>;
-    sources: DetailedSource[];
-}
-
-export interface Scope2Data {
-    total_tco2e: number;
-    total_tco2e_per_ha: number;
-    energy_sources: Record<string, number>;
-    sources: DetailedSource[];
-}
-
-export interface Scope3Data {
-    total_tco2e: number;
-    total_tco2e_per_ha: number;
-    ghg_protocol_categories: Record<string, number>;
-    categories: DetailedSource[];
-}
-
-export interface YearlyData {
+export interface CarbonYearSummary {
     year: number;
-    scope1: Scope1Data;
-    scope2: Scope2Data;
-    scope3: Scope3Data;
-    totals: {
-        total_scope_emission_tco2e: number;
-        total_scope_emission_tco2e_per_ha: number;
-        net_total_emission_tco2e: number;
+    emissions: {
+        scope1: number;
+        scope2: number;
+        scope3: number;
+        total: number;
+        net: number;
     };
+    sequestration: {
+        total: number;
+        biomass: number;
+        soc: number;
+    };
+    area: number;
     intensity_metrics: {
         scope1_intensity: number;
         scope2_intensity: number;
         scope3_intensity: number;
         total_intensity: number;
-        per_production_unit: {
-            scope1_per_unit: number;
-            scope2_per_unit: number;
-            scope3_per_unit: number;
-            total_per_unit: number;
-            unit: string;
-        };
+    };
+}
+
+export interface YearlyCarbonData {
+    year: number;
+    scope1: {
+        total_tco2e: number;
+        sources: DetailedSource[];
+        intensity: number;
+    };
+    scope2: {
+        total_tco2e: number;
+        sources: DetailedSource[];
+        intensity: number;
+    };
+    scope3: {
+        total_tco2e: number;
+        categories: DetailedSource[];
+        intensity: number;
+    };
+    sequestration: {
+        total_tco2: number;
+        biomass_co2: number;
+        soc_co2: number;
+        area_ha: number;
+        monthly_data: SequestrationMonthlyData[];
+        methodologies: SequestrationMethodology[];
+    };
+    totals: {
+        total_emissions: number;
+        net_emissions: number;
+        total_intensity: number;
     };
     data_quality: {
         completeness_score: number;
         verification_status: string;
+        verified_by?: string;
+        verified_at?: string;
+        verification_notes?: string;
     };
+}
+
+export interface CarbonEmissionFramework {
+    sequestration_methodology: string;
+    emission_methodology: string;
+    data_sources: any[];
+    calculation_approach: string;
 }
 
 export interface CarbonEmissionAccounting {
+    id: string;
     framework: CarbonEmissionFramework;
     methodology: string;
-    summary: {
-        period: {
-            start_year: number;
-            end_year: number;
-            years_count: number;
-        };
-        totals: {
-            total_scope1_tco2e: number;
-            total_scope2_tco2e: number;
-            total_scope3_tco2e: number;
-            total_emissions_tco2e: number;
-            cumulative_co2e: number;
-            average_area_ha: number;
-        };
-        averages: {
-            annual_scope1: number;
-            annual_scope2: number;
-            annual_scope3: number;
-            annual_total: number;
-            carbon_intensity: number;
-        };
-        trends: {
-            scope1_trend: number;
-            scope2_trend: number;
-            scope3_trend: number;
-            total_trend: number;
-            scope1_direction: string;
-            scope2_direction: string;
-            scope3_direction: string;
-            total_direction: string;
-        };
-        composition: {
-            scope1_percentage: number;
-            scope2_percentage: number;
-            scope3_percentage: number;
-            scope1_breakdown: Record<string, number>;
-            scope2_breakdown: Record<string, number>;
-            scope3_breakdown: Record<string, number>;
-        };
-        intensity_metrics: {
-            scope1_intensity: number;
-            scope2_intensity: number;
-            scope3_intensity: number;
-            total_intensity: number;
-        };
-    };
+    year_summary: CarbonYearSummary;
     emission_factors: EmissionFactor[];
     global_warming_potentials: GlobalWarmingPotentials;
     conversion_factors: ConversionFactors;
-    yearly_data: YearlyData[];
-}
-
-export interface EnvironmentalMetricValue {
-    year: number;
-    value: string;
-    numeric_value: number;
-    source_notes: string;
-}
-
-export interface EnvironmentalMetric {
-    name: string;
-    category: string;
-    unit: string;
-    description: string;
-    values: EnvironmentalMetricValue[];
-}
-
-export interface MetricsSummaryItem {
-    name: string;
-    category: string;
-    unit: string;
-    current_value: number;
-    trend: string;
-    years_available: number[];
-}
-
-export interface EmissionMetrics {
-    all_metrics: Record<string, EnvironmentalMetric>;
-    key_metrics_summary: MetricsSummaryItem[];
+    yearly_data: YearlyCarbonData[];
+    summary: {
+        net_carbon_balance_tco2e: number;
+    };
+    data_management: {
+        validation_status: string;
+        import_history: any[];
+        validation_errors: any[];
+    };
+    status: string;
+    is_active: boolean;
+    created_at: string;
+    created_by: any;
+    last_updated_at: string;
+    last_updated_by: any;
 }
 
 export interface GraphDataset {
-    label: string;
+    label?: string;
     data: number[];
     borderColor?: string;
     backgroundColor?: string | string[];
@@ -346,116 +308,88 @@ export interface GraphDataset {
 }
 
 export interface Graph {
+    id: string;
     type: string;
     title: string;
     description: string;
-    labels: (string | number)[];
+    labels: string[] | number[];
     datasets: GraphDataset[];
+    metadata?: any;
 }
 
-export interface ComplianceRecommendation {
-    category: string;
-    priority: string;
-    action: string;
-    impact: string;
-    compliance_benefit: string;
-    timeframe: string;
-}
-
-export interface ReportingDeadlines {
-    cdp: string;
-    annual_report: string;
-    sustainability_report: string;
-    regulatory_submissions: string;
-}
-
-export interface ReportingRequirements {
-    mandatory: string[];
-    voluntary: string[];
-    deadlines: ReportingDeadlines;
-    verification_required: boolean;
-    penalties_non_compliance: string;
-}
-
-export interface Summary {
-    overall_assessment: string;
-    key_achievements: string[];
-    critical_areas: string[]; // FIXED: Changed from any[] to string[]
-    next_steps: string[];
-    outlook: string;
-}
-
-/**
- * =====================
- * Main Response Interface
- * =====================
- */
-
-export interface GhgEmissionResponse {
-    message: string;
-    api: string;
-    data: {
-        metadata: Metadata;
-        company: Company;
-        reporting_period: ReportingPeriod;
-        confidence_assessment: ConfidenceAssessment;
-        key_totals: {
-            total_emissions_current_year: KeyTotal;
-            scope1_direct_emissions: KeyTotal;
-            scope2_indirect_energy: KeyTotal;
-            scope3_value_chain: KeyTotal;
-            cumulative_emissions: KeyTotal;
-            carbon_intensity: KeyTotal;
-            reduction_from_baseline: KeyTotal;
-            scope3_percentage_of_total: KeyTotal;
-        };
-        scope_breakdown: ScopeBreakdown;
-        intensity_analysis: IntensityAnalysis;
-        reduction_targets: ReductionTargets;
-        carbon_emission_accounting: CarbonEmissionAccounting;
-        emission_metrics: EmissionMetrics;
-        graphs: {
-            total_emissions_trend?: Graph; // Optional since it may not exist for single year
-            scope_composition: Graph;
-            scope_trends?: Graph; // Optional since it may not exist for single year
-            scope1_breakdown: Graph;
-            scope3_categories: Graph;
-            cumulative_emissions?: Graph; // Optional since it may not exist for single year
-            reduction_progress?: Graph; // Optional since it may not exist for single year
-        };
-        compliance_recommendations: ComplianceRecommendation[];
-        reporting_requirements: ReportingRequirements;
-        summary: Summary;
+export interface DataAvailability {
+    environmental_metrics_count: number;
+    carbon_accounting_available: boolean;
+    carbon_data_quality: {
+        completeness_score: number;
+        verification_status: string;
     };
 }
 
-/**
- * =====================
- * Request Parameters
- * =====================
- */
+export interface Summary {
+    total_emissions: number;
+    net_balance: number;
+    carbon_intensity: number;
+    sequestration_capacity: number;
+    has_detailed_carbon_data: boolean;
+    environmental_metrics_total: number;
+}
 
-export interface GhgEmissionParams {
+export interface GHGEmissionsData {
+    metadata: Metadata;
+    company: Company;
+    reporting_year: number;
+    environmental_metrics: Record<string, EnvironmentalMetric>;
+    key_metrics: KeyMetrics;
+    carbon_emission_accounting: CarbonEmissionAccounting | null;
+    graphs: Graph[];
+    data_availability: DataAvailability;
+    summary: Summary;
+}
+
+export interface GHGEmissionsResponse {
+    message: string;
+    api: string;
+    data: GHGEmissionsData;
+}
+
+export interface GHGEmissionsParams {
     companyId: string;
-    year?: number; // Optional year parameter
+    year: number;
 }
 
 /**
  * =====================
- * GHG Emission Service
+ * Helper Functions for Monthly Data Graphs
  * =====================
  */
 
+export interface MonthlyGraphData {
+    months: string[];
+    biomass_co2_total_t: number[];
+    soc_co2_total_t: number[];
+    net_co2_stock_t: number[];
+    delta_biomass_co2_t: number[];
+    delta_soc_co2_t: number[];
+    net_co2_change_t: number[];
+    agb_t_per_ha: number[];
+    bgb_t_per_ha: number[];
+    biomass_c_t_per_ha: number[];
+    ndvi_max: number[];
+}
+
 /**
- * Get GHG emissions data for a company
+ * =====================
+ * GHG Emissions Service
+ * =====================
  */
+
 export const getGhgEmissionData = async (
-    params: GhgEmissionParams
-): Promise<GhgEmissionResponse> => {
+    params: GHGEmissionsParams
+): Promise<GHGEmissionsResponse> => {
     try {
         const { companyId, year } = params;
 
-        // Build query parameters
         const queryParams = new URLSearchParams();
         if (year !== undefined) {
             queryParams.append('year', year.toString());
@@ -464,13 +398,13 @@ export const getGhgEmissionData = async (
         const queryString = queryParams.toString();
         const url = `/esg-dashboard/ghg-emissions/${companyId}${queryString ? `?${queryString}` : ''}`;
 
-        const { data } = await api.get<GhgEmissionResponse>(url);
+        const { data } = await api.get<GHGEmissionsResponse>(url);
         return data;
     } catch (error: any) {
         const statusCode = error.response?.status;
-        const errorMessage = error.response?.data?.error || error.response?.data?.message;
+        const errorMessage =
+            error.response?.data?.error || error.response?.data?.message;
 
-        // Handle specific error cases
         switch (statusCode) {
             case 400:
                 throw new Error(errorMessage || "Invalid request parameters");
@@ -496,31 +430,207 @@ export const getGhgEmissionData = async (
     }
 };
 
+
 /**
- * Get available years for GHG emissions data
+ * Extract monthly data for graph generation
  */
-export const getAvailableGhgYears = (data: GhgEmissionResponse): number[] => {
-    return data.data.reporting_period.available_years || [];
+export const getMonthlyGraphData = (data: GHGEmissionsData): MonthlyGraphData | null => {
+    if (!data.carbon_emission_accounting?.yearly_data?.[0]?.sequestration?.monthly_data) {
+        return null;
+    }
+
+    const monthlyData = data.carbon_emission_accounting.yearly_data[0].sequestration.monthly_data;
+
+    // Sort by month number
+    const sortedMonthlyData = [...monthlyData].sort((a, b) => a.month_number - b.month_number);
+
+    return {
+        months: sortedMonthlyData.map(m => m.month),
+        biomass_co2_total_t: sortedMonthlyData.map(m => m.biomass_co2_total_t || 0),
+        soc_co2_total_t: sortedMonthlyData.map(m => m.soc_co2_total_t || 0),
+        net_co2_stock_t: sortedMonthlyData.map(m => m.net_co2_stock_t || 0),
+        delta_biomass_co2_t: sortedMonthlyData.map(m => m.delta_biomass_co2_t || 0),
+        delta_soc_co2_t: sortedMonthlyData.map(m => m.delta_soc_co2_t || 0),
+        net_co2_change_t: sortedMonthlyData.map(m => m.net_co2_change_t || 0),
+        agb_t_per_ha: sortedMonthlyData.map(m => m.agb_t_per_ha || 0),
+        bgb_t_per_ha: sortedMonthlyData.map(m => m.bgb_t_per_ha || 0),
+        biomass_c_t_per_ha: sortedMonthlyData.map(m => m.biomass_c_t_per_ha || 0),
+        ndvi_max: sortedMonthlyData.map(m => m.ndvi_max || 0),
+    };
 };
 
 /**
- * Get current GHG emissions summary
+ * Generate line graphs from monthly data
  */
-export const getGhgSummary = (data: GhgEmissionResponse) => {
-    const totals = data.data.key_totals;
+export const generateMonthlyLineGraphs = (data: GHGEmissionsData): Graph[] => {
+    const monthlyData = getMonthlyGraphData(data);
+    if (!monthlyData) {
+        return [];
+    }
+
+    const graphs: Graph[] = [];
+
+    // Graph 1: Monthly CO₂ Stocks
+    graphs.push({
+        id: "monthly_co2_stocks",
+        type: "line",
+        title: `Monthly CO₂ Stocks - ${data.reporting_year}`,
+        description: "Monthly CO₂ stocks from biomass, soil organic carbon, and net stock",
+        labels: monthlyData.months,
+        datasets: [
+            {
+                label: "Biomass CO₂ (t)",
+                data: monthlyData.biomass_co2_total_t,
+                borderColor: "#27ae60",
+                backgroundColor: "rgba(39, 174, 96, 0.1)",
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: "SOC CO₂ (t)",
+                data: monthlyData.soc_co2_total_t,
+                borderColor: "#8e44ad",
+                backgroundColor: "rgba(142, 68, 173, 0.1)",
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: "Net CO₂ Stock (t)",
+                data: monthlyData.net_co2_stock_t,
+                borderColor: "#3498db",
+                backgroundColor: "rgba(52, 152, 219, 0.1)",
+                fill: true,
+                tension: 0.4
+            }
+        ]
+    });
+
+    // Graph 2: Monthly CO₂ Changes (Deltas)
+    graphs.push({
+        id: "monthly_co2_changes",
+        type: "line",
+        title: `Monthly CO₂ Changes - ${data.reporting_year}`,
+        description: "Monthly changes in CO₂ stocks",
+        labels: monthlyData.months,
+        datasets: [
+            {
+                label: "Δ Biomass CO₂ (t)",
+                data: monthlyData.delta_biomass_co2_t,
+                borderColor: "#e74c3c",
+                backgroundColor: "rgba(231, 76, 60, 0.1)",
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: "Δ SOC CO₂ (t)",
+                data: monthlyData.delta_soc_co2_t,
+                borderColor: "#f39c12",
+                backgroundColor: "rgba(243, 156, 18, 0.1)",
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: "Net CO₂ Change (t)",
+                data: monthlyData.net_co2_change_t,
+                borderColor: "#2c3e50",
+                backgroundColor: "rgba(44, 62, 80, 0.1)",
+                fill: true,
+                tension: 0.4
+            }
+        ]
+    });
+
+    // Graph 3: Biomass Breakdown (per hectare)
+    graphs.push({
+        id: "biomass_breakdown",
+        type: "line",
+        title: `Biomass Breakdown (per hectare) - ${data.reporting_year}`,
+        description: "Monthly above-ground, below-ground, and total carbon in biomass per hectare",
+        labels: monthlyData.months,
+        datasets: [
+            {
+                label: "Above Ground Biomass (t/ha)",
+                data: monthlyData.agb_t_per_ha,
+                borderColor: "#16a085",
+                backgroundColor: "rgba(22, 160, 133, 0.1)",
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: "Below Ground Biomass (t/ha)",
+                data: monthlyData.bgb_t_per_ha,
+                borderColor: "#d35400",
+                backgroundColor: "rgba(211, 84, 0, 0.1)",
+                fill: true,
+                tension: 0.4
+            },
+            {
+                label: "Total Biomass Carbon (tC/ha)",
+                data: monthlyData.biomass_c_t_per_ha,
+                borderColor: "#c0392b",
+                backgroundColor: "rgba(192, 57, 43, 0.1)",
+                fill: true,
+                tension: 0.4
+            }
+        ]
+    });
+
+    // Graph 4: Vegetation Health
+    graphs.push({
+        id: "vegetation_health",
+        type: "line",
+        title: `Vegetation Health (NDVI) - ${data.reporting_year}`,
+        description: "Monthly maximum NDVI values for vegetation health monitoring",
+        labels: monthlyData.months,
+        datasets: [
+            {
+                label: "NDVI Max",
+                data: monthlyData.ndvi_max,
+                borderColor: "#27ae60",
+                backgroundColor: "rgba(39, 174, 96, 0.1)",
+                fill: true,
+                tension: 0.4
+            }
+        ]
+    });
+
+    return graphs;
+};
+
+/**
+ * Get all graphs including monthly line graphs
+ */
+export const getAllGraphs = (data: GHGEmissionsData): Graph[] => {
+    const existingGraphs = data.graphs || [];
+    const monthlyGraphs = generateMonthlyLineGraphs(data);
+    return [...existingGraphs, ...monthlyGraphs];
+};
+
+/**
+ * Get specific graph by ID
+ */
+export const getGraphById = (data: GHGEmissionsData, graphId: string): Graph | undefined => {
+    const allGraphs = getAllGraphs(data);
+    return allGraphs.find(graph => graph.id === graphId);
+};
+
+/**
+ * Get summary of GHG emissions
+ */
+export const getGhgSummary = (data: GHGEmissionsData) => {
+    const keyMetrics = data.key_metrics;
     return {
-        totalEmissions: totals.total_emissions_current_year.value,
-        scope1: totals.scope1_direct_emissions.value,
-        scope2: totals.scope2_indirect_energy.value,
-        scope3: totals.scope3_value_chain.value,
-        carbonIntensity: totals.carbon_intensity.value,
-        reductionFromBaseline: totals.reduction_from_baseline.value,
-        scope3Percentage: totals.scope3_percentage_of_total.value,
-        confidenceScore: data.data.confidence_assessment.overall_score,
-        trends: {
-            scope1: data.data.scope_breakdown.scope1.trend,
-            scope2: data.data.scope_breakdown.scope2.trend,
-            scope3: data.data.scope_breakdown.scope3.trend,
+        totalEmissions: keyMetrics.total_ghg_emissions.value,
+        scope1: keyMetrics.total_ghg_emissions.scope1,
+        scope2: keyMetrics.total_ghg_emissions.scope2,
+        scope3: keyMetrics.total_ghg_emissions.scope3,
+        netBalance: keyMetrics.net_carbon_balance.value,
+        carbonIntensity: keyMetrics.carbon_intensity.value,
+        sequestration: keyMetrics.sequestration_capacity.value,
+        scopeComposition: {
+            scope1: keyMetrics.scope_composition.scope1_percentage,
+            scope2: keyMetrics.scope_composition.scope2_percentage,
+            scope3: keyMetrics.scope_composition.scope3_percentage,
         }
     };
 };
@@ -528,223 +638,202 @@ export const getGhgSummary = (data: GhgEmissionResponse) => {
 /**
  * Get scope breakdown data
  */
-export const getScopeBreakdown = (data: GhgEmissionResponse) => {
-    return data.data.scope_breakdown;
+export const getScopeBreakdown = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return null;
+
+    const yearlyData = carbonData.yearly_data[0];
+    return {
+        scope1: {
+            total: yearlyData.scope1.total_tco2e,
+            sources: yearlyData.scope1.sources,
+            intensity: yearlyData.scope1.intensity
+        },
+        scope2: {
+            total: yearlyData.scope2.total_tco2e,
+            sources: yearlyData.scope2.sources,
+            intensity: yearlyData.scope2.intensity
+        },
+        scope3: {
+            total: yearlyData.scope3.total_tco2e,
+            categories: yearlyData.scope3.categories,
+            intensity: yearlyData.scope3.intensity
+        }
+    };
 };
 
 /**
- * Get scope 1 detailed sources
+ * Get environmental metrics summary
  */
-export const getScope1Sources = (data: GhgEmissionResponse) => {
-    return data.data.scope_breakdown.scope1.detailed_sources || [];
-};
-
-/**
- * Get scope 2 detailed sources
- */
-export const getScope2Sources = (data: GhgEmissionResponse) => {
-    return data.data.scope_breakdown.scope2.detailed_sources || [];
-};
-
-/**
- * Get scope 3 detailed categories
- */
-export const getScope3Categories = (data: GhgEmissionResponse) => {
-    return data.data.scope_breakdown.scope3.detailed_categories || [];
+export const getEnvironmentalMetricsSummary = (data: GHGEmissionsData) => {
+    const metrics = Object.values(data.environmental_metrics);
+    return metrics.map(metric => ({
+        name: metric.name,
+        category: metric.category,
+        unit: metric.unit,
+        description: metric.description,
+        currentValue: metric.values[0]?.numeric_value || 0,
+        sourceNotes: metric.values[0]?.source_notes || '',
+        year: metric.values[0]?.year || data.reporting_year
+    }));
 };
 
 /**
  * Get carbon emission accounting data
  */
-export const getCarbonEmissionAccounting = (data: GhgEmissionResponse) => {
-    return data.data.carbon_emission_accounting;
+export const getCarbonEmissionAccounting = (data: GHGEmissionsData) => {
+    return data.carbon_emission_accounting;
 };
 
 /**
- * Get emission metrics
+ * Get key emission metrics
  */
-export const getEmissionMetrics = (data: GhgEmissionResponse) => {
-    return data.data.emission_metrics;
-};
-
-/**
- * Get reduction targets
- */
-export const getReductionTargets = (data: GhgEmissionResponse) => {
-    return data.data.reduction_targets;
-};
-
-/**
- * Get current performance data
- */
-export const getCurrentPerformance = (data: GhgEmissionResponse) => {
-    return data.data.reduction_targets.current_performance;
-};
-
-/**
- * Get future targets
- */
-export const getFutureTargets = (data: GhgEmissionResponse) => {
-    return data.data.reduction_targets.future_targets;
-};
-
-/**
- * Get intensity analysis
- */
-export const getIntensityAnalysis = (data: GhgEmissionResponse) => {
-    return data.data.intensity_analysis;
-};
-
-/**
- * Get compliance recommendations
- */
-export const getComplianceRecommendations = (data: GhgEmissionResponse) => {
-    return data.data.compliance_recommendations;
-};
-
-/**
- * Get reporting requirements
- */
-export const getReportingRequirements = (data: GhgEmissionResponse) => {
-    return data.data.reporting_requirements;
-};
-
-/**
- * Get graph data for visualization
- */
-export const getGhgGraphData = (data: GhgEmissionResponse, graphType: string): Graph | undefined => {
-    const graphs = data.data.graphs;
-
-    switch (graphType) {
-        case 'total_emissions_trend':
-            return graphs.total_emissions_trend;
-        case 'scope_composition':
-            return graphs.scope_composition;
-        case 'scope_trends':
-            return graphs.scope_trends;
-        case 'scope1_breakdown':
-            return graphs.scope1_breakdown;
-        case 'scope3_categories':
-            return graphs.scope3_categories;
-        case 'cumulative_emissions':
-            return graphs.cumulative_emissions;
-        case 'reduction_progress':
-            return graphs.reduction_progress;
-        default:
-            return graphs.scope_composition; // Default to scope composition
-    }
-};
-
-/**
- * Get all graph data
- */
-export const getAllGhgGraphData = (data: GhgEmissionResponse) => {
-    return data.data.graphs;
-};
-
-/**
- * Get confidence assessment
- */
-export const getConfidenceAssessment = (data: GhgEmissionResponse) => {
-    return data.data.confidence_assessment;
-};
-
-/**
- * Get summary assessment
- */
-export const getSummary = (data: GhgEmissionResponse) => {
-    return data.data.summary;
-};
-
-/**
- * Get metadata information
- */
-export const getGhgMetadata = (data: GhgEmissionResponse) => {
-    return data.data.metadata;
-};
-
-/**
- * Get emission factors
- */
-export const getEmissionFactors = (data: GhgEmissionResponse) => {
-    return data.data.carbon_emission_accounting.emission_factors;
-};
-
-/**
- * Get yearly data by year
- */
-export const getYearlyData = (data: GhgEmissionResponse, year: number) => {
-    return data.data.carbon_emission_accounting.yearly_data.find(
-        (yearlyData) => yearlyData.year === year
-    );
-};
-
-/**
- * Get all yearly data
- */
-export const getAllYearlyData = (data: GhgEmissionResponse) => {
-    return data.data.carbon_emission_accounting.yearly_data;
-};
-
-/**
- * Get key metrics summary
- */
-export const getKeyMetricsSummary = (data: GhgEmissionResponse) => {
-    return data.data.emission_metrics.key_metrics_summary;
-};
-
-/**
- * Get emission metrics by name
- */
-export const getEmissionMetric = (data: GhgEmissionResponse, metricName: string) => {
-    return data.data.emission_metrics.all_metrics[metricName];
-};
-
-/**
- * Get compliance frameworks
- */
-export const getComplianceFrameworks = (data: GhgEmissionResponse) => {
-    return data.data.metadata.compliance_frameworks;
-};
-
-/**
- * Get data coverage information
- */
-export const getDataCoverage = (data: GhgEmissionResponse) => {
-    return data.data.reporting_period.data_coverage;
-};
-
-/**
- * Check if carbon data is available
- */
-export const isCarbonDataAvailable = (data: GhgEmissionResponse) => {
-    return data.data.reporting_period.carbon_data_available;
+export const getKeyEmissionMetrics = (data: GHGEmissionsData) => {
+    return data.key_metrics;
 };
 
 /**
  * Get company information
  */
-export const getGhgCompany = (data: GhgEmissionResponse) => {
-    return data.data.company;
+export const getCompanyInfo = (data: GHGEmissionsData) => {
+    return data.company;
 };
 
 /**
- * Get current year
+ * Get metadata information
  */
-export const getCurrentYear = (data: GhgEmissionResponse) => {
-    return data.data.reporting_period.current_year;
+export const getMetadata = (data: GHGEmissionsData) => {
+    return data.metadata;
 };
 
 /**
- * Get baseline year
+ * Get data availability information
  */
-export const getBaselineYear = (data: GhgEmissionResponse) => {
-    return data.data.reporting_period.baseline_year;
+export const getDataAvailability = (data: GHGEmissionsData) => {
+    return data.data_availability;
 };
 
 /**
- * Get previous year
+ * Get reporting year
  */
-export const getPreviousYear = (data: GhgEmissionResponse) => {
-    return data.data.reporting_period.previous_year;
+export const getReportingYear = (data: GHGEmissionsData) => {
+    return data.reporting_year;
+};
+
+/**
+ * Check if carbon accounting data is available
+ */
+export const hasCarbonAccounting = (data: GHGEmissionsData) => {
+    return data.data_availability.carbon_accounting_available;
+};
+
+/**
+ * Get sequestration methodologies
+ */
+export const getSequestrationMethodologies = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return [];
+
+    return carbonData.yearly_data[0]?.sequestration?.methodologies || [];
+};
+
+/**
+ * Get emission factors
+ */
+export const getEmissionFactors = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return [];
+
+    return carbonData.emission_factors || [];
+};
+
+/**
+ * Get monthly sequestration data
+ */
+export const getMonthlySequestrationData = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return [];
+
+    return carbonData.yearly_data[0]?.sequestration?.monthly_data || [];
+};
+
+/**
+ * Get all environmental metrics
+ */
+export const getAllEnvironmentalMetrics = (data: GHGEmissionsData) => {
+    return data.environmental_metrics;
+};
+
+/**
+ * Get specific environmental metric by name
+ */
+export const getEnvironmentalMetric = (data: GHGEmissionsData, metricName: string) => {
+    return data.environmental_metrics[metricName];
+};
+
+/**
+ * Get carbon intensity metrics
+ */
+export const getCarbonIntensityMetrics = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return null;
+
+    return carbonData.year_summary.intensity_metrics;
+};
+
+/**
+ * Get sequestration summary
+ */
+export const getSequestrationSummary = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return null;
+
+    return carbonData.year_summary.sequestration;
+};
+
+/**
+ * Get emissions summary
+ */
+export const getEmissionsSummary = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return null;
+
+    return carbonData.year_summary.emissions;
+};
+
+/**
+ * Get yearly data summary
+ */
+export const getYearlyDataSummary = (data: GHGEmissionsData) => {
+    const carbonData = data.carbon_emission_accounting;
+    if (!carbonData) return null;
+
+    return carbonData.year_summary;
+};
+
+export default {
+    getGhgEmissionData,
+    getMonthlyGraphData,
+    generateMonthlyLineGraphs,
+    getAllGraphs,
+    getGraphById,
+    getGhgSummary,
+    getScopeBreakdown,
+    getEnvironmentalMetricsSummary,
+    getCarbonEmissionAccounting,
+    getKeyEmissionMetrics,
+    getCompanyInfo,
+    getMetadata,
+    getDataAvailability,
+    getReportingYear,
+    hasCarbonAccounting,
+    getSequestrationMethodologies,
+    getEmissionFactors,
+    getMonthlySequestrationData,
+    getAllEnvironmentalMetrics,
+    getEnvironmentalMetric,
+    getCarbonIntensityMetrics,
+    getSequestrationSummary,
+    getEmissionsSummary,
+    getYearlyDataSummary,
 };

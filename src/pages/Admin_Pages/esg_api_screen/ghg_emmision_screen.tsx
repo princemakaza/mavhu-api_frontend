@@ -1,3 +1,4 @@
+// File: GhgEmissionScreen.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler, ScatterController } from 'chart.js';
@@ -7,74 +8,38 @@ import 'leaflet/dist/leaflet.css';
 import L, { LatLngExpression } from 'leaflet';
 import Sidebar from "../../../components/Sidebar";
 import {
-    TrendingUp,
-    TrendingDown,
-    Thermometer,
-    CheckCircle,
-    AlertCircle,
-    Calendar,
-    Download,
     RefreshCw,
     ChevronLeft,
-    Database,
-    Moon,
-    Sun,
+    Download,
     Building,
     ArrowRight,
-    Map,
-    Wind,
-    Zap,
+    AlertCircle,
+    X,
+    Calendar,
+    MapPin,
+    Info,
+    Calculator,
+    TrendingUp,
+    TrendingDown,
+    Activity,
+    Database,
     Factory,
-    Scale,
     Target as TargetIcon,
-    Award,
-    AlertOctagon,
     PieChart,
     LineChart as LineChartIcon,
-    MapPin,
-    Maximize2,
-    Minimize2,
+    Loader2
 } from "lucide-react";
 import {
     getGhgEmissionData,
-    getGhgSummary,
-    getScopeBreakdown,
-    getScope1Sources,
-    getScope2Sources,
-    getScope3Categories,
-    getCarbonEmissionAccounting,
-    getEmissionMetrics,
-    getReductionTargets,
-    getCurrentPerformance,
-    getFutureTargets,
-    getIntensityAnalysis,
-    getComplianceRecommendations,
-    getReportingRequirements,
-    getAllGhgGraphData,
-    getConfidenceAssessment,
-    getSummary,
-    getGhgMetadata,
-    getEmissionFactors,
-    getAllYearlyData,
-    getKeyMetricsSummary,
-    getComplianceFrameworks,
-    getDataCoverage,
-    isCarbonDataAvailable,
-    getGhgCompany,
-    getCurrentYear,
-    getBaselineYear,
-    getPreviousYear,
-    getAvailableGhgYears,
-    type GhgEmissionResponse,
-    type GhgEmissionParams,
-    type DetailedSource,
+    type GHGEmissionsResponse,
+    type GHGEmissionsParams
 } from "../../../services/Admin_Service/esg_apis/ghg_emmision";
-import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";;
+import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 
 // Import tab components
-import OverviewTab from "./ghg_tabs/OverviewTab"
-import DetailsTab from "./ghg_tabs/DetailsTab";
-import LocationTab from "./ghg_tabs/LocationTab";
+import OverviewTab from "./ghg_tabs/OverviewTab";
+import GHGAnalyticsTab from "./ghg_tabs/GHGAnalyticsTab";
+import GHGReportsTab from "./ghg_tabs/ReportsTab";
 
 // Register ChartJS components
 ChartJS.register(
@@ -99,147 +64,121 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Type definitions for Chart.js data
-interface ChartDataset {
-    label: string;
-    data: (number | null)[];
-    backgroundColor?: string | string[];
-    borderColor?: string | string[];
-    borderWidth?: number;
-    fill?: boolean;
-}
+// Color Palette
+const PRIMARY_GREEN = '#22c55e';
+const SECONDARY_GREEN = '#16a34a';
+const LIGHT_GREEN = '#86efac';
+const DARK_GREEN = '#15803d';
+const EMERALD = '#10b981';
+const LIME = '#84cc16';
+const BACKGROUND_GRAY = '#f9fafb';
 
-interface ChartData {
-    labels: string[];
-    datasets: ChartDataset[];
-}
-
-// Skeleton Loading Components
-const SkeletonCard = ({ className = "" }: { className?: string }) => (
-    <div className={`animate-pulse ${className}`}>
-        <div className="h-full rounded-2xl bg-gray-700/30 dark:bg-gray-800/30"></div>
-    </div>
+// Loading Skeleton
+const SkeletonCard = () => (
+    <div className="animate-pulse h-full rounded-xl bg-gray-100"></div>
 );
 
-const SkeletonText = ({ width = "full", height = "h-4" }: { width?: string, height?: string }) => (
-    <div className={`${height} ${width} rounded bg-gray-600/30 dark:bg-gray-700/30 animate-pulse`}></div>
+const Shimmer = () => (
+    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-gray-100/50 to-transparent"></div>
 );
 
-const SkeletonChart = () => (
-    <div className="animate-pulse h-64 w-full rounded-lg bg-gray-700/30 dark:bg-gray-800/30"></div>
-);
+// Helper function to parse data_range string
+const parseDataRange = (dataRange: string | undefined): number[] => {
+    if (!dataRange) return [];
+
+    try {
+        const cleanedRange = dataRange
+            .replace(/–/g, '-')
+            .replace(/\s+/g, '')
+            .replace(/to/g, '-')
+            .trim();
+
+        const [startStr, endStr] = cleanedRange.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+
+        if (isNaN(start) || isNaN(end) || start > end) {
+            console.warn('Invalid data_range format:', dataRange);
+            return [];
+        }
+
+        const years = [];
+        for (let year = start; year <= end; year++) {
+            years.push(year);
+        }
+        return years;
+    } catch (error) {
+        console.error('Error parsing data_range:', error, dataRange);
+        return [];
+    }
+};
+
+const getEndYearFromDataRange = (dataRange: string | undefined): number | null => {
+    if (!dataRange) return null;
+    const years = parseDataRange(dataRange);
+    return years.length > 0 ? Math.max(...years) : null;
+};
+
+const extractNumericYears = (yearStrings: string[]): number[] => {
+    const years = new Set<number>();
+    yearStrings.forEach(str => {
+        const match = str.match(/\b\d{4}\b/g);
+        if (match) {
+            match.forEach(y => years.add(parseInt(y, 10)));
+        }
+    });
+    return Array.from(years).sort((a, b) => b - a);
+};
 
 const GhgEmissionScreen = () => {
     const { companyId: paramCompanyId } = useParams<{ companyId: string }>();
     const location = useLocation();
     const navigate = useNavigate();
-
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Start with false, only true when fetching GHG data
+    const [loadingCompanies, setLoadingCompanies] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [ghgData, setGhgData] = useState<GhgEmissionResponse | null>(null);
+    const [ghgData, setGhgData] = useState<GHGEmissionsResponse | null>(null);
     const [companies, setCompanies] = useState<Company[]>([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>(paramCompanyId || "");
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
+    const [latestYear, setLatestYear] = useState<number | null>(null);
     const [showCompanySelector, setShowCompanySelector] = useState(!paramCompanyId);
-    const [activeTab, setActiveTab] = useState("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "reports">("overview");
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [showCalculationModal, setShowCalculationModal] = useState(false);
+    const [selectedCalculation, setSelectedCalculation] = useState<any>(null);
 
-    // Color scheme matching Sidebar - Same as CropYieldScreen
-    const logoGreen = isDarkMode ? "#00FF00" : "#008000";
-    const logoYellow = isDarkMode ? "#FFD700" : "#B8860B";
-    const accentBlue = isDarkMode ? "#3B82F6" : "#1D4ED8";
-    const accentPurple = isDarkMode ? "#8B5CF6" : "#7C3AED";
+    // Modal states
+    const [selectedModal, setSelectedModal] = useState<string | null>(null);
+    const [selectedMetricData, setSelectedMetricData] = useState<any>(null);
 
-    // Theme colors matching Sidebar
-    const darkBg = "#111827";
-    const lightBg = "#FFFFFF";
-    const lightCardBg = "#F9FAFB";
+    // Format helpers
+    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    const formatCurrency = (num: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(num);
+    const formatPercent = (num: number) => `${num.toFixed(1)}%`;
 
-    // Enhanced theme classes with better visibility
-    const themeClasses = {
-        bg: isDarkMode ? "bg-gray-900" : "bg-white",
-        text: isDarkMode ? "text-gray-100" : "text-gray-900",
-        textSecondary: isDarkMode ? "text-gray-300" : "text-gray-700",
-        textMuted: isDarkMode ? "text-gray-400" : "text-gray-600",
-        navBg: isDarkMode ? "bg-gray-900/98" : "bg-white/98",
-        cardBg: isDarkMode ? "bg-gray-800/70" : "bg-white/95",
-        cardBgAlt: isDarkMode ? "bg-gray-800/90" : "bg-white/98",
-        border: isDarkMode ? "border-gray-700" : "border-gray-200",
-        borderHover: isDarkMode ? "border-gray-600" : "border-gray-300",
-        hoverBg: isDarkMode ? "hover:bg-gray-800/50" : "hover:bg-gray-100",
-        modalBg: isDarkMode ? "bg-gray-900" : "bg-white",
-        chartGrid: isDarkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.1)",
-        chartText: isDarkMode ? "rgba(255, 255, 255, 0.9)" : "rgba(0, 0, 0, 0.8)",
-    };
-
-    // Enhanced chart colors for better visibility - Same as CropYieldScreen
-    const chartColors = {
-        primary: logoGreen,
-        secondary: logoYellow,
-        tertiary: accentBlue,
-        quaternary: accentPurple,
-        success: isDarkMode ? "#00FF00" : "#008000",
-        warning: isDarkMode ? "#FFD700" : "#B8860B",
-        danger: isDarkMode ? "#FF6B6B" : "#DC2626",
-        background: isDarkMode ? [
-            'rgba(0, 255, 0, 0.3)',
-            'rgba(255, 215, 0, 0.3)',
-            'rgba(59, 130, 246, 0.3)',
-            'rgba(139, 92, 246, 0.3)',
-            'rgba(236, 72, 153, 0.3)',
-            'rgba(14, 165, 233, 0.3)',
-        ] : [
-            'rgba(0, 128, 0, 0.2)',
-            'rgba(184, 134, 11, 0.2)',
-            'rgba(59, 130, 246, 0.2)',
-            'rgba(139, 92, 246, 0.2)',
-            'rgba(236, 72, 153, 0.2)',
-            'rgba(14, 165, 233, 0.2)',
-        ],
-        border: isDarkMode ? [
-            logoGreen,
-            logoYellow,
-            accentBlue,
-            accentPurple,
-            '#EC4899',
-            '#0EA5E9',
-        ] : [
-            '#008000',
-            '#B8860B',
-            '#1D4ED8',
-            '#7C3AED',
-            '#DB2777',
-            '#0284C7',
-        ],
-    };
-
-    // Apply dark mode class to document
-    useEffect(() => {
-        if (isDarkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
+    const getTrendIcon = (trend: string) => {
+        if (trend.toLowerCase().includes('improving') || trend.toLowerCase().includes('increase')) {
+            return <TrendingUp className="w-4 h-4 text-green-600" />;
+        } else if (trend.toLowerCase().includes('declining') || trend.toLowerCase().includes('decrease')) {
+            return <TrendingDown className="w-4 h-4 text-red-600" />;
         }
-    }, [isDarkMode]);
-
-    // Toggle dark mode
-    const toggleDarkMode = () => {
-        setIsDarkMode(!isDarkMode);
+        return <Activity className="w-4 h-4 text-yellow-600" />;
     };
 
-    // Fetch companies for dropdown
+    // Fetch companies on mount
     const fetchCompanies = async () => {
         try {
+            setLoadingCompanies(true);
             const response = await getCompanies(1, 100);
             setCompanies(response.items);
-            if (!selectedCompanyId && response.items.length > 0) {
-                setSelectedCompanyId(response.items[0]._id);
-            }
         } catch (err: any) {
             console.error("Failed to fetch companies:", err);
+            // Optionally show error in the selector
+        } finally {
+            setLoadingCompanies(false);
         }
     };
 
@@ -250,23 +189,49 @@ const GhgEmissionScreen = () => {
         try {
             setLoading(true);
             setError(null);
-            const params: GhgEmissionParams = {
-                companyId: selectedCompanyId,
-            };
 
-            // Only add year if selected (not null)
+            let yearToFetch: number;
             if (selectedYear !== null) {
-                params.year = selectedYear;
+                yearToFetch = selectedYear;
+            } else {
+                yearToFetch = new Date().getFullYear();
             }
+
+            const params: GHGEmissionsParams = {
+                companyId: selectedCompanyId,
+                year: yearToFetch,
+            };
+            console.log("Fetching GHG data with params:", params);
 
             const data = await getGhgEmissionData(params);
             setGhgData(data);
 
-            // Extract available years from response
-            const years = getAvailableGhgYears(data);
-            const sortedYears = [...years].sort((a, b) => b - a);
-            setAvailableYears(sortedYears);
-
+            if (data.data.reporting_period?.data_available_years) {
+                const numericYears = extractNumericYears(data.data.reporting_period.data_available_years);
+                setAvailableYears(numericYears);
+                const latest = numericYears.length > 0 ? numericYears[0] : yearToFetch;
+                setLatestYear(latest);
+                if (selectedYear === null) {
+                    setSelectedYear(latest);
+                }
+            } else {
+                const companyFromResponse = data.data.company;
+                if (companyFromResponse?.data_range) {
+                    const years = parseDataRange(companyFromResponse.data_range);
+                    setAvailableYears(years);
+                    const latest = years.length > 0 ? years[0] : yearToFetch;
+                    setLatestYear(latest);
+                    if (selectedYear === null) {
+                        setSelectedYear(latest);
+                    }
+                } else {
+                    setAvailableYears([yearToFetch]);
+                    setLatestYear(yearToFetch);
+                    if (selectedYear === null) {
+                        setSelectedYear(yearToFetch);
+                    }
+                }
+            }
         } catch (err: any) {
             setError(err.message || "Failed to fetch GHG emissions data");
             console.error("Error fetching GHG emissions data:", err);
@@ -276,456 +241,495 @@ const GhgEmissionScreen = () => {
         }
     };
 
-    // Handle refresh
-    const handleRefresh = () => {
-        setIsRefreshing(true);
-        fetchGhgData();
-    };
+    useEffect(() => {
+        fetchCompanies();
+    }, []);
 
-    // Handle company change
-    const handleCompanyChange = (companyId: string) => {
-        setSelectedCompanyId(companyId);
-        setShowCompanySelector(false);
-        navigate(`/admin_ghg_emission/${companyId}`);
-    };
-
-    // Handle year change
-    const handleYearChange = (year: number | null) => {
-        setSelectedYear(year);
-    };
-
-    // Initialize
+    // Handle initial company from URL param or location state
     useEffect(() => {
         if (location.state?.companyId) {
             setSelectedCompanyId(location.state.companyId);
             setShowCompanySelector(false);
+            // Reset year when company changes via location state
+            setSelectedYear(null);
+        } else if (paramCompanyId) {
+            setSelectedCompanyId(paramCompanyId);
+            setShowCompanySelector(false);
+            setSelectedYear(null);
         }
-        fetchCompanies();
-    }, [location.state]);
+    }, [location.state, paramCompanyId]);
 
+    // Trigger GHG data fetch when we have a selected company and (optionally) year
     useEffect(() => {
         if (selectedCompanyId) {
             fetchGhgData();
         }
     }, [selectedCompanyId, selectedYear]);
 
-    // Toggle sidebar
-    const toggleSidebar = () => {
-        setIsSidebarOpen(!isSidebarOpen);
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        fetchGhgData();
     };
 
-    // Navigate back
-    const navigateBack = () => {
-        navigate("/company-management");
+    const handleCompanyChange = (companyId: string) => {
+        setSelectedCompanyId(companyId);
+        setSelectedYear(null);
+        setShowCompanySelector(false);
+        navigate(`/admin_ghg_emission/${companyId}`);
     };
 
-    // Get selected company name
-    const selectedCompany = companies.find(c => c._id === selectedCompanyId);
+    const handleYearChange = (year: string) => {
+        const newYear = year ? Number(year) : latestYear;
+        setSelectedYear(newYear);
+    };
 
-    // Get summary data
-    const ghgSummary = ghgData ? getGhgSummary(ghgData) : null;
-    const scopeBreakdown = ghgData ? getScopeBreakdown(ghgData) : null;
-    const scope1Sources = ghgData ? getScope1Sources(ghgData) : [];
-    const scope2Sources = ghgData ? getScope2Sources(ghgData) : [];
-    const scope3Categories = ghgData ? getScope3Categories(ghgData) : [];
-    const carbonAccounting = ghgData ? getCarbonEmissionAccounting(ghgData) : null;
-    const emissionMetrics = ghgData ? getEmissionMetrics(ghgData) : null;
-    const reductionTargets = ghgData ? getReductionTargets(ghgData) : null;
-    const currentPerformance = ghgData ? getCurrentPerformance(ghgData) : null;
-    const futureTargets = ghgData ? getFutureTargets(ghgData) : [];
-    const intensityAnalysis = ghgData ? getIntensityAnalysis(ghgData) : null;
-    const complianceRecommendations = ghgData ? getComplianceRecommendations(ghgData) : [];
-    const reportingRequirements = ghgData ? getReportingRequirements(ghgData) : null;
-    const confidenceAssessment = ghgData ? getConfidenceAssessment(ghgData) : null;
-    const summary = ghgData ? getSummary(ghgData) : null;
-    const metadata = ghgData ? getGhgMetadata(ghgData) : null;
-    const emissionFactors = ghgData ? getEmissionFactors(ghgData) : [];
-    const yearlyData = ghgData ? getAllYearlyData(ghgData) : [];
-    const keyMetricsSummary = ghgData ? getKeyMetricsSummary(ghgData) : [];
-    const complianceFrameworks = ghgData ? getComplianceFrameworks(ghgData) : [];
-    const dataCoverage = ghgData ? getDataCoverage(ghgData) : null;
-    const isCarbonDataAvail = ghgData ? isCarbonDataAvailable(ghgData) : false;
-    const companyInfo = ghgData ? getGhgCompany(ghgData) : null;
-    const currentYear = ghgData ? getCurrentYear(ghgData) : null;
-    const baselineYear = ghgData ? getBaselineYear(ghgData) : null;
-    const previousYear = ghgData ? getPreviousYear(ghgData) : null;
+    const handleCalculationClick = (calculationType: string, data?: any) => {
+        setSelectedCalculation({
+            type: calculationType,
+            data: data || ghgData
+        });
+        setShowCalculationModal(true);
+    };
 
-    // Get graphs
-    const graphs = ghgData ? getAllGhgGraphData(ghgData) : null;
+    const handleMetricClick = (metric: any, modalType: string) => {
+        setSelectedMetricData(metric);
+        setSelectedModal(modalType);
+    };
 
-    // Get coordinates for map
-    const coordinates = ghgData?.data.company.area_of_interest_metadata?.coordinates || [];
-    const areaName = ghgData?.data.company.area_of_interest_metadata?.name || "Production Area";
-    const areaCovered = ghgData?.data.company.area_of_interest_metadata?.area_covered || "N/A";
+    const selectedCompany = companies.find(c => c._id === selectedCompanyId) || ghgData?.data?.company;
 
-    // Skeleton Loading Screen
-    if (loading) {
+    // Shared data for tabs
+    const sharedData = {
+        ghgData: ghgData?.data,
+        selectedCompany,
+        formatNumber,
+        formatCurrency,
+        formatPercent,
+        getTrendIcon,
+        selectedYear,
+        availableYears,
+        latestYear,
+        loading,
+        isRefreshing,
+        onCalculationClick: handleCalculationClick,
+        onMetricClick: handleMetricClick,
+        colors: {
+            primary: PRIMARY_GREEN,
+            secondary: SECONDARY_GREEN,
+            lightGreen: LIGHT_GREEN,
+            darkGreen: DARK_GREEN,
+            emerald: EMERALD,
+            lime: LIME,
+            background: BACKGROUND_GRAY
+        }
+    };
+
+    // Coordinates for map
+    const coordinates = ghgData?.data?.company?.area_of_interest_metadata?.coordinates || [];
+    const areaName = ghgData?.data?.company?.area_of_interest_metadata?.name || "Production Area";
+    const areaCovered = ghgData?.data?.company?.area_of_interest_metadata?.area_covered || "N/A";
+
+    // --- Render logic ---
+
+    // If we are in company selector mode (no param and no forced company)
+    if (showCompanySelector && !paramCompanyId) {
         return (
-            <div className={`flex min-h-screen ${themeClasses.bg} ${themeClasses.text}`}>
-                <Sidebar
-                    isOpen={isSidebarOpen}
-                    onClose={() => setIsSidebarOpen(false)}
-                />
-                <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-0' : 'lg:ml-0'} ${themeClasses.bg}`}>
-                    {/* Header Skeleton */}
-                    <header className={`sticky top-0 z-30 border-b ${themeClasses.border} px-6 py-4 backdrop-blur-sm ${themeClasses.navBg}`}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-gray-600/30 dark:bg-gray-700/30 animate-pulse"></div>
-                                <div className="space-y-2">
-                                    <SkeletonText width="w-48" height="h-6" />
-                                    <SkeletonText width="w-64" height="h-4" />
+            <div className="flex min-h-screen bg-gray-50 text-gray-900">
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <main className="flex-1 p-6">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
+                            <div className="flex items-center gap-3 mb-8">
+                                <Building className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
+                                <div>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
+                                        Select Company
+                                    </h1>
+                                    <p className="text-gray-600">Choose a company to view GHG emissions data</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <div className="w-32 h-10 rounded-lg bg-gray-600/30 dark:bg-gray-700/30 animate-pulse"></div>
-                                <div className="w-10 h-10 rounded-lg bg-gray-600/30 dark:bg-gray-700/30 animate-pulse"></div>
-                                <div className="w-24 h-10 rounded-lg bg-gray-600/30 dark:bg-gray-700/30 animate-pulse"></div>
-                                <div className="w-10 h-10 rounded-lg bg-gray-600/30 dark:bg-gray-700/30 animate-pulse"></div>
-                            </div>
-                        </div>
-                        {/* Tabs Skeleton */}
-                        <div className="flex space-x-1 mt-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="w-20 h-8 rounded-lg bg-gray-600/30 dark:bg-gray-700/30 animate-pulse"></div>
-                            ))}
-                        </div>
-                    </header>
 
-                    {/* Content Skeleton */}
-                    <div className="p-6">
-                        {/* Key Metrics Skeleton */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            {[1, 2, 3, 4].map((i) => (
-                                <SkeletonCard key={i} className="h-40" />
-                            ))}
+                            {loadingCompanies ? (
+                                <div className="flex justify-center items-center py-12">
+                                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: PRIMARY_GREEN }} />
+                                    <span className="ml-2 text-gray-600">Loading companies...</span>
+                                </div>
+                            ) : companies.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    No companies found. Please add a company first.
+                                </div>
+                            ) : (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    {companies.map((company) => {
+                                        const dataRangeYears = parseDataRange(company.data_range);
+                                        const endYear = getEndYearFromDataRange(company.data_range);
+                                        return (
+                                            <button
+                                                key={company._id}
+                                                onClick={() => handleCompanyChange(company._id)}
+                                                className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
+                                            >
+                                                <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
+                                                    <Factory className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
+                                                    <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <div
+                                                            className="text-xs px-2 py-1 rounded-full"
+                                                            style={{
+                                                                background: company.esg_data_status === 'complete'
+                                                                    ? 'rgba(34, 197, 94, 0.2)'
+                                                                    : company.esg_data_status === 'partial'
+                                                                        ? 'rgba(251, 191, 36, 0.2)'
+                                                                        : 'rgba(239, 68, 68, 0.2)',
+                                                                color: company.esg_data_status === 'complete'
+                                                                    ? PRIMARY_GREEN
+                                                                    : company.esg_data_status === 'partial'
+                                                                        ? '#FBBF24'
+                                                                        : '#EF4444'
+                                                            }}
+                                                        >
+                                                            {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
+                                                        </div>
+                                                        {company.data_range && (
+                                                            <div className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                                Data: {company.data_range}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {company.data_range && dataRangeYears.length > 0 && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-
-                        {/* Map and Scope Composition Skeleton */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                            <SkeletonCard className="h-80" />
-                            <div className="lg:col-span-2">
-                                <SkeletonCard className="h-80" />
-                            </div>
-                        </div>
-
-                        {/* Intensity & Confidence Skeleton */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                            <SkeletonCard className="h-96" />
-                            <SkeletonCard className="h-96" />
-                        </div>
-
-                        {/* Targets Skeleton */}
-                        <SkeletonCard className="h-48 mb-8" />
-
-                        {/* Recommendations Skeleton */}
-                        <SkeletonCard className="h-64" />
                     </div>
                 </main>
             </div>
         );
     }
 
-    // Render company selector if needed
-    if (showCompanySelector && !paramCompanyId) {
+    // Loading state for GHG data (only when we have a company selected)
+    if (loading) {
         return (
-            <div className={`flex min-h-screen ${themeClasses.bg} ${themeClasses.text}`}>
-                <Sidebar
-                    isOpen={isSidebarOpen}
-                    onClose={() => setIsSidebarOpen(false)}
-                />
-                <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-0' : 'lg:ml-0'} ${themeClasses.bg}`}>
-                    {/* Header */}
-                    <header className={`sticky top-0 z-30 border-b ${themeClasses.border} px-6 py-4 backdrop-blur-sm ${themeClasses.navBg}`}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
+            <div className="flex min-h-screen bg-gray-50 text-gray-900">
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <main className="flex-1 p-6">
+                    {/* Shimmer Header */}
+                    <div className="mb-8 relative overflow-hidden">
+                        <div className="h-12 rounded-xl bg-gray-100"></div>
+                        <Shimmer />
+                    </div>
+                    {/* Shimmer Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="relative overflow-hidden">
+                                <div className="h-32 rounded-xl bg-gray-100"></div>
+                                <Shimmer />
+                            </div>
+                        ))}
+                    </div>
+                    {/* Shimmer Graphs */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        {[1, 2].map(i => (
+                            <div key={i} className="relative overflow-hidden">
+                                <div className="h-96 rounded-xl bg-gray-100"></div>
+                                <Shimmer />
+                            </div>
+                        ))}
+                    </div>
+                    {/* Shimmer Table */}
+                    <div className="relative overflow-hidden">
+                        <div className="h-96 rounded-xl bg-gray-100"></div>
+                        <Shimmer />
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // Main content when company is selected and data loaded (or at least we have a company)
+    return (
+        <div className="flex min-h-screen bg-gray-50 text-gray-900">
+            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
+            <main className="flex-1">
+                {/* Header */}
+                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
+                    <div className="px-4 sm:px-6 py-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
                                 <button
-                                    onClick={navigateBack}
-                                    className={`p-2 rounded-lg ${themeClasses.hoverBg} transition-colors`}
-                                    style={{ color: logoGreen }}
+                                    onClick={() => navigate("/company-management")}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                    style={{ color: PRIMARY_GREEN }}
                                 >
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div>
-                                    <h1 className="text-2xl font-bold" style={{ color: logoGreen }}>
-                                        Select Company
-                                    </h1>
-                                    <p className={`text-sm ${themeClasses.textSecondary}`}>
-                                        Choose a company to view GHG emissions data
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={toggleSidebar}
-                                className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"}`}
-                            >
-                                <div className="w-6 h-6 flex items-center justify-center">
-                                    <div className={`w-4 h-0.5 ${isDarkMode ? "bg-gray-300" : "bg-gray-600"} mb-1`}></div>
-                                    <div className={`w-4 h-0.5 ${isDarkMode ? "bg-gray-300" : "bg-gray-600"} mb-1`}></div>
-                                    <div className={`w-4 h-0.5 ${isDarkMode ? "bg-gray-300" : "bg-gray-600"}`}></div>
-                                </div>
-                            </button>
-                        </div>
-                    </header>
-
-                    {/* Company Selection */}
-                    <div className="p-6">
-                        <div className="max-w-4xl mx-auto">
-                            <div className={`${themeClasses.cardBg} backdrop-blur-xl rounded-2xl border ${themeClasses.border} p-8 shadow-lg ${isDarkMode ? "shadow-black/20" : "shadow-gray-200/50"}`}>
-                                <div className="flex items-center gap-3 mb-6">
-                                    <Building className="w-8 h-8" style={{ color: logoGreen }} />
-                                    <h2 className="text-xl font-bold">Available Companies</h2>
-                                </div>
-
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    {companies.map((company: Company) => (
-                                        <button
-                                            key={company._id}
-                                            onClick={() => handleCompanyChange(company._id)}
-                                            className={`flex items-center gap-4 p-4 rounded-xl border ${themeClasses.border} transition-all duration-300 hover:border-[${logoGreen}] ${themeClasses.hoverBg} text-left group`}
-                                        >
-                                            <div
-                                                className="p-3 rounded-lg"
-                                                style={{
-                                                    background: `linear-gradient(to right, ${logoGreen}30, ${logoGreen}20)`,
-                                                    border: `1px solid ${logoGreen}40`
-                                                }}
-                                            >
-                                                <Factory className="w-6 h-6" style={{ color: logoGreen }} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h3 className="font-semibold mb-1">{company.name}</h3>
-                                                <p className={`text-sm ${themeClasses.textMuted}`}>
-                                                    {company.industry} • {company.country}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div className={`text-xs px-2 py-1 rounded-full ${company.esg_data_status === 'complete' ? `bg-[${logoGreen}]/20 text-[${logoGreen}]` : company.esg_data_status === 'partial' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-red-500/20 text-red-500'}`}>
-                                                        {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: logoGreen }} />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
-    return (
-        <div className={`flex min-h-screen transition-colors duration-300 ${themeClasses.bg} ${themeClasses.text}`}>
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-            />
-
-            {/* Main Content */}
-            <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-0' : 'lg:ml-0'}`}>
-                {/* Header */}
-                <header className={`sticky top-0 z-30 border-b ${themeClasses.border} px-6 py-4 backdrop-blur-sm ${themeClasses.navBg}`}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={navigateBack}
-                                className={`p-2 rounded-lg ${themeClasses.hoverBg} transition-colors`}
-                                style={{ color: logoGreen }}
-                            >
-                                <ChevronLeft className="w-5 h-5" />
-                            </button>
-                            <div>
-                                <h1 className="text-2xl font-bold" style={{ color: logoGreen }}>
-                                    GHG Emissions Dashboard
+                                <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
+                                    GHG Emissions
                                 </h1>
-                                <p className={`text-sm ${themeClasses.textSecondary}`}>
-                                    {selectedCompany?.name || "Company Data"} • {selectedYear === null ? "All Years" : selectedYear}
-                                    {metadata?.company_id && (
-                                        <span className="ml-2 px-2 py-1 text-xs rounded bg-gray-500/20">
-                                            ID: {metadata.company_id}
-                                        </span>
-                                    )}
-                                </p>
                             </div>
-                        </div>
 
-                        <div className="flex items-center gap-4">
-                            {/* Year Selector */}
-                            {availableYears.length > 0 && (
-                                <div className="relative">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {availableYears.length > 0 && (
                                     <select
-                                        value={selectedYear === null ? "" : selectedYear}
-                                        onChange={(e) => handleYearChange(e.target.value ? Number(e.target.value) : null)}
-                                        className={`pl-4 pr-10 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.cardBg} focus:outline-none focus:ring-2 focus:ring-offset-1 ${isDarkMode ? `focus:ring-[${logoGreen}]` : `focus:ring-[${logoGreen}]`} appearance-none`}
-                                        style={{
-                                            background: isDarkMode ? `linear-gradient(to right, ${logoGreen}10, ${logoGreen}05)` : undefined
-                                        }}
+                                        value={selectedYear || ""}
+                                        onChange={(e) => handleYearChange(e.target.value)}
+                                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
                                     >
-                                        <option value="">All Years</option>
-                                        {availableYears.map((year: number) => (
+                                        {availableYears.map((year) => (
                                             <option key={year} value={year}>
                                                 {year}
+                                                {year === latestYear ? ' (Latest)' : ''}
                                             </option>
                                         ))}
                                     </select>
-                                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: logoGreen }} />
-                                </div>
-                            )}
-
-                            {/* Refresh Button */}
-                            <button
-                                onClick={handleRefresh}
-                                disabled={isRefreshing}
-                                className={`p-2 rounded-lg ${themeClasses.hoverBg} transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
-                                style={{ color: logoGreen }}
-                            >
-                                <RefreshCw className="w-5 h-5" />
-                            </button>
-
-                            {/* Export Button */}
-                            <button
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${themeClasses.border} ${themeClasses.hoverBg} transition-colors`}
-                                style={{ color: logoGreen }}
-                            >
-                                <Download className="w-4 h-4" />
-                                <span className="text-sm font-medium">Export</span>
-                            </button>
-
-                            {/* Dark Mode Toggle */}
-                            <button
-                                onClick={toggleDarkMode}
-                                className={`p-2 rounded-lg ${themeClasses.hoverBg} transition-colors`}
-                                style={{ color: logoGreen }}
-                            >
-                                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                            </button>
-
-                            {/* Sidebar Toggle */}
-                            <button
-                                onClick={toggleSidebar}
-                                className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"}`}
-                                style={{ color: logoGreen }}
-                            >
-                                <div className="w-6 h-6 flex items-center justify-center">
-                                    <div className={`w-4 h-0.5 ${isDarkMode ? "bg-gray-300" : "bg-gray-600"} mb-1`}></div>
-                                    <div className={`w-4 h-0.5 ${isDarkMode ? "bg-gray-300" : "bg-gray-600"} mb-1`}></div>
-                                    <div className={`w-4 h-0.5 ${isDarkMode ? "bg-gray-300" : "bg-gray-600"}`}></div>
-                                </div>
-                            </button>
+                                )}
+                                <button
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                    style={{ color: PRIMARY_GREEN }}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
+                                    style={{
+                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                    }}
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Export
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Tabs */}
-                    <div className="flex space-x-1 mt-4">
-                        {["overview", "details", "location"].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab
-                                    ? `text-white`
-                                    : `${themeClasses.hoverBg} opacity-70 hover:opacity-100`
-                                    }`}
-                                style={{
-                                    background: activeTab === tab
-                                        ? `linear-gradient(to right, ${logoGreen}, ${isDarkMode ? "#00CC00" : "#006400"})`
-                                        : undefined,
-                                }}
-                            >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            </button>
-                        ))}
+                        {/* Tabs */}
+                        <div className="flex space-x-2 overflow-x-auto pb-1">
+                            {[
+                                { id: "overview", label: "Overview" },
+                                { id: "analytics", label: "Analytics" },
+                                { id: "reports", label: "Reports" }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    className={`px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
+                                            ? 'text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                        }`}
+                                    style={activeTab === tab.id ? {
+                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                    } : {}}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </header>
 
                 {/* Error Message */}
                 {error && (
-                    <div className={`m-6 p-4 rounded-xl border ${isDarkMode ? "bg-red-900/20 border-red-700" : "bg-red-50 border-red-200"}`}>
+                    <div className="m-4 sm:m-6 p-3 sm:p-4 rounded-xl bg-red-50 border border-red-200">
                         <div className="flex items-center">
-                            <AlertCircle className="w-5 h-5 mr-2 text-red-500" />
-                            <p className="text-red-600 dark:text-red-400">{error}</p>
+                            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-600 flex-shrink-0" />
+                            <p className="text-sm text-red-700">{error}</p>
                         </div>
                     </div>
                 )}
 
                 {/* Content */}
-                <div className="p-6">
-                    {/* Overview Tab */}
-                    {activeTab === "overview" && ghgData && (
-                        <OverviewTab
-                            ghgData={ghgData}
-                            themeClasses={themeClasses}
-                            chartColors={chartColors}
-                            logoGreen={logoGreen}
-                            logoYellow={logoYellow}
-                            isDarkMode={isDarkMode}
-                            coordinates={coordinates}
-                            areaName={areaName}
-                            areaCovered={areaCovered}
-                        />
-                    )}
-
-                    {/* Details Tab */}
-                    {activeTab === "details" && ghgData && (
-                        <DetailsTab
-                            ghgData={ghgData}
-                            themeClasses={themeClasses}
-                            chartColors={chartColors}
-                            logoGreen={logoGreen}
-                            isDarkMode={isDarkMode}
-                        />
-                    )}
-
-                    {/* Location Tab */}
-                    {activeTab === "location" && ghgData && (
-                        <LocationTab
-                            themeClasses={themeClasses}
-                            logoGreen={logoGreen}
-                            isDarkMode={isDarkMode}
-                            coordinates={coordinates}
-                            areaName={areaName}
-                            areaCovered={areaCovered}
-                        />
-                    )}
+                <div className="p-4 sm:p-6">
+                    {activeTab === "overview" && <OverviewTab {...sharedData} />}
+                    {activeTab === "analytics" && <GHGAnalyticsTab {...sharedData} />}
+                    {activeTab === "reports" && <GHGReportsTab {...sharedData} />}
 
                     {/* Metadata Footer */}
-                    {metadata && (
-                        <div className={`${themeClasses.cardBg} backdrop-blur-xl rounded-2xl border ${themeClasses.border} p-6 mt-8 shadow-lg ${isDarkMode ? "shadow-black/20" : "shadow-gray-200/50"}`}>
+                    {ghgData?.data?.metadata && (
+                        <div className="bg-white backdrop-blur-xl rounded-2xl border border-gray-200 p-6 mt-8 shadow-lg shadow-gray-200/50">
                             <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-sm font-semibold" style={{ color: logoGreen }}>
+                                <h4 className="text-sm font-semibold" style={{ color: PRIMARY_GREEN }}>
                                     Data Source Information
                                 </h4>
-                                <Database className="w-4 h-4" style={{ color: logoGreen }} />
+                                <Database className="w-4 h-4" style={{ color: PRIMARY_GREEN }} />
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
-                                    <p className={`text-xs ${themeClasses.textMuted}`}>API Version</p>
-                                    <p className="text-sm font-medium">{metadata.api_version}</p>
+                                    <p className="text-xs text-gray-600">API Version</p>
+                                    <p className="text-sm font-medium text-gray-900">{ghgData.data.metadata.api_version}</p>
                                 </div>
                                 <div>
-                                    <p className={`text-xs ${themeClasses.textMuted}`}>Generated</p>
-                                    <p className="text-sm font-medium">{new Date(metadata.generated_at).toLocaleDateString()}</p>
+                                    <p className="text-xs text-gray-600">Generated</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {new Date(ghgData.data.metadata.generated_at).toLocaleDateString()}
+                                    </p>
                                 </div>
                                 <div>
-                                    <p className={`text-xs ${themeClasses.textMuted}`}>Data Sources</p>
-                                    <p className="text-sm font-medium">{metadata.data_sources.length}</p>
+                                    <p className="text-xs text-gray-600">Data Sources</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {ghgData.data.metadata.data_sources.length}
+                                    </p>
                                 </div>
                                 <div>
-                                    <p className={`text-xs ${themeClasses.textMuted}`}>Calculation Methods</p>
-                                    <p className="text-sm font-medium">{metadata.calculation_methods.length}</p>
+                                    <p className="text-xs text-gray-600">Year</p>
+                                    <p className="text-sm font-medium text-gray-900">{ghgData.data.metadata.year}</p>
                                 </div>
                             </div>
-                            {companyInfo && (
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <p className={`text-xs ${themeClasses.textMuted}`}>Company</p>
-                                    <p className="text-sm font-medium">{companyInfo.name} • {companyInfo.industry} • {companyInfo.country}</p>
+                            {ghgData.data.company && (
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                    <p className="text-xs text-gray-600">Company</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {ghgData.data.company.name} • {ghgData.data.company.industry} • {ghgData.data.company.country}
+                                    </p>
                                 </div>
                             )}
                         </div>
                     )}
                 </div>
             </main>
+
+            {/* Calculation Explanation Modal */}
+            {showCalculationModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCalculationModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 z-10 p-5 border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-2xl">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-white/20">
+                                        <Calculator className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold">GHG Emissions Calculation Methodology</h3>
+                                        <p className="text-sm text-green-100">How we calculate greenhouse gas emissions</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowCalculationModal(false)}
+                                    className="p-1.5 rounded-xl bg-white/20 hover:bg-white/30 transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            {/* Calculation details remain unchanged */}
+                            <div className="space-y-3">
+                                <h4 className="text-base font-bold text-gray-900 mb-2">Scope 1: Direct Emissions</h4>
+                                <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
+                                    <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
+                                    <div className="bg-white p-3 rounded-lg border border-gray-200 mb-2">
+                                        <code className="text-green-600 font-mono text-sm">
+                                            Scope 1 Emissions = Σ(Activity Data × Emission Factor × GWP)
+                                        </code>
+                                    </div>
+                                    <p className="text-sm text-gray-700">
+                                        Direct emissions from owned or controlled sources including fuel combustion,
+                                        process emissions, and fugitive emissions.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-base font-bold text-gray-900 mb-2">Scope 2: Indirect Energy Emissions</h4>
+                                <div className="p-3 rounded-xl bg-green-50 border border-green-200">
+                                    <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
+                                    <div className="bg-white p-3 rounded-lg border border-green-200 mb-2">
+                                        <code className="text-green-600 font-mono text-sm">
+                                            Scope 2 Emissions = Electricity Consumption × Grid Emission Factor
+                                        </code>
+                                    </div>
+                                    <p className="text-sm text-gray-700">
+                                        Indirect emissions from purchased electricity, heat, or steam.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-base font-bold text-gray-900 mb-2">Scope 3: Value Chain Emissions</h4>
+                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                                    <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
+                                    <div className="bg-white p-3 rounded-lg border border-blue-200 mb-2">
+                                        <code className="text-blue-600 font-mono text-sm">
+                                            Scope 3 Emissions = Σ(Category Activity × Emission Factor)
+                                        </code>
+                                    </div>
+                                    <p className="text-sm text-gray-700">
+                                        All other indirect emissions that occur in the value chain including
+                                        purchased goods, transportation, waste, and employee commuting.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-base font-bold text-gray-900 mb-2">Carbon Sequestration</h4>
+                                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
+                                    <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
+                                    <div className="bg-white p-3 rounded-lg border border-purple-200 mb-2">
+                                        <code className="text-purple-600 font-mono text-sm">
+                                            Sequestration = (Biomass Carbon + SOC) × 3.6667
+                                        </code>
+                                    </div>
+                                    <p className="text-sm text-gray-700">
+                                        Carbon removed from the atmosphere through biomass growth and
+                                        soil organic carbon accumulation.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-base font-bold text-gray-900 mb-2">Net Carbon Balance</h4>
+                                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                                    <p className="font-medium text-sm text-gray-700 mb-2">Formula:</p>
+                                    <div className="bg-white p-3 rounded-lg border border-amber-200 mb-2">
+                                        <code className="text-amber-600 font-mono text-sm">
+                                            Net Balance = (Scope 1 + Scope 2 + Scope 3) - Sequestration
+                                        </code>
+                                    </div>
+                                    <p className="text-sm text-gray-700">
+                                        Positive values indicate net emissions, negative values indicate net removal.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-base font-bold text-gray-900 mb-2">Data Sources & Methodology</h4>
+                                <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200">
+                                    <ul className="space-y-2 text-sm text-gray-700">
+                                        <li className="flex items-start gap-2">
+                                            <Info className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                                            <span>Methodology: Greenhouse Gas Protocol Corporate Standard</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <Info className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                                            <span>Emission Factors: IPCC AR5, DEFRA, IEA databases</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <Info className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                                            <span>Sequestration: IPCC 2006 AFOLU Guidelines</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <Info className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                                            <span>GWP Values: IPCC AR5 (100-year time horizon)</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

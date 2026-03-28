@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Sidebar from "../../../components/Sidebar";
 import {
@@ -9,17 +9,23 @@ import {
     ArrowRight,
     AlertCircle,
     Calendar,
-    MapPin,
     TrendingUp,
     TrendingDown,
     Activity,
+    BarChart3,
+    PieChart,
+    FileText,
+    Globe,
+    Target,
+    Shield,
+    Leaf,
 } from "lucide-react";
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
     getCropYieldForecastData,
     type CropYieldForecastParams,
-    getAvailableCropYieldYears,
-
+    type CropYieldForecastResponse,
+    type YearOverYearChange,
 } from "../../../services/Admin_Service/esg_apis/crop_yield_service";
 
 // Import tab components
@@ -28,8 +34,13 @@ import AnalyticsTab from "./yield_tabs/AnalyticsTab";
 import ReportsTab from "./yield_tabs/ReportsTab";
 
 // Color Palette
-const LOGO_GREEN = '#008000';
-const LOGO_YELLOW = '#B8860B';
+const PRIMARY_GREEN = '#22c55e';
+const SECONDARY_GREEN = '#16a34a';
+const LIGHT_GREEN = '#86efac';
+const DARK_GREEN = '#15803d';
+const EMERALD = '#10b981';
+const LIME = '#84cc16';
+const BACKGROUND_GRAY = '#f9fafb';
 
 // Loading Skeleton
 const SkeletonCard = () => (
@@ -40,6 +51,49 @@ const Shimmer = () => (
     <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-gray-100/50 to-transparent"></div>
 );
 
+// Helper: parse data_range string into numeric years
+const parseDataRange = (dataRange: string | undefined): number[] => {
+    if (!dataRange) return [];
+
+    try {
+        const cleanedRange = dataRange
+            .replace(/–/g, '-')
+            .replace(/\s+/g, '')
+            .replace(/to/g, '-')
+            .trim();
+
+        const [startStr, endStr] = cleanedRange.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+
+        if (isNaN(start) || isNaN(end) || start > end) {
+            console.warn('Invalid data_range format:', dataRange);
+            return [];
+        }
+
+        const years = [];
+        for (let year = start; year <= end; year++) {
+            years.push(year);
+        }
+        return years;
+    } catch (error) {
+        console.error('Error parsing data_range:', error, dataRange);
+        return [];
+    }
+};
+
+// Helper: extract numeric years from reporting_period.data_available_years (strings)
+const extractNumericYears = (yearStrings: string[]): number[] => {
+    const years = new Set<number>();
+    yearStrings.forEach(str => {
+        const match = str.match(/\b\d{4}\b/g);
+        if (match) {
+            match.forEach(y => years.add(parseInt(y, 10)));
+        }
+    });
+    return Array.from(years).sort((a, b) => b - a); // descending, latest first
+};
+
 const CropYieldCarbonEmissionScreen = () => {
     const { companyId: paramCompanyId } = useParams<{ companyId: string }>();
     const location = useLocation();
@@ -48,18 +102,42 @@ const CropYieldCarbonEmissionScreen = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [cropYieldData, setCropYieldData] = useState<any>(null);
+    const [cropYieldData, setCropYieldData] = useState<CropYieldForecastResponse | null>(null);
     const [companies, setCompanies] = useState<Company[]>([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>(paramCompanyId || "");
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
+    const [latestYear, setLatestYear] = useState<number | null>(null);
     const [showCompanySelector, setShowCompanySelector] = useState(!paramCompanyId);
     const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "reports">("overview");
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Modal states
-    const [selectedModal, setSelectedModal] = useState<string | null>(null);
-    const [selectedMetricData, setSelectedMetricData] = useState<any>(null);
+    // Format helpers
+    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
+    const formatCurrency = (num: number) => new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(num);
+    const formatPercent = (num: number) => `${num.toFixed(1)}%`;
+
+    // Get trend icon
+    const getTrendIcon = (trend: string | number) => {
+        if (typeof trend === 'number') {
+            return trend > 0
+                ? <TrendingUp className="w-4 h-4 text-green-600" />
+                : trend < 0
+                    ? <TrendingDown className="w-4 h-4 text-red-600" />
+                    : <Activity className="w-4 h-4 text-yellow-600" />;
+        }
+        if (trend.toLowerCase().includes('improving') || trend.toLowerCase().includes('increase') || trend.toLowerCase().includes('up')) {
+            return <TrendingUp className="w-4 h-4 text-green-600" />;
+        } else if (trend.toLowerCase().includes('declining') || trend.toLowerCase().includes('decrease') || trend.toLowerCase().includes('down')) {
+            return <TrendingDown className="w-4 h-4 text-red-600" />;
+        }
+        return <Activity className="w-4 h-4 text-yellow-600" />;
+    };
 
     // Fetch companies
     const fetchCompanies = async () => {
@@ -74,6 +152,30 @@ const CropYieldCarbonEmissionScreen = () => {
         }
     };
 
+    // Get available years from company's data_range (used before data is loaded)
+    const getAvailableYearsFromCompany = (company: Company | undefined): number[] => {
+        if (!company) return [];
+
+        if (company.data_range) {
+            const years = parseDataRange(company.data_range);
+            if (years.length > 0) {
+                return years.sort((a, b) => b - a);
+            }
+        }
+
+        if (company.latest_esg_report_year) {
+            const currentYear = company.latest_esg_report_year;
+            const years = [];
+            for (let year = currentYear; year >= currentYear - 3; year--) {
+                if (year > 2020) years.push(year);
+            }
+            return years;
+        }
+
+        const currentYear = new Date().getFullYear();
+        return [currentYear];
+    };
+
     // Fetch crop yield data
     const fetchCropYieldData = async () => {
         if (!selectedCompanyId) return;
@@ -81,20 +183,46 @@ const CropYieldCarbonEmissionScreen = () => {
         try {
             setLoading(true);
             setError(null);
+
+            const selectedCompany = companies.find(c => c._id === selectedCompanyId);
+
+            // Determine year to fetch
+            let yearToFetch: number;
+            if (selectedYear !== null) {
+                yearToFetch = selectedYear;
+            } else {
+                // Use latest from company data_range or current year
+                const yearsFromCompany = getAvailableYearsFromCompany(selectedCompany);
+                yearToFetch = yearsFromCompany.length > 0 ? yearsFromCompany[0] : new Date().getFullYear();
+            }
+
             const params: CropYieldForecastParams = {
                 companyId: selectedCompanyId,
+                year: yearToFetch,
             };
-
-            if (selectedYear !== null) {
-                params.year = selectedYear;
-            }
 
             const data = await getCropYieldForecastData(params);
             setCropYieldData(data);
 
-            const years = getAvailableCropYieldYears(data);
-            const sortedYears = [...years].sort((a, b) => b - a);
-            setAvailableYears(sortedYears);
+            // Update available years from the API response
+            if (data.data.reporting_period.data_available_years) {
+                const numericYears = extractNumericYears(data.data.reporting_period.data_available_years);
+                setAvailableYears(numericYears);
+                const latest = numericYears.length > 0 ? numericYears[0] : yearToFetch;
+                setLatestYear(latest);
+                if (selectedYear === null) {
+                    setSelectedYear(latest);
+                }
+            } else {
+                // Fallback to company-based years
+                const yearsFromCompany = getAvailableYearsFromCompany(selectedCompany);
+                setAvailableYears(yearsFromCompany);
+                const latest = yearsFromCompany.length > 0 ? yearsFromCompany[0] : yearToFetch;
+                setLatestYear(latest);
+                if (selectedYear === null) {
+                    setSelectedYear(latest);
+                }
+            }
         } catch (err: any) {
             setError(err.message || "Failed to fetch crop yield forecast data");
             console.error("Error fetching crop yield data:", err);
@@ -111,41 +239,81 @@ const CropYieldCarbonEmissionScreen = () => {
 
     const handleCompanyChange = (companyId: string) => {
         setSelectedCompanyId(companyId);
+        setSelectedYear(null);
+        setCropYieldData(null);
         setShowCompanySelector(false);
         navigate(`/admin_crop_yield_carbon/${companyId}`);
     };
 
-    useEffect(() => {
-        if (location.state?.companyId) {
-            setSelectedCompanyId(location.state.companyId);
-            setShowCompanySelector(false);
-        }
-        fetchCompanies();
-    }, [location.state]);
+    const handleYearChange = (year: string) => {
+        const newYear = year ? Number(year) : latestYear;
+        setSelectedYear(newYear);
+    };
 
-    useEffect(() => {
-        if (selectedCompanyId) {
-            fetchCropYieldData();
-        }
-    }, [selectedCompanyId, selectedYear]);
+    // Handle metric click
+    const handleMetricClick = (metric: any, modalType: string) => {
+        console.log("Metric clicked:", metric, modalType);
+    };
+
+    // Handle calculation click
+    const handleCalculationClick = (calculationType: string, data?: any) => {
+        console.log("Calculation clicked:", calculationType, data);
+    };
+
+    // Derive summary metrics from the real API response
+    const summaryMetrics = useMemo(() => {
+        if (!cropYieldData) return null;
+
+        const yearly = cropYieldData.data.crop_yield_metrics.yearly_summary;
+        const changes = cropYieldData.data.crop_yield_metrics.year_over_year_changes;
+
+        // Helper to find YoY change for a specific metric and period that includes the selected year
+        const getChangeForMetric = (metricName: string, targetYear: number): number | null => {
+            const targetPeriod = `${targetYear - 1}→${targetYear}`;
+            const entry = changes.find(c => c.metric === metricName && c.period === targetPeriod);
+            return entry ? entry.numeric_change : null;
+        };
+
+        const currentYear = selectedYear || latestYear || new Date().getFullYear();
+
+        return {
+            // Total Cane Milled (tons)
+            totalYield: yearly.total_cane_milled,
+            yieldChange: getChangeForMetric("Total Cane Milled", currentYear) ?? 0,
+
+            // Company yield (tons/ha)
+            companyYield: yearly.company_yield,
+            companyYieldChange: getChangeForMetric("Company Yield (tons/ha)", currentYear) ?? 0,
+
+            // Private yield
+            privateYield: yearly.private_yield,
+
+            // Total area (ha)
+            totalArea: yearly.total_area,
+
+            // Cane to sugar ratio (%)
+            caneToSugarRatio: yearly.cane_to_sugar_ratio,
+
+            // Total sugar produced (company)
+            totalSugar: yearly.total_sugar_produced_company,
+
+            // Total molasses
+            totalMolasses: yearly.total_molasses_produced,
+        };
+    }, [cropYieldData, selectedYear, latestYear]);
 
     // Get selected company
     const selectedCompany = companies.find(c => c._id === selectedCompanyId);
 
-    // Format helpers
-    const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
-    const formatCurrency = (num: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(num);
-    const formatPercent = (num: number) => `${num.toFixed(1)}%`;
-
-    // Get trend icon
-    const getTrendIcon = (trend: string) => {
-        if (trend.toLowerCase().includes('improving') || trend.toLowerCase().includes('increase')) {
-            return <TrendingUp className="w-4 h-4 text-green-600" />;
-        } else if (trend.toLowerCase().includes('declining') || trend.toLowerCase().includes('decrease')) {
-            return <TrendingDown className="w-4 h-4 text-red-600" />;
-        }
-        return <Activity className="w-4 h-4 text-yellow-600" />;
-    };
+    // Mock coordinates – could be replaced with real data from company.area_of_interest_metadata
+    const mockCoordinates = selectedCompany?.area_of_interest_metadata?.coordinates.map(c => ({ lat: c.lat, lon: c.lon })) || [
+        { lat: 40.7128, lon: -74.0060 },
+        { lat: 40.7129, lon: -74.0061 },
+        { lat: 40.7127, lon: -74.0059 },
+        { lat: 40.7128, lon: -74.0060 },
+    ];
+    const areaName = selectedCompany?.area_of_interest_metadata?.name || "Primary Farm Fields";
+    const areaCovered = selectedCompany?.area_of_interest_metadata?.area_covered || "1,200 acres";
 
     // Prepare shared data for tabs
     const sharedData = {
@@ -157,12 +325,43 @@ const CropYieldCarbonEmissionScreen = () => {
         getTrendIcon,
         selectedYear,
         availableYears,
+        latestYear,
         loading,
         isRefreshing,
+        onMetricClick: handleMetricClick,
+        onCalculationClick: handleCalculationClick,
+        coordinates: mockCoordinates,
+        areaName,
+        areaCovered,
+        colors: {
+            primary: PRIMARY_GREEN,
+            secondary: SECONDARY_GREEN,
+            lightGreen: LIGHT_GREEN,
+            darkGreen: DARK_GREEN,
+            emerald: EMERALD,
+            lime: LIME,
+            background: BACKGROUND_GRAY,
+        },
+        summaryMetrics, // pass real metrics to tabs
     };
 
+    useEffect(() => {
+        if (location.state?.companyId) {
+            setSelectedCompanyId(location.state.companyId);
+            setShowCompanySelector(false);
+        }
+        fetchCompanies();
+    }, [location.state]);
+
+    // 🔥 FIX: Remove dependency on companies.length – fetch data as soon as we have a companyId
+    useEffect(() => {
+        if (selectedCompanyId) {
+            fetchCropYieldData();
+        }
+    }, [selectedCompanyId, selectedYear]); // Only depends on ID and year
+
     // Loading State
-    if (loading) {
+    if (loading && !cropYieldData) {
         return (
             <div className="flex min-h-screen bg-gray-50 text-gray-900">
                 <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -212,29 +411,65 @@ const CropYieldCarbonEmissionScreen = () => {
                     <div className="max-w-6xl mx-auto">
                         <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
                             <div className="flex items-center gap-3 mb-8">
-                                <Building className="w-10 h-10" style={{ color: LOGO_GREEN }} />
+                                <Leaf className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
                                 <div>
-                                    <h1 className="text-3xl font-bold" style={{ color: LOGO_GREEN }}>Select Company</h1>
-                                    <p className="text-gray-600">Choose a company to view Crop Yield Forecast data</p>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
+                                        Select Company
+                                    </h1>
+                                    <p className="text-gray-600">Choose a company to view Crop Yield & Carbon Data</p>
                                 </div>
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
-                                {companies.map((company) => (
-                                    <button
-                                        key={company._id}
-                                        onClick={() => handleCompanyChange(company._id)}
-                                        className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
-                                    >
-                                        <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
-                                            <Building className="w-6 h-6" style={{ color: LOGO_GREEN }} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
-                                            <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
-                                        </div>
-                                        <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </button>
-                                ))}
+                                {companies.map((company) => {
+                                    const dataRangeYears = parseDataRange(company.data_range);
+                                    const endYear = dataRangeYears.length > 0 ? Math.max(...dataRangeYears) : null;
+
+                                    return (
+                                        <button
+                                            key={company._id}
+                                            onClick={() => handleCompanyChange(company._id)}
+                                            className="flex items-center gap-4 p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-gray-50 transition-all duration-300 text-left group"
+                                        >
+                                            <div className="p-3 rounded-lg bg-green-50 border border-green-200 group-hover:bg-green-100 transition-colors">
+                                                <Leaf className="w-6 h-6" style={{ color: PRIMARY_GREEN }} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-lg mb-1 text-gray-900">{company.name}</h3>
+                                                <p className="text-sm text-gray-600">{company.industry} • {company.country}</p>
+                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                    <div
+                                                        className="text-xs px-2 py-1 rounded-full capitalize"
+                                                        style={{
+                                                            background: company.esg_data_status === 'complete'
+                                                                ? 'rgba(34, 197, 94, 0.2)'
+                                                                : company.esg_data_status === 'partial'
+                                                                    ? 'rgba(251, 191, 36, 0.2)'
+                                                                    : 'rgba(239, 68, 68, 0.2)',
+                                                            color: company.esg_data_status === 'complete'
+                                                                ? PRIMARY_GREEN
+                                                                : company.esg_data_status === 'partial'
+                                                                    ? '#FBBF24'
+                                                                    : '#EF4444'
+                                                        }}
+                                                    >
+                                                        {company.esg_data_status?.replace('_', ' ') || 'Not Collected'}
+                                                    </div>
+                                                    {company.data_range && (
+                                                        <div className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                            Data: {company.data_range}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {company.data_range && dataRangeYears.length > 0 && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {dataRangeYears.length} year{dataRangeYears.length > 1 ? 's' : ''} available • Latest: {endYear}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <ArrowRight className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -249,125 +484,207 @@ const CropYieldCarbonEmissionScreen = () => {
 
             <main className="flex-1">
                 {/* Header */}
-                <header
-                    className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200 px-6 py-4"
-                >
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => navigate("/company-management")}
-                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                style={{ color: LOGO_GREEN }}
-                            >
-                                <ChevronLeft className="w-5 h-5" />
-                            </button>
-                            <div>
-                                <h1 className="text-2xl font-bold" style={{ color: LOGO_GREEN }}>Crop Yield Forecast Dashboard</h1>
-                                <p className="text-sm text-gray-600">{selectedCompany?.name || "Company Data"}</p>
+                <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
+                    <div className="px-4 sm:px-6 py-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => navigate("/company-management")}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                    style={{ color: PRIMARY_GREEN }}
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div>
+                                    <h1 className="text-lg sm:text-xl font-bold" style={{ color: DARK_GREEN }}>
+                                        Crop Yield & Carbon Dashboard
+                                    </h1>
+                                    {selectedCompany && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="text-xs text-gray-600">{selectedCompany.name} • {selectedCompany.industry}</p>
+                                            {selectedCompany.data_range && (
+                                                <div className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                                    Data range: {selectedCompany.data_range}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* Year Selector */}
+                                {availableYears.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-gray-500" />
+                                        <select
+                                            value={selectedYear || ""}
+                                            onChange={(e) => handleYearChange(e.target.value)}
+                                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 min-w-[120px]"
+                                        >
+                                            {availableYears.map((year) => (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                    {year === latestYear ? ' (Latest)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                                    style={{ color: PRIMARY_GREEN }}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
+                                    style={{
+                                        background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                    }}
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Export
+                                </button>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            {availableYears.length > 0 && (
-                                <select
-                                    value={selectedYear === null ? "" : selectedYear}
-                                    onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : null)}
-                                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                >
-                                    <option value="">All Years</option>
-                                    {availableYears.map((year) => (
-                                        <option key={year} value={year}>{year}</option>
-                                    ))}
-                                </select>
-                            )}
-                            <button
-                                onClick={handleRefresh}
-                                disabled={isRefreshing}
-                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                style={{ color: LOGO_GREEN }}
-                            >
-                                <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            </button>
-                            <button
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-white font-medium"
-                                style={{
-                                    background: `linear-gradient(to right, ${LOGO_GREEN}, #006400)`,
-                                }}
-                            >
-                                <Download className="w-4 h-4" />
-                                Export
-                            </button>
+                        {/* Tabs */}
+                        <div className="flex space-x-2 overflow-x-auto pb-1">
+                            {[
+                                { id: "overview", label: "Overview", icon: BarChart3 },
+                                { id: "analytics", label: "Analytics", icon: PieChart },
+                                { id: "reports", label: "Reports", icon: FileText }
+                            ].map((tab) => {
+                                const Icon = tab.icon;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id as any)}
+                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
+                                            ? 'text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                            }`}
+                                        style={activeTab === tab.id ? {
+                                            background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
+                                        } : {}}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
                         </div>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex space-x-2 overflow-x-auto">
-                        {[
-                            { id: "overview", label: "Overview" },
-                            { id: "analytics", label: "Analytics" },
-                            { id: "reports", label: "Reports" }
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`px-6 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${activeTab === tab.id
-                                    ? 'text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                                    }`}
-                                style={activeTab === tab.id ? {
-                                    background: `linear-gradient(to right, ${LOGO_GREEN}, #006400)`,
-                                } : {}}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
                     </div>
                 </header>
 
                 {/* Error Message */}
                 {error && (
-                    <div className="m-6 p-4 rounded-xl bg-red-50 border border-red-200">
+                    <div className="m-4 sm:m-6 p-3 sm:p-4 rounded-xl bg-red-50 border border-red-200">
                         <div className="flex items-center">
-                            <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
-                            <p className="text-red-700">{error}</p>
+                            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-600 flex-shrink-0" />
+                            <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Quick Stats Bar */}
+                {summaryMetrics && !error && (
+                    <div className="mx-4 sm:mx-6 mt-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Total Cane Milled */}
+                            <div className="p-4 rounded-lg bg-green-50 border border-green-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-600">Total Cane Milled</span>
+                                    <Target className="w-4 h-4 text-green-600" />
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.totalYield)}</span>
+                                    <span className="text-sm font-medium text-green-600">tons</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-2 text-sm">
+                                    {getTrendIcon(summaryMetrics.yieldChange)}
+                                    <span className={summaryMetrics.yieldChange > 0 ? 'text-green-600' : summaryMetrics.yieldChange < 0 ? 'text-red-600' : 'text-gray-600'}>
+                                        {summaryMetrics.yieldChange !== 0 ? `${summaryMetrics.yieldChange > 0 ? '+' : ''}${summaryMetrics.yieldChange}%` : '0%'}
+                                    </span>
+                                    <span className="text-gray-600">vs last year</span>
+                                </div>
+                            </div>
+
+                            {/* Company Yield (tons/ha) */}
+                            <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-600">Company Yield</span>
+                                    <Leaf className="w-4 h-4 text-blue-600" />
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-gray-900">{summaryMetrics.companyYield.toFixed(2)}</span>
+                                    <span className="text-sm font-medium text-blue-600">t/ha</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-2 text-sm">
+                                    {getTrendIcon(summaryMetrics.companyYieldChange)}
+                                    <span className={summaryMetrics.companyYieldChange > 0 ? 'text-green-600' : summaryMetrics.companyYieldChange < 0 ? 'text-red-600' : 'text-gray-600'}>
+                                        {summaryMetrics.companyYieldChange !== 0 ? `${summaryMetrics.companyYieldChange > 0 ? '+' : ''}${summaryMetrics.companyYieldChange}%` : '0%'}
+                                    </span>
+                                    <span className="text-gray-600">vs last year</span>
+                                </div>
+                            </div>
+
+                            {/* Total Area Under Cane */}
+                            <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-600">Total Area</span>
+                                    <Activity className="w-4 h-4 text-purple-600" />
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-gray-900">{formatNumber(summaryMetrics.totalArea)}</span>
+                                    <span className="text-sm font-medium text-purple-600">ha</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-2">
+                                    Private yield: {summaryMetrics.privateYield.toFixed(2)} t/ha
+                                </div>
+                            </div>
+
+                            {/* Cane to Sugar Ratio */}
+                            <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-100">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-600">Cane to Sugar</span>
+                                    <Shield className="w-4 h-4 text-yellow-600" />
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-gray-900">{summaryMetrics.caneToSugarRatio.toFixed(2)}</span>
+                                    <span className="text-sm font-medium text-yellow-600">%</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-2">
+                                    Sugar: {formatNumber(summaryMetrics.totalSugar)} tons
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* Content */}
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     {activeTab === "overview" && (
                         <OverviewTab
                             {...sharedData}
-                            onMetricClick={(metric, modalType) => {
-                                setSelectedMetricData(metric);
-                                setSelectedModal(modalType);
-                            }}
                         />
                     )}
                     {activeTab === "analytics" && (
                         <AnalyticsTab
                             {...sharedData}
-                            onMetricClick={(metric, modalType) => {
-                                setSelectedMetricData(metric);
-                                setSelectedModal(modalType);
-                            }}
                         />
                     )}
                     {activeTab === "reports" && (
                         <ReportsTab
                             {...sharedData}
-                            onMetricClick={(metric, modalType) => {
-                                setSelectedMetricData(metric);
-                                setSelectedModal(modalType);
-                            }}
                         />
                     )}
                 </div>
             </main>
-
-            {/* Modals */}
-            {/* Add your modals here */}
         </div>
     );
 };
