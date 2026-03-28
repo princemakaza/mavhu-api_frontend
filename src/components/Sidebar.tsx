@@ -19,11 +19,14 @@ import {
   Globe,
   ChevronRight,
   X,
+  Loader2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Logo from "../assets/logo.png";
+// Import permissions service
+import { getCompanyPermission, type Permission } from "../services/Admin_Service/api_permissions_service";
 
-const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
+const Sidebar = ({ isOpen = true, onClose = () => { } }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -35,12 +38,46 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
   const [isCustomer, setIsCustomer] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
+  // Permissions state
+  const [permissions, setPermissions] = useState<Permission | null>(null);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [permissionsError, setPermissionsError] = useState<string | null>(null);
+
   useEffect(() => {
     const loggedInCustomer = localStorage.getItem("loggedInCustomer");
     const storedCompanyId = localStorage.getItem("companyId");
     setIsCustomer(loggedInCustomer === "true");
     setCompanyId(storedCompanyId);
   }, []);
+
+  // Fetch permissions when customer and companyId are available
+  useEffect(() => {
+    if (isCustomer && companyId) {
+      const fetchPermissions = async () => {
+        try {
+          setPermissionsLoading(true);
+          setPermissionsError(null);
+          const response = await getCompanyPermission(companyId);
+          setPermissions(response.permissions);
+        } catch (err: any) {
+          // If 404, no permissions exist -> all APIs are hidden
+          if (err.message?.includes('404') || err.response?.status === 404) {
+            setPermissions(null);
+          } else {
+            setPermissionsError(err.message || "Failed to fetch permissions");
+          }
+        } finally {
+          setPermissionsLoading(false);
+        }
+      };
+      fetchPermissions();
+    } else {
+      // Admin or no companyId -> reset permissions
+      setPermissions(null);
+      setPermissionsLoading(false);
+      setPermissionsError(null);
+    }
+  }, [isCustomer, companyId]);
 
   // Determine dashboard path based on role
   const dashboardPath = isCustomer ? "/member_dashboard" : "/admin_dashboard";
@@ -82,19 +119,19 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
       icon: Users,
       label: "Social Data",
       path: "/admin_social_data",
-      adminOnly: true,   // <-- now hidden for customers
+      adminOnly: true,
     },
     {
       icon: Leaf,
       label: "Environmental Data",
       path: "/admin_environmental_data",
-      adminOnly: true,   // <-- hidden for customers
+      adminOnly: true,
     },
     {
       icon: Building,
       label: "Governance Data",
       path: "/admin_governance_data",
-      adminOnly: true,   // <-- hidden for customers
+      adminOnly: true,
     },
   ];
 
@@ -109,26 +146,59 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
     fullPath: buildPath(item.path),
   }));
 
-  // API items base paths (always shown, but with companyId for customers)
-  const apiItemsBase = [
-    { icon: Leaf, label: "Soil Health & Carbon Quality", path: "/admin_soil_health_carbon" },
-    { icon: TrendingUp, label: "Crop Yield Forecast & Risk", path: "/admin_crop_yield_carbon" },
-    { icon: Cloud, label: "GHG Emissions", path: "/admin_ghg_emission" },
-    { icon: Globe, label: "Biodiversity & Land Use Integrity", path: "/admin_biodiversity_land_use" },
-    { icon: Droplet, label: "Irrigation Efficiency & Water Risk", path: "/admin_irrigation_water" },
-    { icon: Shield, label: "Farm Management Compliance", path: "/admin_farm_compliance" },
-    { icon: Zap, label: "Energy Consumption & Renewables", path: "/admin_energy_consumption" },
-    { icon: Recycle, label: "Waste Management", path: "/admin_waste_management" },
-    { icon: Users, label: "Workforce & Diversity", path: "/admin_workforce_diversity" },
-    { icon: ShieldPlus, label: "Health & Safety", path: "/admin_health_safety" },
-    { icon: Landmark, label: "Governance & Board Metrics", path: "/admin_governance_board_metrics" },
-    { icon: HandHeart, label: "Community Engagement", path: "/admin_community_engagement" },
-  ];
+  // API items base with their corresponding permission field names
+  const apiItemsBase: {
+    icon: any;
+    label: string;
+    path: string;
+    permissionField: keyof Permission; // matches the Permission interface fields
+  }[] = [
+      { icon: Leaf, label: "Soil Health & Carbon Quality", path: "/admin_soil_health_carbon", permissionField: "soilHealthCarbon" },
+      { icon: TrendingUp, label: "Crop Yield Forecast & Risk", path: "/admin_crop_yield_carbon", permissionField: "cropYieldForecastRisk" },
+      { icon: Cloud, label: "GHG Emissions", path: "/admin_ghg_emission", permissionField: "ghgEmissions" },
+      { icon: Globe, label: "Biodiversity & Land Use Integrity", path: "/admin_biodiversity_land_use", permissionField: "biodiversityLandUse" },// Color Palette (Light Indigo Theme)
+      { icon: Droplet, label: "Irrigation Efficiency & Water Risk", path: "/admin_irrigation_water", permissionField: "irrigationWater" },
+      { icon: Shield, label: "Farm Management Compliance", path: "/admin_farm_compliance", permissionField: "farmManagementCompliance" },
+      { icon: Zap, label: "Energy Consumption & Renewables", path: "/admin_energy_consumption", permissionField: "energyConsumptionRenewables" },
+      { icon: Recycle, label: "Waste Management", path: "/admin_waste_management", permissionField: "wasteManagement" },
+      { icon: Users, label: "Workforce & Diversity", path: "/admin_workforce_diversity", permissionField: "workforceDiversity" },
+      { icon: ShieldPlus, label: "Health & Safety", path: "/admin_health_safety", permissionField: "healthSafety" },// Color Palette (Blue Theme)
+      { icon: Landmark, label: "Governance & Board Metrics", path: "/admin_governance_board_metrics", permissionField: "governanceBoardMetrics" },
+      { icon: HandHeart, label: "Community Engagement", path: "/admin_community_engagement", permissionField: "communityEngagement" },
+      { icon: BarChart, label: "Overall ESG Score", path: "/admin_overall_esg_score", permissionField: "overallESGScore" },
+    ];
 
-  const apiItems = apiItemsBase.map((item) => ({
-    ...item,
-    fullPath: buildPath(item.path),
-  }));
+  // For admin: show all items; for customer: filter based on permissions
+  const getVisibleApiItems = () => {
+    if (!isCustomer) {
+      // Admin sees all
+      return apiItemsBase.map((item) => ({
+        ...item,
+        fullPath: buildPath(item.path),
+      }));
+    }
+
+    // Customer: only show items where permission is true
+    if (permissionsLoading) {
+      // While loading, return empty array – we'll show a loader separately
+      return [];
+    }
+
+    if (!permissions) {
+      // No permissions exist -> show nothing
+      return [];
+    }
+
+    return apiItemsBase
+      .filter((item) => permissions[item.permissionField] === true)
+      .map((item) => ({
+        ...item,
+        fullPath: buildPath(item.path),
+      }));
+  };
+
+  const visibleApiItems = getVisibleApiItems();
+  const apiCount = isCustomer ? visibleApiItems.length : apiItemsBase.length;
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -149,9 +219,8 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-all duration-300 ease-out lg:translate-x-0 lg:static lg:inset-0 overflow-hidden flex flex-col bg-white border-r border-gray-200`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform ${isOpen ? "translate-x-0" : "-translate-x-full"
+          } transition-all duration-300 ease-out lg:translate-x-0 lg:static lg:inset-0 overflow-hidden flex flex-col bg-white border-r border-gray-200`}
       >
         {/* Header */}
         <div className="relative flex items-center justify-between h-14 px-4 border-b border-gray-200 bg-white flex-shrink-0">
@@ -193,41 +262,37 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
               return (
                 <div
                   key={index}
-                  className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer mb-1 ${
-                    isActive
+                  className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer mb-1 ${isActive
                       ? "text-white"
                       : "text-gray-700 hover:bg-gray-50"
-                  }`}
+                    }`}
                   onClick={() => handleNavigation(item.fullPath)}
                   style={
                     isActive
                       ? {
-                          background: `linear-gradient(to right, ${logoGreen}, #006400)`,
-                          boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
-                        }
+                        background: `linear-gradient(to right, ${logoGreen}, #006400)`,
+                        boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
+                      }
                       : {}
                   }
                 >
                   <div
-                    className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${
-                      isActive ? "bg-white/20" : "bg-gray-100"
-                    }`}
+                    className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${isActive ? "bg-white/20" : "bg-gray-100"
+                      }`}
                   >
                     <IconComponent
-                      className={`w-4 h-4 transition-all duration-300 ${
-                        isActive
+                      className={`w-4 h-4 transition-all duration-300 ${isActive
                           ? "text-white"
                           : "text-gray-600 group-hover:text-gray-800"
-                      }`}
+                        }`}
                     />
                   </div>
                   <div className="flex-1 font-medium text-sm">{item.label}</div>
                   <ChevronRight
-                    className={`w-4 h-4 transition-all duration-300 ${
-                      isActive
+                    className={`w-4 h-4 transition-all duration-300 ${isActive
                         ? "text-white opacity-100 translate-x-0.5"
                         : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
-                    }`}
+                      }`}
                   />
                 </div>
               );
@@ -241,57 +306,85 @@ const Sidebar = ({ isOpen = true, onClose = () => {} }) => {
                 ESG APIs
               </h2>
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                13
+                {apiCount}
               </span>
             </div>
-            <div className="space-y-1">
-              {apiItems.map((item, index) => {
-                const IconComponent = item.icon;
-                const isActive = location.pathname === item.fullPath;
 
-                return (
-                  <div
-                    key={index}
-                    className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${
-                      isActive
-                        ? "text-white"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                    onClick={() => handleNavigation(item.fullPath)}
-                    style={
-                      isActive
-                        ? {
+            {/* Loading state for customer permissions */}
+            {isCustomer && permissionsLoading && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: logoGreen }} />
+                <span className="ml-2 text-sm text-gray-500">Loading permissions...</span>
+              </div>
+            )}
+
+            {/* Error state */}
+            {isCustomer && permissionsError && (
+              <div className="text-center py-4">
+                <p className="text-xs text-red-600">Failed to load permissions</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-xs underline mt-1"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* No permissions (or all false) message for customer */}
+            {isCustomer && !permissionsLoading && !permissionsError && visibleApiItems.length === 0 && (
+              <div className="text-center py-4">
+                <p className="text-xs text-gray-500">No APIs accessible</p>
+              </div>
+            )}
+
+            {/* Render the visible API items */}
+            {!permissionsLoading && !permissionsError && (
+              <div className="space-y-1">
+                {visibleApiItems.map((item, index) => {
+                  const IconComponent = item.icon;
+                  const isActive = location.pathname === item.fullPath;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${isActive
+                          ? "text-white"
+                          : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      onClick={() => handleNavigation(item.fullPath)}
+                      style={
+                        isActive
+                          ? {
                             background: `linear-gradient(to right, ${logoGreen}, #006400)`,
                             boxShadow: "0 10px 20px rgba(0, 128, 0, 0.15)",
                           }
-                        : {}
-                    }
-                  >
-                    <div
-                      className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${
-                        isActive ? "bg-white/20" : "bg-gray-100"
-                      }`}
+                          : {}
+                      }
                     >
-                      <IconComponent
-                        className={`w-3.5 h-3.5 transition-all duration-300 ${
-                          isActive
-                            ? "text-white"
-                            : "text-gray-600 group-hover:text-gray-800"
-                        }`}
+                      <div
+                        className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${isActive ? "bg-white/20" : "bg-gray-100"
+                          }`}
+                      >
+                        <IconComponent
+                          className={`w-3.5 h-3.5 transition-all duration-300 ${isActive
+                              ? "text-white"
+                              : "text-gray-600 group-hover:text-gray-800"
+                            }`}
+                        />
+                      </div>
+                      <div className="flex-1 font-medium text-sm">{item.label}</div>
+                      <ChevronRight
+                        className={`w-3 h-3 transition-all duration-300 ${isActive
+                            ? "text-white opacity-100 translate-x-0.5"
+                            : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
+                          }`}
                       />
                     </div>
-                    <div className="flex-1 font-medium text-sm">{item.label}</div>
-                    <ChevronRight
-                      className={`w-3 h-3 transition-all duration-300 ${
-                        isActive
-                          ? "text-white opacity-100 translate-x-0.5"
-                          : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
-                      }`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* API Documentation Link */}

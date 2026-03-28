@@ -56,6 +56,11 @@ export const registerUser = async (
     payload: RegisterPayload
 ): Promise<RegisterResponse> => {
     try {
+        // Clear any existing user auth data before registration
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userData");
+        localStorage.removeItem("userId");
+
         const { data } = await api.post<RegisterResponse>(
             "/users/register",
             payload
@@ -77,7 +82,6 @@ export const registerUser = async (
         throw new Error(errorMessage || error.response?.data?.message || "Registration failed");
     }
 };
-
 export const verifyEmailOtp = async (
     payload: VerifyOtpPayload
 ): Promise<VerifyOtpResponse> => {
@@ -96,6 +100,11 @@ export const loginUser = async (
             "/users/login",
             payload
         );
+
+        // Clear any existing auth data before storing new ones
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userData");
+        localStorage.removeItem("userId");
 
         if (data.token) {
             localStorage.setItem("authToken", data.token);

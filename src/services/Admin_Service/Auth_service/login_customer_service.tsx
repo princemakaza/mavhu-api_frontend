@@ -40,6 +40,13 @@ export const loginMember = async (
     payload: MemberLoginPayload
 ): Promise<MemberLoginResponse> => {
     try {
+        // Clear any existing member auth data before storing new ones
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userData");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("companyId");
+        localStorage.removeItem("loggedInCustomer");
+
         const { data } = await api.post<MemberLoginResponse>(
             "/members/login",      // adjust endpoint if needed (e.g., "/login")
             payload

@@ -47,13 +47,14 @@ import HealthSafetyAnalyticsTab from "./health_safety_tabs/HealthSafetyAnalytics
 import HealthSafetyReportsTab from "./health_safety_tabs/HealthSafetyReportsTab";
 
 // Color Palette
-const PRIMARY_GREEN = '#22c55e';
-const SECONDARY_GREEN = '#16a34a';
-const LIGHT_GREEN = '#86efac';
-const DARK_GREEN = '#15803d';
-const EMERALD = '#10b981';
-const LIME = '#84cc16';
-const BACKGROUND_GRAY = '#f9fafb';
+// Color Palette (Blue Theme)
+const PRIMARY_GREEN = '#3b82f6';      // Blue 500
+const SECONDARY_GREEN = '#2563eb';    // Blue 600
+const LIGHT_GREEN = '#93c5fd';        // Blue 300
+const DARK_GREEN = '#1d4ed8';         // Blue 700
+const EMERALD = '#0ea5e9';            // Sky 500
+const LIME = '#38bdf8';               // Sky 400
+const BACKGROUND_GRAY = '#f1f5f9';    // Slate 100
 
 // Loading Skeleton
 const SkeletonCard = () => (
@@ -664,8 +665,8 @@ const HealthSafetyScreen = () => {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as any)}
                                         className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
-                                                ? 'text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                            ? 'text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                                             }`}
                                         style={activeTab === tab.id ? {
                                             background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,

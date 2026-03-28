@@ -258,6 +258,7 @@ export const getCropYieldForecastData = async (
 ): Promise<CropYieldForecastResponse> => {
     try {
         const { companyId, year } = params;
+        console.log(`Fetching crop yield forecast data for companyId: ${companyId}, year: ${year}`);
 
         const queryParams = new URLSearchParams();
         if (year !== undefined) {

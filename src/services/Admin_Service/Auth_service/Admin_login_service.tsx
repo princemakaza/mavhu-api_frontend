@@ -47,6 +47,12 @@ const loginAdmin = async (userData: LoginPayload): Promise<LoginResponse> => {
 
     const { token, admin } = response.data;
 
+    // Clear any existing token and admin data before storing new ones
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    localStorage.removeItem("adminId");
+    // Add any other keys you want to clear here
+
     if (token) {
       localStorage.setItem("adminToken", token);
       console.log("Token stored successfully!");
