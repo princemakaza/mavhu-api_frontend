@@ -1,5 +1,5 @@
 import api from "../Auth_service/api";
-
+import jsPDF from 'jspdf';
 /**
  * =====================
  * Types & Interfaces
@@ -705,7 +705,7 @@ export const getEnvironmentalMetricsSummary = (data: SoilHealthCarbonResponse | 
             },
         };
     }
-    
+
     const metrics = data.data.environmental_metrics;
     return {
         totalMetrics: metrics.total_metrics,
@@ -729,7 +729,7 @@ export const getAllESGMetricsSummary = (data: SoilHealthCarbonResponse | null) =
             totalMetrics: 0,
         };
     }
-    
+
     const allEsgMetrics = data.data.all_esg_metrics;
     return {
         ...allEsgMetrics,
@@ -818,13 +818,13 @@ export const getCarbonCreditPredictions = (data: SoilHealthCarbonResponse) => {
     }
 
     const predictions = data.data.carbon_credit_predictions;
-    
+
     return {
         ...predictions,
         eligibilityStatus: {
             ...predictions.eligibility_status,
             statusColor: predictions.eligible ? "success" : "error",
-            requirementsMetPercent: predictions.eligibility_status ? 
+            requirementsMetPercent: predictions.eligibility_status ?
                 Math.round((Object.values(predictions.eligibility_status).filter(Boolean).length / Object.keys(predictions.eligibility_status).length) * 100)
                 : 0,
         },
@@ -1145,6 +1145,83 @@ export const getCarbonCreditEligibility = (data: SoilHealthCarbonResponse) => {
     };
 };
 
+/**
+ * Download soil health and carbon data as a PDF.
+ * @param data - The API response data
+ * @param companyName - Optional company name (overrides the one from data)
+ */
+export const downloadSoilHealthDataAsPDF = async (
+    data: SoilHealthCarbonResponse,
+    companyName?: string
+) => {
+    // Guard against missing data
+    if (!data || !data.data) {
+        console.error('Invalid data provided');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 20;
+    let yPos = margin;
+
+    // Helper to add text with automatic page breaks
+    const addText = (text: string, fontSize?: number) => {
+        if (fontSize) doc.setFontSize(fontSize);
+        const lines = doc.splitTextToSize(text, doc.internal.pageSize.width - margin * 2);
+        lines.forEach((line: string) => {
+            if (yPos + 7 > pageHeight - margin) {
+                doc.addPage();
+                yPos = margin;
+            }
+            doc.text(line, margin, yPos);
+            yPos += 7;
+        });
+        if (fontSize) doc.setFontSize(12); // reset to default
+    };
+
+    // Use provided company name or fetch from data
+    const finalCompanyName = companyName || data.data.company?.name || 'Unknown Company';
+
+    // Title
+    const title = `Mavhu Soil Health and Carbon Quality API for ${finalCompanyName}`;
+    addText(title, 18);
+    yPos += 5;
+
+    // Generation timestamp
+    addText(`Generated: ${new Date().toLocaleString()}`, 10);
+    yPos += 5;
+
+    // Company details
+    const company = data.data.company;
+    addText(`Company: ${company.name}`, 12);
+    addText(`Registration: ${company.registrationNumber}`, 12);
+    addText(`Industry: ${company.industry}`, 12);
+    addText(`Country: ${company.country}`, 12);
+    yPos += 5;
+
+    // Key indicators summary
+    const summary = getSoilHealthSummary(data);
+    addText('Key Indicators:', 14);
+    addText(`Soil Organic Carbon: ${summary.soilOrganicCarbon} tC/ha (Trend: ${summary.trends.soilHealth})`);
+    addText(`Carbon Stock: ${summary.carbonStock} tCO2/ha (Trend: ${summary.trends.carbonStock})`);
+    addText(`Net Carbon Balance: ${summary.netCarbonBalance} tCO2e`);
+    addText(`Vegetation Health (NDVI): ${summary.vegetationHealth} (Trend: ${summary.trends.vegetation})`);
+    addText(`Sequestration Rate: ${summary.sequestrationRate} tCO2/ha/year`);
+    addText(`Permanence Rating: ${summary.permanenceRating}`);
+    addText(`Confidence Score: ${summary.confidenceScore}/100`);
+    yPos += 10;
+
+    // Full JSON data
+    addText('Complete API Response (JSON):', 14);
+    const jsonString = JSON.stringify(data, null, 2);
+    addText(jsonString);
+
+    // Save the PDF
+    const fileName = `soil-health-carbon-${finalCompanyName.replace(/\s+/g, '-')}.pdf`;
+    doc.save(fileName);
+};
+
 export default {
     getSoilHealthCarbonData,
     getAvailableSoilHealthYears,
@@ -1182,4 +1259,5 @@ export default {
     getVerificationStatus,
     getAllTrends,
     getCarbonCreditEligibility,
+    downloadSoilHealthDataAsPDF
 };

@@ -18,6 +18,7 @@ import {
 import { getCompanies, type Company } from "../../../services/Admin_Service/companies_service";
 import {
     getCropYieldForecastData,
+    downloadCropYieldForecastDataAsPDF, // ✅ Import the PDF download function
     type CropYieldForecastParams,
     type CropYieldForecastResponse,
 } from "../../../services/Admin_Service/esg_apis/crop_yield_service";
@@ -126,10 +127,6 @@ const CropYieldCarbonEmissionScreen = () => {
     };
 
     // ── Core data fetcher — takes explicit args to avoid stale closures ────────
-    //
-    // KEY FIX: we pass `companiesList` and `year` explicitly instead of reading
-    // from state, because React state updates are async and the closure would
-    // capture the old (empty) values if we relied on state directly.
     const fetchCropYieldDataWith = async (
         companyId: string,
         year: number | null,
@@ -211,11 +208,6 @@ const CropYieldCarbonEmissionScreen = () => {
     };
 
     // ── Initial load: fetch companies first, then data ────────────────────────
-    //
-    // KEY FIX: we chain company fetch -> data fetch in one async flow so that
-    // `companiesList` is never empty when `fetchCropYieldDataWith` runs.
-    // Previously two separate useEffects caused a race where the data fetch
-    // fired before companies were in state.
     const initLoad = async () => {
         try {
             const response = await getCompanies(1, 100);
@@ -228,7 +220,6 @@ const CropYieldCarbonEmissionScreen = () => {
             }
 
             if (companyId) {
-                // Pass `response.items` directly — don't read from state (still empty here)
                 await fetchCropYieldDataWith(companyId, null, response.items);
             } else {
                 setLoading(false);
@@ -259,11 +250,6 @@ const CropYieldCarbonEmissionScreen = () => {
     };
 
     // ── Year change ───────────────────────────────────────────────────────────
-    //
-    // KEY FIX: we call fetchCropYieldDataWith directly with the new year value
-    // instead of setting state and relying on a useEffect. This avoids the
-    // stale-closure problem where selectedYear inside the effect still holds
-    // the old value at the time the effect fires.
     const handleYearChange = (yearStr: string) => {
         const newYear = yearStr ? Number(yearStr) : latestYear;
         if (!newYear || isNaN(newYear)) return;
@@ -439,6 +425,12 @@ const CropYieldCarbonEmissionScreen = () => {
                                 </button>
 
                                 <button
+                                    onClick={() => {
+                                        if (cropYieldData) {
+                                            downloadCropYieldForecastDataAsPDF(cropYieldData);
+                                        }
+                                    }}
+                                    disabled={!cropYieldData || loading}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
                                     style={{ background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})` }}
                                 >
@@ -459,8 +451,8 @@ const CropYieldCarbonEmissionScreen = () => {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as any)}
                                     className={`px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
-                                            ? 'text-white shadow-md'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                        ? 'text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                                         }`}
                                     style={
                                         activeTab === tab.id

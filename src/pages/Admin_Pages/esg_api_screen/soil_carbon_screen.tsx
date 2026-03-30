@@ -23,6 +23,7 @@ import {
     type SoilHealthCarbonResponse,
     type SoilHealthCarbonParams,
     getAvailableSoilHealthYears,
+    downloadSoilHealthDataAsPDF, // ✅ Import the PDF download function
 } from "../../../services/Admin_Service/esg_apis/soil_carbon_service";
 
 // Import tab components
@@ -93,24 +94,24 @@ const SoilHealthCarbonEmissionScreen = () => {
         try {
             setLoading(true);
             setError(null);
-            
+
             // First fetch all data to get available years
             const allData = await getSoilHealthCarbonData({
                 companyId: selectedCompanyId,
             });
-            
+
             // Get available years and determine latest
             const years = getAvailableSoilHealthYears(allData);
             const sortedYears = [...years].sort((a, b) => b - a);
             setAvailableYears(sortedYears);
-            
+
             if (sortedYears.length > 0) {
                 const latest = sortedYears[0]; // First item after descending sort is latest
                 setLatestYear(latest);
-                
+
                 // If no year is selected yet, default to latest year
                 const yearToFetch = selectedYear !== null ? selectedYear : latest;
-                
+
                 // Fetch data for the selected or latest year
                 const params: SoilHealthCarbonParams = {
                     companyId: selectedCompanyId,
@@ -119,7 +120,7 @@ const SoilHealthCarbonEmissionScreen = () => {
 
                 const data = await getSoilHealthCarbonData(params);
                 setSoilHealthData(data);
-                
+
                 // Set selected year if it wasn't set
                 if (selectedYear === null) {
                     setSelectedYear(latest);
@@ -271,7 +272,7 @@ const SoilHealthCarbonEmissionScreen = () => {
                             <div className="flex items-center gap-3 mb-8">
                                 <Building className="w-10 h-10" style={{ color: PRIMARY_GREEN }} />
                                 <div>
-                                    <h1 
+                                    <h1
                                         className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent"
                                     >
                                         Select Company
@@ -350,10 +351,16 @@ const SoilHealthCarbonEmissionScreen = () => {
                                     <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                                 </button>
                                 <button
+                                    onClick={() => {
+                                        if (soilHealthData) {
+                                            downloadSoilHealthDataAsPDF(soilHealthData);
+                                        }
+                                    }}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
                                     style={{
                                         background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
                                     }}
+                                    disabled={!soilHealthData || loading}
                                 >
                                     <Download className="w-3.5 h-3.5" />
                                     Export
@@ -462,7 +469,7 @@ const SoilHealthCarbonEmissionScreen = () => {
                                         </code>
                                     </div>
                                     <p className="text-sm text-gray-700">
-                                        Calculated using Sentinel-2 satellite imagery with NDVI/NDWI indices, 
+                                        Calculated using Sentinel-2 satellite imagery with NDVI/NDWI indices,
                                         following IPCC 2006 Guidelines for AFOLU sector.
                                     </p>
                                 </div>

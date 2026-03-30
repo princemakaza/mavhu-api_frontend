@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import {
     getGhgEmissionData,
+    downloadGhgEmissionsDataAsPDF, // ✅ Import the PDF download function
     type GHGEmissionsResponse,
     type GHGEmissionsParams
 } from "../../../services/Admin_Service/esg_apis/ghg_emmision";
@@ -64,13 +65,14 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const PRIMARY_GREEN   = '#8b5cf6';  // violet-500
-const SECONDARY_GREEN = '#7c3aed';  // violet-600
-const LIGHT_GREEN     = '#c4b5fd';  // violet-300
-const DARK_GREEN      = '#6d28d9';  // violet-700
-const EMERALD         = '#a855f7';  // purple-500
-const LIME            = '#e879f9';  // fuchsia-400
-const BACKGROUND_GRAY = '#faf5ff';  // violet-50
+// Color Palette
+const PRIMARY_GREEN = '#22c55e';       // Green-500
+const SECONDARY_GREEN = '#16a34a';     // Green-600
+const LIGHT_GREEN = '#86efac';         // Green-300
+const DARK_GREEN = '#15803d';          // Green-700
+const EMERALD = '#10b981';             // Emerald-500
+const LIME = '#84cc16';                // Lime-500
+const BACKGROUND_GRAY = '#f9fafb';     // Gray-50
 
 // Loading Skeleton
 const SkeletonCard = () => (
@@ -503,6 +505,12 @@ const GhgEmissionScreen = () => {
                                     <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                                 </button>
                                 <button
+                                    onClick={() => {
+                                        if (ghgData) {
+                                            downloadGhgEmissionsDataAsPDF(ghgData);
+                                        }
+                                    }}
+                                    disabled={!ghgData || loading}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
                                     style={{
                                         background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,
@@ -525,8 +533,8 @@ const GhgEmissionScreen = () => {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as any)}
                                     className={`px-4 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${activeTab === tab.id
-                                            ? 'text-white shadow-md'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                                        ? 'text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                                         }`}
                                     style={activeTab === tab.id ? {
                                         background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,

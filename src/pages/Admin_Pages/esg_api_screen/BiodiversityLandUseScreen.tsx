@@ -21,6 +21,7 @@ import { getCompanies, type Company } from "../../../services/Admin_Service/comp
 import {
     getBiodiversityLandUseData,
     getAvailableYears,
+    downloadBiodiversityLandUseDataAsPDF, // ✅ Import the PDF download function
     type BiodiversityLandUseResponse,
     type BiodiversityLandUseParams,
 } from "../../../services/Admin_Service/esg_apis/biodiversity_api_service";
@@ -30,16 +31,16 @@ import OverviewTab from "./biodiversity_tabs/OverviewTab";
 import AnalyticsTab from "./biodiversity_tabs/AnalyticsTab";
 import ReportsTab from "./biodiversity_tabs/ReportsTab";
 
-// Color Palette (matched to CropYieldCarbonEmissionScreen)
-// Color Palette (Cool Teal Theme)
-// Color Palette (Light Indigo Theme)
-const PRIMARY_GREEN = '#6366f1';      // Indigo 500
-const SECONDARY_GREEN = '#4f46e5';    // Indigo 600
-const LIGHT_GREEN = '#c7d2fe';        // Indigo 200
-const DARK_GREEN = '#4338ca';         // Indigo 700
-const EMERALD = '#818cf8';            // Indigo 400
-const LIME = '#a5b4fc';               // Indigo 300
-const BACKGROUND_GRAY = '#f5f7ff';    // Soft light indigo background
+
+// Color Palette
+const PRIMARY_GREEN = '#22c55e';       // Green-500
+const SECONDARY_GREEN = '#16a34a';     // Green-600
+const LIGHT_GREEN = '#86efac';         // Green-300
+const DARK_GREEN = '#15803d';          // Green-700
+const EMERALD = '#10b981';             // Emerald-500
+const LIME = '#84cc16';                // Lime-500
+const BACKGROUND_GRAY = '#f9fafb';     // Gray-50
+
 // Loading Skeleton
 const SkeletonCard = () => (
     <div className="animate-pulse h-full rounded-xl bg-gray-100"></div>
@@ -146,7 +147,7 @@ const BiodiversityLandUseScreen = () => {
         }
     };
 
-    // Get available years from company's data_range (mirrors CropYieldCarbonEmissionScreen)
+    // Get available years for company from its data_range (mirrors CropYieldCarbonEmissionScreen)
     const getAvailableYearsForCompany = (company: Company | undefined): number[] => {
         if (!company) return [];
 
@@ -563,6 +564,12 @@ const BiodiversityLandUseScreen = () => {
                                     <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                                 </button>
                                 <button
+                                    onClick={() => {
+                                        if (biodiversityData) {
+                                            downloadBiodiversityLandUseDataAsPDF(biodiversityData);
+                                        }
+                                    }}
+                                    disabled={!biodiversityData || loading}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-white font-medium text-sm"
                                     style={{
                                         background: `linear-gradient(to right, ${PRIMARY_GREEN}, ${DARK_GREEN})`,

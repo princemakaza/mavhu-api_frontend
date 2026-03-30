@@ -59,6 +59,7 @@
     "framer-motion": "^12.9.2",
     "git": "^0.1.5",
     "input-otp": "^1.2.4",
+    "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.462.0",
     "mathlive": "^0.105.3",
