@@ -1,4 +1,5 @@
 import api from "../Auth_service/api";
+import jsPDF from 'jspdf';  // Add this import at the top of the file
 
 // =====================
 // Shared / Primitive Types
@@ -669,3 +670,88 @@ export const getSurveyedLandAreaForYear = (
     year: number
 ): number | null =>
     getMetricSnapshot(data, year, "land_tenure", "Total Surveyed Land Area")?.numeric_value ?? null;
+
+
+
+/**
+ * Download biodiversity and land use data as a PDF.
+ * Uses smaller font for JSON data to fit more content.
+ * @param data - The API response data
+ * @param companyName - Optional company name (overrides the one from data)
+ */
+export const downloadBiodiversityLandUseDataAsPDF = async (
+    data: BiodiversityLandUseResponse,
+    companyName?: string
+) => {
+    // Guard against missing data
+    if (!data || !data.data) {
+        console.error('Invalid data provided');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 20;
+    let yPos = margin;
+
+    // Helper to add text with automatic page breaks and optional font size
+    const addText = (text: string, fontSize?: number, lineHeight: number = 7) => {
+        if (fontSize) doc.setFontSize(fontSize);
+        const lines = doc.splitTextToSize(text, doc.internal.pageSize.width - margin * 2);
+        lines.forEach((line: string) => {
+            if (yPos + lineHeight > pageHeight - margin) {
+                doc.addPage();
+                yPos = margin;
+            }
+            doc.text(line, margin, yPos);
+            yPos += lineHeight;
+        });
+        if (fontSize) doc.setFontSize(12); // reset to default
+    };
+
+    // Use provided company name or fetch from data
+    const finalCompanyName = companyName || data.data.company?.name || 'Unknown Company';
+
+    // Title
+    const title = `Mavhu Biodiversity and Land Use Data for ${finalCompanyName}`;
+    addText(title, 18, 10);
+    yPos += 5;
+
+    // Generation timestamp
+    addText(`Generated: ${new Date().toLocaleString()}`, 10, 7);
+    yPos += 5;
+
+    // Company details
+    const company = data.data.company;
+    addText(`Company: ${company.name}`, 12);
+    addText(`Registration: ${company.registrationNumber}`, 12);
+    addText(`Industry: ${company.industry}`, 12);
+    addText(`Country: ${company.country}`, 12);
+    addText(`Reporting Period: ${data.data.reporting_period.data_period_start} - ${data.data.reporting_period.data_period_end}`, 12);
+    yPos += 5;
+
+    // Key indicators summary
+    const stats = data.data.summary_statistics;
+    const kpis = data.data.key_performance_indicators;
+    addText('Key Indicators:', 14, 8);
+    addText(`Total Conservation Area: ${stats.total_conservation_area?.toLocaleString() || 'N/A'} ha`, 12);
+    addText(`Total Agricultural Area: ${stats.total_agricultural_area?.toLocaleString() || 'N/A'} ha`, 12);
+    addText(`Total Surveyed Area: ${stats.total_surveyed_area?.toLocaleString() || 'N/A'} ha`, 12);
+    addText(`Trees Planted (Cumulative): ${kpis.trees_planted_cumulative?.toLocaleString() || 'N/A'}`, 12);
+    addText(`LPG Distributions: ${kpis.lpg_distributions?.toLocaleString() || 'N/A'} kg`, 12);
+    addText(`Flora Species Count: ${stats.flora_species_count || 0}`, 12);
+    addText(`Fauna Species Count: ${stats.fauna_species_count || 0}`, 12);
+    addText(`Human-Wildlife Conflicts: ${stats.human_wildlife_conflicts || 0}`, 12);
+    addText(`Data Quality Score: ${data.data.data_quality.quality_score || 'N/A'}`, 12);
+    addText(`Verification Status: ${data.data.data_quality.verification_status}`, 12);
+    yPos += 10;
+
+    // Full JSON data with smaller font
+    addText('Complete API Response (JSON):', 12, 8);
+    const jsonString = JSON.stringify(data, null, 2);
+    addText(jsonString, 8, 5);
+
+    // Save the PDF
+    const fileName = `biodiversity-landuse-${finalCompanyName.replace(/\s+/g, '-')}.pdf`;
+    doc.save(fileName);
+};

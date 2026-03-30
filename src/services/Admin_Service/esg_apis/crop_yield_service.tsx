@@ -1,4 +1,5 @@
 import api from "../Auth_service/api";
+import jsPDF from 'jspdf';
 
 // ============================================================================
 // INTERFACES – EXACTLY MATCHING THE NEW API RESPONSE
@@ -504,4 +505,87 @@ export const getMetricTimeSeries = (
         values: metric.yearly_data.map((d) => d.numeric_value),
         unit: metric.yearly_data[0]?.unit || "",
     };
+};
+
+
+/**
+ * Download crop yield forecast data as a PDF.
+ * Uses smaller font for JSON data to fit more content.
+ * @param data - The API response data
+ * @param companyName - Optional company name (overrides the one from data)
+ */
+export const downloadCropYieldForecastDataAsPDF = async (
+    data: CropYieldForecastResponse,
+    companyName?: string
+) => {
+    // Guard against missing data
+    if (!data || !data.data) {
+        console.error('Invalid data provided');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 20;
+    let yPos = margin;
+
+    // Helper to add text with automatic page breaks and optional font size
+    const addText = (text: string, fontSize?: number, lineHeight: number = 7) => {
+        if (fontSize) doc.setFontSize(fontSize);
+        const lines = doc.splitTextToSize(text, doc.internal.pageSize.width - margin * 2);
+        lines.forEach((line: string) => {
+            if (yPos + lineHeight > pageHeight - margin) {
+                doc.addPage();
+                yPos = margin;
+            }
+            doc.text(line, margin, yPos);
+            yPos += lineHeight;
+        });
+        if (fontSize) doc.setFontSize(12); // reset to default
+    };
+
+    // Use provided company name or fetch from data
+    const finalCompanyName = companyName || data.data.company?.name || 'Unknown Company';
+
+    // Title
+    const title = `Mavhu Crop Yield Forecast Data for ${finalCompanyName}`;
+    addText(title, 18, 10);
+    yPos += 5;
+
+    // Generation timestamp
+    addText(`Generated: ${new Date().toLocaleString()}`, 10, 7);
+    yPos += 5;
+
+    // Company details
+    const company = data.data.company;
+    addText(`Company: ${company.name}`, 12);
+    addText(`Registration: ${company.registrationNumber}`, 12);
+    addText(`Industry: ${company.industry}`, 12);
+    addText(`Country: ${company.country}`, 12);
+    addText(`Reporting Year: ${data.data.reporting_period.current_year}`, 12);
+    yPos += 5;
+
+    // Key indicators summary
+    const forecast = getYieldForecastSummary(data);
+    const risk = getRiskAssessmentSummary(data);
+    const yearlySummary = getCropYieldYearlySummary(data);
+    addText('Key Indicators:', 14, 8);
+    addText(`Forecasted Yield: ${forecast.forecastedYield} ${forecast.unit} (Confidence: ${forecast.confidenceScore}%)`, 12);
+    addText(`Risk Level: ${risk.riskLevel} (Score: ${risk.overallScore})`, 12);
+    addText(`Total Cane Harvested (Company): ${yearlySummary.total_cane_harvested_company?.toLocaleString() || 'N/A'} t`, 12);
+    addText(`Total Sugar Produced: ${yearlySummary.total_sugar_produced_company?.toLocaleString() || 'N/A'} t`, 12);
+    addText(`Company Yield: ${yearlySummary.company_yield?.toLocaleString() || 'N/A'} t/ha`, 12);
+    addText(`Private Yield: ${yearlySummary.private_yield?.toLocaleString() || 'N/A'} t/ha`, 12);
+    addText(`Total Area: ${yearlySummary.total_area?.toLocaleString() || 'N/A'} ha`, 12);
+    addText(`Data Coverage Score: ${data.data.reporting_period.data_coverage_score}%`, 12);
+    yPos += 10;
+
+    // Full JSON data with smaller font
+    addText('Complete API Response (JSON):', 12, 8);
+    const jsonString = JSON.stringify(data, null, 2);
+    addText(jsonString, 8, 5);
+
+    // Save the PDF
+    const fileName = `crop-yield-forecast-${finalCompanyName.replace(/\s+/g, '-')}.pdf`;
+    doc.save(fileName);
 };

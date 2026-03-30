@@ -1,6 +1,6 @@
 // File: services/ghgEmissionsService.ts
 import api from "../Auth_service/api";
-
+import jsPDF from 'jspdf';
 /**
  * =====================
  * Types & Interfaces
@@ -811,6 +811,88 @@ export const getYearlyDataSummary = (data: GHGEmissionsData) => {
     return carbonData.year_summary;
 };
 
+/**
+ * Download GHG emissions data as a PDF.
+ * Uses smaller font for JSON data to fit more content.
+ * @param data - The API response data
+ * @param companyName - Optional company name (overrides the one from data)
+ */
+export const downloadGhgEmissionsDataAsPDF = async (
+    data: GHGEmissionsResponse,
+    companyName?: string
+) => {
+    // Guard against missing data
+    if (!data || !data.data) {
+        console.error('Invalid data provided');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 20;
+    let yPos = margin;
+
+    // Helper to add text with automatic page breaks and optional font size
+    const addText = (text: string, fontSize?: number, lineHeight: number = 7) => {
+        if (fontSize) doc.setFontSize(fontSize);
+        const lines = doc.splitTextToSize(text, doc.internal.pageSize.width - margin * 2);
+        lines.forEach((line: string) => {
+            if (yPos + lineHeight > pageHeight - margin) {
+                doc.addPage();
+                yPos = margin;
+            }
+            doc.text(line, margin, yPos);
+            yPos += lineHeight;
+        });
+        if (fontSize) doc.setFontSize(12); // reset to default
+    };
+
+    // Use provided company name or fetch from data
+    const finalCompanyName = companyName || data.data.company?.name || 'Unknown Company';
+
+    // Title
+    const title = `Mavhu GHG Emissions Data for ${finalCompanyName}`;
+    addText(title, 18, 10);
+    yPos += 5;
+
+    // Generation timestamp
+    addText(`Generated: ${new Date().toLocaleString()}`, 10, 7);
+    yPos += 5;
+
+    // Company details
+    const company = data.data.company;
+    addText(`Company: ${company.name}`, 12);
+    addText(`Registration: ${company.registrationNumber}`, 12);
+    addText(`Industry: ${company.industry}`, 12);
+    addText(`Country: ${company.country}`, 12);
+    addText(`Reporting Year: ${data.data.reporting_year}`, 12);
+    yPos += 5;
+
+    // Key indicators summary
+    const summary = getGhgSummary(data.data);
+    addText('Key Indicators:', 14, 8);
+    addText(`Total GHG Emissions: ${summary.totalEmissions} tCO₂e`, 12);
+    addText(`Scope 1: ${summary.scope1} tCO₂e`, 12);
+    addText(`Scope 2: ${summary.scope2} tCO₂e`, 12);
+    addText(`Scope 3: ${summary.scope3} tCO₂e`, 12);
+    addText(`Net Carbon Balance: ${summary.netBalance} tCO₂e`, 12);
+    addText(`Carbon Intensity: ${summary.carbonIntensity} tCO₂e/ha`, 12);
+    addText(`Sequestration Capacity: ${summary.sequestration} tCO₂`, 12);
+    addText(`Scope Composition: ${summary.scopeComposition.scope1}% Scope 1, ${summary.scopeComposition.scope2}% Scope 2, ${summary.scopeComposition.scope3}% Scope 3`, 12);
+    yPos += 10;
+
+    // Full JSON data with smaller font
+    addText('Complete API Response (JSON):', 12, 8);
+    const jsonString = JSON.stringify(data, null, 2);
+    // Use font size 8 for the JSON to save space
+    addText(jsonString, 8, 5);
+
+    // Save the PDF
+    const fileName = `ghg-emissions-${finalCompanyName.replace(/\s+/g, '-')}.pdf`;
+    doc.save(fileName);
+};
+
+
 export default {
     getGhgEmissionData,
     getMonthlyGraphData,
@@ -836,4 +918,5 @@ export default {
     getSequestrationSummary,
     getEmissionsSummary,
     getYearlyDataSummary,
+    downloadGhgEmissionsDataAsPDF,  // ✅ Add this line
 };
