@@ -82,11 +82,13 @@ import GovernanceBoardScreen from "./pages/Admin_Pages/esg_api_screen/governance
 import CommunityEngagementScreen from "./pages/Admin_Pages/esg_api_screen/community_engagement_screen";
 import Member_login from "./pages/Admin_Pages/member_login";
 import BankLogin from "./pages/Admin_Pages/bank_login";
+import BankManagementScreen from "./pages/Admin_Pages/banks_screen";
 import Customer_Dashboard from "./pages/Admin_Pages/Customer_Dashboard";
 import BankDashboard from "./pages/Admin_Pages/bank_dashboard";
 import BankFinancedEmissionsScreen from "./pages/Admin_Pages/esg_api_screen/bank_soil_carbon";
 import BankCropYieldScreen from "./pages/Admin_Pages/esg_api_screen/bank_crop_yield_screen";
 import BankGhgEmmisionsScreen from "./pages/Admin_Pages/esg_api_screen/bank_ghg_emmisions_screen";
+import BankBiodiversityScreen from "./pages/Admin_Pages/esg_api_screen/bank_biodiversity_screen";
 const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -127,10 +129,9 @@ const App = () => (
               element={<BankCropYieldScreen />}
             />
             <Route path="/bank_ghg_emissions" element={<BankGhgEmmisionsScreen />} />
-            <Route
-              path="/bank_ghg_emissions/:companyId"
-              element={<BankGhgEmmisionsScreen />}
-            />
+            <Route path="/bank_ghg_emissions/:companyId" element={<BankGhgEmmisionsScreen />} />
+            <Route path="/bank_biodiversity_land_use" element={<BankBiodiversityScreen />} />
+            <Route path="/bank_biodiversity_land_use/:companyId" element={<BankBiodiversityScreen />} />
             <Route path="/bank_dashboard" element={<BankDashboard />} />
             <Route
               path="/admin_companies"
@@ -205,6 +206,7 @@ const App = () => (
               element={<GovernanceBoardScreen />}
             />
             <Route path="/admin_member_login" element={<Member_login />} />
+            <Route path="/admin_banks" element={<BankManagementScreen />} />
             <Route
               path="/admin_community_engagement"
               element={<CommunityEngagementScreen />}

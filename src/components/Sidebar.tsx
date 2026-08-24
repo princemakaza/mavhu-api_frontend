@@ -110,6 +110,12 @@ const Sidebar = ({ isOpen = true, onClose = () => { } }) => {
       adminOnly: true,
     },
     {
+      icon: Landmark,
+      label: "Banks",
+      path: "/admin_banks",
+      adminOnly: true,
+    },
+    {
       icon: BarChart,
       label: "Reports",
       path: "/admin_report",
