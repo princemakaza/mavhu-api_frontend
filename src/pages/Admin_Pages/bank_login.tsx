@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Lock, Mail, Eye, EyeOff, ArrowRight, Landmark } from "lucide-react"; // Added Landmark for bank icon option
+import { useNavigate } from "react-router-dom";
+import { Lock, Mail, Eye, EyeOff, ArrowRight, Hash } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-// Replace with your actual bank login service when ready
-// import { loginBank } from "../../services/Bank_Service/Auth_service/login_bank_service";
-import Logo from "@/assets/logo.png"; // Replace with bank logo if needed
+import { loginBank } from "../../services/Admin_Service/bank_service";
+import Logo from "@/assets/logo.png";
 
 const BankLogin: React.FC = () => {
     const navigate = useNavigate();
@@ -13,21 +12,18 @@ const BankLogin: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [logoAnimation, setLogoAnimation] = useState(true);
     const [formData, setFormData] = useState({
+        bank_reference_id: "",
         email: "",
         password: "",
     });
 
-    // Bank‑appropriate color palette
-    const primaryNavy = "#0A3B5C";    // deep navy
-    const secondaryGold = "#D4AF37";  // classic gold
-    const lightBg = "#F0F4F8";        // soft off‑white
+    const primaryNavy = "#0A3B5C";
+    const secondaryGold = "#D4AF37";
+    const lightBg = "#F0F4F8";
     const lightCardBg = "#FFFFFF";
 
-    // Pause logo animation after 10 seconds
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setLogoAnimation(false);
-        }, 10000);
+        const timer = setTimeout(() => setLogoAnimation(false), 10000);
         return () => clearTimeout(timer);
     }, []);
 
@@ -35,17 +31,18 @@ const BankLogin: React.FC = () => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            // Replace with actual bank login endpoint
-            // const response = await loginBank(formData);
-            // toast({
-            //     title: "Success",
-            //     description: "Bank login successful!",
-            // });
-            navigate("/bank_dashboard"); // adjust route as needed
+            const response = await loginBank(formData);
+            localStorage.setItem("bankToken", response.token);
+            localStorage.setItem("bankUser", JSON.stringify(response.user));
+            localStorage.setItem("bankInfo", JSON.stringify(response.bank));
+            // store token as authToken so api interceptor picks it up
+            localStorage.setItem("authToken", response.token);
+            toast({ title: "Success", description: "Welcome to MAVHU Finance!" });
+            navigate("/bank_dashboard");
         } catch (error: any) {
             toast({
-                title: "Error",
-                description: error.message || "Login failed. Please try again.",
+                title: "Login Failed",
+                description: error?.response?.data?.message || error.message || "Invalid credentials.",
                 variant: "destructive",
             });
         } finally {
@@ -54,115 +51,66 @@ const BankLogin: React.FC = () => {
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
-        });
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     return (
         <div
-            className="min-h-screen bg-gray-50 text-gray-900 transition-colors duration-500 flex items-center justify-center p-4"
+            className="min-h-screen text-gray-900 transition-colors duration-500 flex items-center justify-center p-4"
             style={{ backgroundColor: lightBg }}
         >
-            {/* Animated background with particles */}
+            {/* Animated background */}
             <div className="fixed inset-0 overflow-hidden">
-                <div className="absolute inset-0 transition-all duration-500 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200" />
-
-                {/* Animated gradient orbs – now in navy and gold */}
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200" />
                 <div className="absolute top-1/4 left-1/4 w-64 h-64">
                     <div
-                        className={`absolute inset-0 rounded-full blur-3xl transition-all duration-1000 ${logoAnimation ? "animate-pulse" : ""
-                            }`}
-                        style={{
-                            background: `radial-gradient(circle, ${primaryNavy}15, transparent 70%)`,
-                        }}
+                        className={`absolute inset-0 rounded-full blur-3xl transition-all duration-1000 ${logoAnimation ? "animate-pulse" : ""}`}
+                        style={{ background: `radial-gradient(circle, ${primaryNavy}15, transparent 70%)` }}
                     />
                 </div>
                 <div className="absolute bottom-1/4 right-1/4 w-96 h-96">
                     <div
-                        className={`absolute inset-0 rounded-full blur-3xl transition-all duration-1000 ${logoAnimation ? "animate-pulse delay-700" : ""
-                            }`}
-                        style={{
-                            background: `radial-gradient(circle, ${secondaryGold}10, transparent 70%)`,
-                        }}
+                        className={`absolute inset-0 rounded-full blur-3xl transition-all duration-1000 ${logoAnimation ? "animate-pulse delay-700" : ""}`}
+                        style={{ background: `radial-gradient(circle, ${secondaryGold}10, transparent 70%)` }}
                     />
                 </div>
             </div>
 
-            {/* Login Container */}
             <div className="relative z-10 w-full max-w-md mx-auto">
-                {/* Animated Logo Centerpiece */}
+                {/* Logo */}
                 <div className="relative mb-8">
                     <div className="flex justify-center">
                         <div className="relative group">
-                            {/* Outer glow ring – navy */}
                             <div
-                                className={`absolute -inset-4 rounded-full blur-xl transition-all duration-1000 ${logoAnimation ? "animate-ping-slow" : ""
-                                    }`}
-                                style={{
-                                    background: `radial-gradient(circle, ${primaryNavy}40, transparent 70%)`,
-                                }}
+                                className={`absolute -inset-4 rounded-full blur-xl transition-all duration-1000 ${logoAnimation ? "animate-ping-slow" : ""}`}
+                                style={{ background: `radial-gradient(circle, ${primaryNavy}40, transparent 70%)` }}
                             />
-
-                            {/* Animated rings – navy & gold gradient */}
                             <div
-                                className={`absolute -inset-3 rounded-full border-2 transition-all duration-700 ${logoAnimation ? "animate-spin-slow" : ""
-                                    }`}
-                                style={{
-                                    borderImage: `linear-gradient(45deg, ${primaryNavy}, ${secondaryGold}) 1`,
-                                }}
-                            />
-
-                            {/* Logo container */}
-                            <div
-                                className={`relative w-24 h-24 rounded-2xl backdrop-blur-lg border transition-all duration-500 flex items-center justify-center mx-auto shadow-2xl bg-white/60 border-gray-300/50 hover:border-gray-400 ${logoAnimation ? "animate-float" : ""
-                                    }`}
+                                className={`relative w-24 h-24 rounded-2xl backdrop-blur-lg border flex items-center justify-center mx-auto shadow-2xl bg-white/60 border-gray-300/50 ${logoAnimation ? "animate-float" : ""}`}
                                 onMouseEnter={() => setLogoAnimation(true)}
                                 onMouseLeave={() => setLogoAnimation(false)}
                             >
-                                {/* Replace with bank logo if desired – using Landmark icon as fallback */}
                                 <img
                                     src={Logo}
                                     alt="Bank Logo"
-                                    className={`w-16 h-16 transition-all duration-500 ${logoAnimation ? "animate-pulse-slow" : ""
-                                        }`}
+                                    className={`w-16 h-16 transition-all duration-500 ${logoAnimation ? "animate-pulse-slow" : ""}`}
                                 />
-                                {/* Alternatively, use a Lucide icon: <Landmark className="w-10 h-10 text-navy-700" /> */}
-
-                                {/* Floating particles – navy and gold */}
                                 {logoAnimation && (
                                     <>
-                                        <div
-                                            className="absolute top-2 left-2 w-2 h-2 rounded-full animate-float-fast"
-                                            style={{ backgroundColor: primaryNavy }}
-                                        />
-                                        <div
-                                            className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full animate-float-fast delay-300"
-                                            style={{ backgroundColor: secondaryGold }}
-                                        />
-                                        <div
-                                            className="absolute top-2 right-2 w-1 h-1 rounded-full animate-float-fast delay-500"
-                                            style={{ backgroundColor: primaryNavy }}
-                                        />
-                                        <div
-                                            className="absolute bottom-2 left-2 w-1.5 h-1.5 rounded-full animate-float-fast delay-700"
-                                            style={{ backgroundColor: secondaryGold }}
-                                        />
+                                        <div className="absolute top-2 left-2 w-2 h-2 rounded-full animate-float-fast" style={{ backgroundColor: primaryNavy }} />
+                                        <div className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full animate-float-fast delay-300" style={{ backgroundColor: secondaryGold }} />
+                                        <div className="absolute top-2 right-2 w-1 h-1 rounded-full animate-float-fast delay-500" style={{ backgroundColor: primaryNavy }} />
+                                        <div className="absolute bottom-2 left-2 w-1.5 h-1.5 rounded-full animate-float-fast delay-700" style={{ backgroundColor: secondaryGold }} />
                                     </>
                                 )}
                             </div>
                         </div>
                     </div>
-
-                    {/* Logo text with navy/gold gradient */}
                     <div className="text-center mt-6">
                         <h1 className="text-4xl font-bold tracking-tight">
                             <span
-                                className="bg-clip-text text-transparent bg-gradient-to-r"
-                                style={{
-                                    backgroundImage: `linear-gradient(to right, ${primaryNavy}, ${secondaryGold})`,
-                                }}
+                                className="bg-clip-text text-transparent"
+                                style={{ backgroundImage: `linear-gradient(to right, ${primaryNavy}, ${secondaryGold})` }}
                             >
                                 MAVHU
                             </span>
@@ -174,40 +122,49 @@ const BankLogin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Login Card */}
+                {/* Card */}
                 <div
                     className="backdrop-blur-xl rounded-2xl border transition-all duration-500 shadow-2xl overflow-hidden"
                     style={{
                         backgroundColor: `${lightCardBg}95`,
                         borderColor: "rgba(0,0,0,0.1)",
-                        boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 30px ${primaryNavy}10`,
+                        boxShadow: `0 25px 50px -12px rgba(0,0,0,0.15), 0 0 30px ${primaryNavy}10`,
                     }}
                 >
-                    {/* Card header gradient – navy to gold */}
-                    <div
-                        className="h-1 w-full"
-                        style={{
-                            background: `linear-gradient(to right, ${primaryNavy}, ${secondaryGold})`,
-                        }}
-                    />
+                    <div className="h-1 w-full" style={{ background: `linear-gradient(to right, ${primaryNavy}, ${secondaryGold})` }} />
 
                     <div className="p-8">
                         <div className="text-center mb-8">
                             <h2 className="text-2xl font-bold mb-2">Bank Sign In</h2>
-                            <p className="text-gray-700">
-                                Access your banking dashboard and financial insights
-                            </p>
+                            <p className="text-gray-700">Access your banking dashboard and financial insights</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Email Field */}
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            {/* Bank Reference ID */}
                             <div>
-                                <label className="block text-sm font-medium mb-2">
-                                    Email Address
-                                </label>
+                                <label className="block text-sm font-medium mb-2">Bank Reference ID</label>
                                 <div className="relative group">
                                     <div className="absolute left-0 top-0 bottom-0 flex items-center pl-3">
-                                        <Mail className="w-5 h-5 text-gray-500 transition-colors duration-300" />
+                                        <Hash className="w-5 h-5 text-gray-500" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="bank_reference_id"
+                                        value={formData.bank_reference_id}
+                                        onChange={handleChange}
+                                        className="w-full pl-11 pr-4 py-3 rounded-xl border bg-white/80 border-gray-300 focus:border-blue-800 focus:ring-blue-800/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                                        placeholder="e.g. CBZ001"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Email Address</label>
+                                <div className="relative group">
+                                    <div className="absolute left-0 top-0 bottom-0 flex items-center pl-3">
+                                        <Mail className="w-5 h-5 text-gray-500" />
                                     </div>
                                     <input
                                         type="email"
@@ -215,20 +172,18 @@ const BankLogin: React.FC = () => {
                                         value={formData.email}
                                         onChange={handleChange}
                                         className="w-full pl-11 pr-4 py-3 rounded-xl border bg-white/80 border-gray-300 focus:border-blue-800 focus:ring-blue-800/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                                        placeholder="you@example.com"
+                                        placeholder="you@bank.com"
                                         required
                                     />
                                 </div>
                             </div>
 
-                            {/* Password Field */}
+                            {/* Password */}
                             <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="block text-sm font-medium">Password</label>
-                                </div>
+                                <label className="block text-sm font-medium mb-2">Password</label>
                                 <div className="relative group">
                                     <div className="absolute left-0 top-0 bottom-0 flex items-center pl-3">
-                                        <Lock className="w-5 h-5 text-gray-500 transition-colors duration-300" />
+                                        <Lock className="w-5 h-5 text-gray-500" />
                                     </div>
                                     <input
                                         type={showPassword ? "text" : "password"}
@@ -242,35 +197,18 @@ const BankLogin: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-0 top-0 bottom-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 transition-colors duration-300"
+                                        className="absolute right-0 top-0 bottom-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
                                     >
-                                        {showPassword ? (
-                                            <EyeOff className="w-5 h-5" />
-                                        ) : (
-                                            <Eye className="w-5 h-5" />
-                                        )}
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Remember me checkbox */}
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    id="remember"
-                                    className="w-4 h-4 rounded bg-gray-100 border-gray-300 checked:bg-blue-800 focus:ring-blue-800/20 transition-all duration-300 focus:ring-2 focus:ring-offset-2"
-                                />
-                                <label htmlFor="remember" className="ml-2 text-sm text-gray-700">
-                                    Remember this device
-                                </label>
-                            </div>
-
-                            {/* Submit Button – navy/gold gradient */}
+                            {/* Submit */}
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`w-full py-3.5 px-4 rounded-xl font-semibold text-white transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center shadow-lg overflow-hidden group ${isLoading ? "opacity-75 cursor-not-allowed" : ""
-                                    }`}
+                                className={`w-full py-3.5 px-4 rounded-xl font-semibold text-white transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center shadow-lg overflow-hidden group ${isLoading ? "opacity-75 cursor-not-allowed" : ""}`}
                                 style={{
                                     background: `linear-gradient(135deg, ${primaryNavy}, ${secondaryGold})`,
                                     boxShadow: `0 10px 30px -5px ${primaryNavy}40`,
@@ -289,12 +227,9 @@ const BankLogin: React.FC = () => {
                                         </>
                                     )}
                                 </span>
-                                {/* Button hover effect – reverse gradient */}
                                 <div
                                     className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                    style={{
-                                        background: `linear-gradient(135deg, ${secondaryGold}, ${primaryNavy})`,
-                                    }}
+                                    style={{ background: `linear-gradient(135deg, ${secondaryGold}, ${primaryNavy})` }}
                                 />
                             </button>
                         </form>
@@ -302,40 +237,15 @@ const BankLogin: React.FC = () => {
                 </div>
             </div>
 
-            {/* Custom CSS for animations (unchanged) */}
             <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-        }
-        
-        @keyframes float-fast {
-          0%, 100% { transform: translateY(0px) translateX(0px); }
-          25% { transform: translateY(-5px) translateX(3px); }
-          50% { transform: translateY(0px) translateX(6px); }
-          75% { transform: translateY(5px) translateX(3px); }
-        }
-        
-        @keyframes ping-slow {
-          0% { transform: scale(0.8); opacity: 0.8; }
-          70%, 100% { transform: scale(1.5); opacity: 0; }
-        }
-        
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        
-        @keyframes pulse-slow {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-        
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        .animate-float-fast { animation: float-fast 4s ease-in-out infinite; }
-        .animate-ping-slow { animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
-        .animate-spin-slow { animation: spin-slow 20s linear infinite; }
-        .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes float-fast { 0%,100%{transform:translateY(0) translateX(0)} 25%{transform:translateY(-5px) translateX(3px)} 50%{transform:translateY(0) translateX(6px)} 75%{transform:translateY(5px) translateX(3px)} }
+        @keyframes ping-slow { 0%{transform:scale(0.8);opacity:0.8} 70%,100%{transform:scale(1.5);opacity:0} }
+        @keyframes pulse-slow { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        .animate-float{animation:float 3s ease-in-out infinite}
+        .animate-float-fast{animation:float-fast 4s ease-in-out infinite}
+        .animate-ping-slow{animation:ping-slow 2s cubic-bezier(0,0,0.2,1) infinite}
+        .animate-pulse-slow{animation:pulse-slow 2s ease-in-out infinite}
       `}</style>
         </div>
     );

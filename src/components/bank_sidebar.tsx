@@ -31,12 +31,19 @@ const BankSidebar = ({ isOpen = true, onClose = () => { } }) => {
   const primaryNavy = "#0A3B5C";
   const secondaryGold = "#D4AF37";
 
-  // Get companyId from localStorage
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [bankName, setBankName] = useState<string>("");
+  const [bankUserName, setBankUserName] = useState<string>("");
 
   useEffect(() => {
     const storedCompanyId = localStorage.getItem("companyId");
     setCompanyId(storedCompanyId);
+    try {
+      const bankInfo = JSON.parse(localStorage.getItem("bankInfo") || "{}");
+      const bankUser = JSON.parse(localStorage.getItem("bankUser") || "{}");
+      setBankName(bankInfo.name || "MAVHU Bank");
+      setBankUserName(bankUser.first_name ? `${bankUser.first_name} ${bankUser.last_name}` : "");
+    } catch { }
   }, []);
 
   // Helper to build path with companyId
@@ -48,21 +55,12 @@ const BankSidebar = ({ isOpen = true, onClose = () => { } }) => {
     return basePath;
   };
 
-  // Dashboard items – no companyId appended
-  const dashboardItems = [
-    {
-      icon: LayoutDashboard,
-      label: "Banking Dashboard",
-      fullPath: "/bank_dashboard", // ✅ Clean route
-    },
-  ];
-
-  // API items – keep companyId for these
+  // ESG API items only – companyId appended where stored
   const apiItemsBase = [
     { icon: Leaf, label: "Soil Health & Carbon Quality", path: "/bank_financed_emissions" },
     { icon: TrendingUp, label: "Crop Yield Forecast & Risk", path: "/bank_crop_yield" },
     { icon: Cloud, label: "GHG Emissions", path: "/bank_ghg_emissions" },
-    { icon: Globe, label: "Biodiversity & Land Use Integrity", path: "/admin_biodiversity_land_use" },
+    { icon: Globe, label: "Biodiversity & Land Use", path: "/bank_biodiversity_land_use" },
   ];
 
   const apiItems = apiItemsBase.map((item) => ({
@@ -78,7 +76,7 @@ const BankSidebar = ({ isOpen = true, onClose = () => { } }) => {
   };
 
   // External API docs URL
-  const apiDocsUrl = "http://44.223.50.135:8080/api-docs/";
+  const apiDocsUrl = "http://13.62.58.227:8081/api-docs/";
 
   return (
     <>
@@ -101,13 +99,13 @@ const BankSidebar = ({ isOpen = true, onClose = () => { } }) => {
             <img src={Logo} alt="MAVHU ESG Dashboard" className="h-8 w-auto" />
             <div>
               <h1 className="text-base font-bold text-gray-900">
-                Bank Dashboard
+                {bankName || "Bank Dashboard"}
               </h1>
               <p
                 className="text-xs font-medium tracking-wide"
                 style={{ color: primaryNavy }}
               >
-                MAVHU Finance
+                {bankUserName || "MAVHU Finance"}
               </p>
             </div>
           </div>
@@ -123,55 +121,6 @@ const BankSidebar = ({ isOpen = true, onClose = () => { } }) => {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 scrollbar-hide">
-          {/* Dashboard Section */}
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider mb-2 text-gray-500">
-              Dashboard
-            </h2>
-            {dashboardItems.map((item, index) => {
-              const IconComponent = item.icon;
-              const isActive = location.pathname === item.fullPath;
-
-              return (
-                <div
-                  key={index}
-                  className={`group flex items-center px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer mb-1 ${isActive
-                    ? "text-white"
-                    : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  onClick={() => handleNavigation(item.fullPath)}
-                  style={
-                    isActive
-                      ? {
-                        background: `linear-gradient(to right, ${primaryNavy}, #05283e)`,
-                        boxShadow: "0 10px 20px rgba(10, 59, 92, 0.15)",
-                      }
-                      : {}
-                  }
-                >
-                  <div
-                    className={`p-1.5 rounded-lg mr-2.5 transition-all duration-300 ${isActive ? "bg-white/20" : "bg-gray-100"
-                      }`}
-                  >
-                    <IconComponent
-                      className={`w-4 h-4 transition-all duration-300 ${isActive
-                        ? "text-white"
-                        : "text-gray-600 group-hover:text-gray-800"
-                        }`}
-                    />
-                  </div>
-                  <div className="flex-1 font-medium text-sm">{item.label}</div>
-                  <ChevronRight
-                    className={`w-4 h-4 transition-all duration-300 ${isActive
-                      ? "text-white opacity-100 translate-x-0.5"
-                      : "text-gray-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5"
-                      }`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
           {/* ESG APIs Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -260,12 +209,18 @@ const BankSidebar = ({ isOpen = true, onClose = () => { } }) => {
                   color: primaryNavy,
                 }}
               >
-                MAVHU Bank
+                {bankName || "MAVHU Bank"}
               </div>
               <span className="text-xs text-gray-400">v1.0.0</span>
             </div>
             <button
-              onClick={() => handleNavigation("/bank-login")}
+              onClick={() => {
+                localStorage.removeItem("bankToken");
+                localStorage.removeItem("bankUser");
+                localStorage.removeItem("bankInfo");
+                localStorage.removeItem("authToken");
+                handleNavigation("/bank_login");
+              }}
               className="text-xs font-medium px-2.5 py-1 rounded-full transition-colors text-red-600 hover:text-red-700 hover:bg-red-50"
             >
               Logout

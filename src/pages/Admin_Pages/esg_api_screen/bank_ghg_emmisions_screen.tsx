@@ -270,7 +270,7 @@ const BankGhgEmmisionsScreen = () => {
         setSelectedCompanyId(companyId);
         setSelectedYear(null);
         setShowCompanySelector(false);
-        navigate(`/bank_ghg_emission/${companyId}`); // bank route
+        navigate(`/bank_ghg_emissions/${companyId}`);
     };
 
     const handleYearChange = (year: string) => {
